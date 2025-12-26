@@ -1,0 +1,317 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../events/data/mock_data.dart';
+
+class MyEventsScreen extends ConsumerStatefulWidget {
+  const MyEventsScreen({super.key});
+
+  @override
+  ConsumerState<MyEventsScreen> createState() => _MyEventsScreenState();
+}
+
+class _MyEventsScreenState extends ConsumerState<MyEventsScreen> {
+  final _firestore = FirebaseFirestore.instance;
+  final _auth = FirebaseAuth.instance;
+  Set<String> _registeredEventIds = {};
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRegisteredEvents();
+  }
+
+  Future<void> _loadRegisteredEvents() async {
+    final userId = _auth.currentUser?.uid;
+    if (userId == null) return;
+
+    try {
+      final doc = await _firestore.collection('users').doc(userId).get();
+      final data = doc.data();
+      if (data != null && data['registeredEvents'] != null) {
+        setState(() {
+          _registeredEventIds = Set<String>.from(data['registeredEvents']);
+          _isLoading = false;
+        });
+      } else {
+        setState(() => _isLoading = false);
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _registerForEvent(String eventId, String eventName) async {
+    final userId = _auth.currentUser?.uid;
+    if (userId == null) return;
+
+    try {
+      await _firestore.collection('users').doc(userId).set({
+        'registeredEvents': FieldValue.arrayUnion([eventId]),
+      }, SetOptions(merge: true));
+
+      setState(() {
+        _registeredEventIds.add(eventId);
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Successfully registered for $eventName'),
+            backgroundColor: AppColors.primary,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Registration failed: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final event = MockData.currentEvent;
+
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        title: Text(
+          'MY EVENTS',
+          style: GoogleFonts.outfit(
+            fontWeight: FontWeight.w900,
+            letterSpacing: 2,
+            fontSize: 16,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'AVAILABLE EVENTS',
+                    style: GoogleFonts.outfit(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 12,
+                      letterSpacing: 2,
+                      color: AppColors.textDim,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildEventCard(
+                    eventId: 'event_001',
+                    eventName: event.name,
+                    eventDate: '${event.date.day}/${event.date.month}/${event.date.year}',
+                    location: event.location,
+                  ),
+                  const SizedBox(height: 32),
+                  if (_registeredEventIds.isNotEmpty) ...[
+                    Text(
+                      'MY REGISTERED EVENTS',
+                      style: GoogleFonts.outfit(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 12,
+                        letterSpacing: 2,
+                        color: AppColors.textDim,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    ..._registeredEventIds.map((eventId) => _buildRegisteredEventCard(
+                          eventId: eventId,
+                          eventName: event.name,
+                          eventDate: '${event.date.day}/${event.date.month}/${event.date.year}',
+                          location: event.location,
+                        )),
+                  ],
+                ],
+              ),
+            ),
+    );
+  }
+
+  Widget _buildEventCard({
+    required String eventId,
+    required String eventName,
+    required String eventDate,
+    required String location,
+  }) {
+    final isRegistered = _registeredEventIds.contains(eventId);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.05)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            eventName,
+            style: GoogleFonts.outfit(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              const Icon(Icons.calendar_today, color: AppColors.primary, size: 16),
+              const SizedBox(width: 8),
+              Text(
+                eventDate,
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              const Icon(Icons.location_on, color: AppColors.primary, size: 16),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  location,
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: isRegistered ? null : () => _registerForEvent(eventId, eventName),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isRegistered ? AppColors.textDim : AppColors.primary,
+                foregroundColor: Colors.black,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: Text(
+                isRegistered ? 'Registered' : 'Register (Free)',
+                style: GoogleFonts.outfit(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRegisteredEventCard({
+    required String eventId,
+    required String eventName,
+    required String eventDate,
+    required String location,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  eventName,
+                  style: GoogleFonts.outfit(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'Registered',
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              const Icon(Icons.calendar_today, color: AppColors.primary, size: 16),
+              const SizedBox(width: 8),
+              Text(
+                eventDate,
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              const Icon(Icons.location_on, color: AppColors.primary, size: 16),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  location,
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}

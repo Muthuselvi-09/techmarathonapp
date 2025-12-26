@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "911540992478",
+    "project_id": "techmarathonapp",
+    "storage_bucket": "techmarathonapp.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:911540992478:android:94dd34aa4f1b2118bfc54f",
+        "android_client_info": {
+          "package_name": "com.techmarathon.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA2o7z_Am0VAJ44lH1fqLPPYmLbk9dS2SE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

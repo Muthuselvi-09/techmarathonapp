@@ -1,0 +1,350 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:go_router/go_router.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/event_widgets.dart';
+import '../../data/mock_data.dart';
+import '../../domain/event_models.dart';
+
+class EventOverviewScreen extends ConsumerWidget {
+  const EventOverviewScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final event = MockData.currentEvent;
+
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: CustomScrollView(
+        slivers: [
+          _buildSliverAppBar(),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildEventTitle(event),
+                  const SizedBox(height: 32),
+                  _buildEntryPass(context),
+                  const SizedBox(height: 48),
+                  _buildParticipantsBanner(context),
+                  const SizedBox(height: 48),
+                  _buildSponsorsSlider(event.sponsors),
+                  const SizedBox(height: 48),
+                  _buildSpeakersList(event.speakers),
+                  const SizedBox(height: 120),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSliverAppBar() {
+    return SliverAppBar(
+      pinned: true,
+      expandedHeight: 120.0,
+      backgroundColor: AppColors.background,
+      flexibleSpace: FlexibleSpaceBar(
+        centerTitle: true,
+        title: const BrandHeader(),
+        background: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                AppColors.primary.withOpacity(0.1),
+                AppColors.background,
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEventTitle(CodingEvent event) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          event.name.toUpperCase(),
+          style: GoogleFonts.outfit(
+            fontSize: 32,
+            fontWeight: FontWeight.w900,
+            color: AppColors.textPrimary,
+            height: 1.1,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            const Icon(Icons.location_on_rounded, color: AppColors.primary, size: 16),
+            const SizedBox(width: 8),
+            Text(
+              event.location,
+              style: GoogleFonts.inter(color: AppColors.textSecondary, fontSize: 14),
+            ),
+            const SizedBox(width: 24),
+            const Icon(Icons.calendar_today_rounded, color: AppColors.primary, size: 16),
+            const SizedBox(width: 8),
+            Text(
+              'JAN 12-14, 2024',
+              style: GoogleFonts.inter(color: AppColors.textSecondary, fontSize: 14),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEntryPass(BuildContext context) {
+    return GlassCard(
+      padding: EdgeInsets.zero,
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              gradient: AppColors.mainGradient,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'DIGITAL ENTRY PASS',
+                      style: GoogleFonts.inter(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.black.withOpacity(0.6),
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'PREMIUM MEMBER',
+                      style: GoogleFonts.outfit(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
+                    ),
+                  ],
+                ),
+                const Icon(Icons.nfc_rounded, color: Colors.black),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(24),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildPassInfo('HOLDER', 'Alex Johnson'),
+                      const SizedBox(height: 16),
+                      _buildPassInfo('ID', 'CR-EVT-2024-99'),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: QrImageView(
+                    data: 'CR-EVT-2024-99-ALEX',
+                    version: QrVersions.auto,
+                    size: 80.0,
+                    backgroundColor: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPassInfo(String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.inter(fontSize: 10, color: AppColors.textDim, letterSpacing: 1),
+        ),
+        Text(
+          value,
+          style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildParticipantsBanner(BuildContext context) {
+    return GestureDetector(
+      onTap: () => context.push('/participants'),
+      child: GlassCard(
+        color: AppColors.primary.withOpacity(0.05),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: const BoxDecoration(
+                color: AppColors.primary,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.people_alt_rounded, color: Colors.black),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '42 MEMBERS JOINED',
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w900,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  Text(
+                    'Network with the community now',
+                    style: GoogleFonts.inter(color: AppColors.textDim, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.arrow_forward_ios_rounded, color: AppColors.textDim, size: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSponsorsSlider(List<Sponsor> sponsors) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionHeader('EVENT SPONSORS'),
+        const SizedBox(height: 24),
+        SizedBox(
+          height: 110,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: sponsors.length,
+            clipBehavior: Clip.none,
+            itemBuilder: (context, index) {
+              final sponsor = sponsors[index];
+              return Container(
+                width: 110,
+                margin: const EdgeInsets.only(right: 16),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.white.withOpacity(0.05)),
+                ),
+                child: Center(
+                  child: Hero(
+                    tag: 'sponsor_${sponsor.name}',
+                    child: Image.network(
+                      sponsor.logoUrl,
+                      height: 50,
+                      width: 50,
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSpeakersList(List<Speaker> speakers) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionHeader('KEYNOTE SPEAKERS'),
+        const SizedBox(height: 24),
+        ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: speakers.length,
+          itemBuilder: (context, index) {
+            final speaker = speakers[index];
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: GlassCard(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 35,
+                      backgroundImage: NetworkImage(speaker.photoUrl),
+                    ),
+                    const SizedBox(width: 20),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            speaker.name,
+                            style: GoogleFonts.outfit(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 18,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          Text(
+                            speaker.company,
+                            style: TextStyle(color: AppColors.primary, fontSize: 12),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            speaker.topic,
+                            style: TextStyle(color: AppColors.textDim, fontSize: 13),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSectionHeader(String title) {
+    return Text(
+      title,
+      style: GoogleFonts.outfit(
+        fontWeight: FontWeight.w900,
+        fontSize: 14,
+        letterSpacing: 2,
+        color: AppColors.textDim,
+      ),
+    );
+  }
+}
