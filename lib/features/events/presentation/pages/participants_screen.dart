@@ -81,7 +81,7 @@ class ParticipantsScreen extends ConsumerWidget {
                     children: [
                       TextButton(
                         onPressed: () => context.push('/member-profile', extra: p),
-                        child: const Text('DETAILS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                        child: const Text('VIEW PROFILE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
                       ),
                       ElevatedButton(
                         onPressed: () => context.push('/chat', extra: p),

@@ -1,12 +1,15 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'user_repository.dart';
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
-  // Explicitly bind Auth to the app initialized in main() 
-  // to prevent project-sync issues on Web.
-  return AuthRepository(FirebaseAuth.instanceFor(app: Firebase.app()));
+  return AuthRepository(
+    FirebaseAuth.instanceFor(app: Firebase.app()),
+    ref.watch(userRepositoryProvider),
+  );
 });
 
 final authStateProvider = StreamProvider<User?>((ref) {
@@ -15,8 +18,9 @@ final authStateProvider = StreamProvider<User?>((ref) {
 
 class AuthRepository {
   final FirebaseAuth _auth;
+  final UserRepository _userRepository;
 
-  AuthRepository(this._auth);
+  AuthRepository(this._auth, this._userRepository);
 
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
@@ -24,37 +28,45 @@ class AuthRepository {
 
   Future<UserCredential> signInWithEmailAndPassword(String email, String password) async {
     try {
-      debugPrint('Attempting login for project: ${_auth.app.options.projectId}');
-      return await _auth.signInWithEmailAndPassword(email: email, password: password);
-    } on FirebaseAuthException catch (e) {
-      // Diagnostic logging for developers
-      debugPrint('FirebaseAuthException [${e.code}]: ${e.message}');
-      if (e.code == 'invalid-credential' && e.message?.contains('API') == true) {
-        debugPrint('CRITICAL: Possible API Key mismatch or configuration sync issue.');
+      final credential = await _auth.signInWithEmailAndPassword(email: email, password: password);
+      if (credential.user != null) {
+        await _userRepository.syncUser(
+          credential.user!.uid,
+          name: credential.user!.displayName ?? email.split('@')[0],
+          email: credential.user!.email,
+          isOnline: true,
+        );
       }
+      return credential;
+    } on FirebaseAuthException catch (e) {
+      debugPrint('FirebaseAuthException [${e.code}]: ${e.message}');
       rethrow;
-    } catch (e) {
-      debugPrint('Unexpected Auth Error: ${e.toString()}');
-      throw Exception('An unexpected error occurred: ${e.toString()}');
     }
   }
 
   Future<UserCredential> createUserWithEmailAndPassword(String email, String password) async {
     try {
-      debugPrint('Attempting signup for project: ${_auth.app.options.projectId}');
-      return await _auth.createUserWithEmailAndPassword(email: email, password: password);
+      final credential = await _auth.createUserWithEmailAndPassword(email: email, password: password);
+      if (credential.user != null) {
+        await _userRepository.syncUser(
+          credential.user!.uid,
+          name: credential.user!.displayName ?? email.split('@')[0],
+          email: credential.user!.email,
+          isOnline: true,
+        );
+      }
+      return credential;
     } on FirebaseAuthException catch (e) {
       debugPrint('FirebaseAuthException [${e.code}]: ${e.message}');
       rethrow;
-    } catch (e) {
-      debugPrint('Unexpected Signup Error: ${e.toString()}');
-      throw Exception('An unexpected error occurred: ${e.toString()}');
     }
   }
 
   Future<void> signOut() async {
+    final uid = _auth.currentUser?.uid;
+    if (uid != null) {
+      await _userRepository.updateOnlineStatus(uid, false);
+    }
     await _auth.signOut();
   }
-
-  // Google Sign In can be added here once google_sign_in package is configured
 }

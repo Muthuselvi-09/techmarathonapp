@@ -1,8 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../events/domain/event_models.dart';
-import '../../data/profile_repository.dart';
-import '../../../auth/data/auth_repository.dart';
+import 'package:tech_marathon_app/features/events/domain/event_models.dart';
+import 'package:tech_marathon_app/features/profile/data/profile_repository.dart';
+import 'package:tech_marathon_app/features/auth/data/auth_repository.dart';
 import 'dart:async';
+import 'package:tech_marathon_app/features/auth/data/user_repository.dart';
+import 'package:tech_marathon_app/features/events/presentation/providers/chat_provider.dart';
 
 class ProfileState {
   final Participant? user;
@@ -113,13 +115,9 @@ final completedProfilesProvider = StreamProvider<int>((ref) {
 });
 
 final participantsStreamProvider = StreamProvider<List<Participant>>((ref) {
-  return ref.watch(profileRepositoryProvider).getParticipants();
+  return ref.watch(userRepositoryProvider).getRealTimeMembers();
 });
 
 
-final chatMessagesProvider = StreamProvider.family<List<ChatMessage>, String>((ref, otherUserId) {
-  final user = ref.watch(profileProvider).user;
-  if (user == null) return const Stream.empty();
-  return ref.watch(profileRepositoryProvider).getMessages(user.id, otherUserId);
-});
+final chatMessagesProvider = activeMessagesProvider;
 

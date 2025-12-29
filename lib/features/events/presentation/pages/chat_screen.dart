@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../domain/event_models.dart';
+import '../providers/chat_provider.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
   final Participant otherUser;
@@ -18,36 +18,25 @@ class ChatScreen extends ConsumerStatefulWidget {
 class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _messageController = TextEditingController();
   final _scrollController = ScrollController();
-  final _firestore = FirebaseFirestore.instance;
-  final _auth = FirebaseAuth.instance;
 
-  String get _chatId {
-    final currentUserId = _auth.currentUser?.uid ?? '';
-    final otherUserId = widget.otherUser.id;
-    
-    // Sort IDs alphabetically to ensure same chat ID for both users
-    final ids = [currentUserId, otherUserId]..sort();
-    return '${ids[0]}_${ids[1]}';
+  @override
+  void initState() {
+    super.initState();
+    // Mark as read when entering
+    Future.microtask(() => 
+      ref.read(chatControllerProvider).markAsRead(widget.otherUser.id)
+    );
   }
 
   Future<void> _sendMessage() async {
     final messageText = _messageController.text.trim();
     if (messageText.isEmpty) return;
 
-    final currentUserId = _auth.currentUser?.uid;
-    if (currentUserId == null) return;
-
     try {
-      await _firestore
-          .collection('chats')
-          .doc(_chatId)
-          .collection('messages')
-          .add({
-        'senderId': currentUserId,
-        'receiverId': widget.otherUser.id,
-        'messageText': messageText,
-        'timestamp': FieldValue.serverTimestamp(),
-      });
+      await ref.read(chatControllerProvider).sendMessage(
+        widget.otherUser.id,
+        messageText,
+      );
 
       _messageController.clear();
       
@@ -82,7 +71,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final currentUserId = _auth.currentUser?.uid ?? '';
+    final messagesAsync = ref.watch(activeMessagesProvider(widget.otherUser.id));
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -124,31 +113,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       body: Column(
         children: [
           Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: _firestore
-                  .collection('chats')
-                  .doc(_chatId)
-                  .collection('messages')
-                  .orderBy('timestamp', descending: false)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return Center(
-                    child: Text(
-                      'Error loading messages',
-                      style: TextStyle(color: AppColors.error),
-                    ),
-                  );
-                }
-
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(
-                    child: CircularProgressIndicator(color: AppColors.primary),
-                  );
-                }
-
-                final messages = snapshot.data?.docs ?? [];
-
+            child: messagesAsync.when(
+              data: (messages) {
                 if (messages.isEmpty) {
                   return Center(
                     child: Column(
@@ -180,11 +146,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   );
                 }
 
+                debugPrint('CHAT_DEBUG: Messages received: ${messages.length}');
+                if (messages.isNotEmpty) {
+                  debugPrint('CHAT_DEBUG: Last message text: "${messages.last.text}"');
+                }
+
                 // Auto-scroll to bottom when new messages arrive
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (_scrollController.hasClients) {
-                    _scrollController.jumpTo(
+                    _scrollController.animateTo(
                       _scrollController.position.maxScrollExtent,
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeOut,
                     );
                   }
                 });
@@ -193,21 +166,26 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   controller: _scrollController,
                   padding: const EdgeInsets.all(16),
                   itemCount: messages.length,
+                  reverse: false, // Standard chronological order from top to bottom
                   itemBuilder: (context, index) {
-                    final messageData = messages[index].data() as Map<String, dynamic>;
-                    final senderId = messageData['senderId'] as String;
-                    final messageText = messageData['messageText'] as String;
-                    final timestamp = messageData['timestamp'] as Timestamp?;
-                    final isMe = senderId == currentUserId;
-
+                    final message = messages[index];
                     return _buildMessageBubble(
-                      messageText: messageText,
-                      isMe: isMe,
-                      timestamp: timestamp,
+                      messageText: message.text,
+                      isMe: message.isMe,
+                      timestamp: message.timestamp,
                     );
                   },
                 );
               },
+              loading: () => const Center(
+                child: CircularProgressIndicator(color: AppColors.primary),
+              ),
+              error: (err, stack) => Center(
+                child: Text(
+                  'Error loading messages: $err',
+                  style: const TextStyle(color: AppColors.error),
+                ),
+              ),
             ),
           ),
           _buildMessageInput(),
@@ -219,7 +197,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Widget _buildMessageBubble({
     required String messageText,
     required bool isMe,
-    Timestamp? timestamp,
+    DateTime? timestamp,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -269,7 +247,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   if (timestamp != null) ...[
                     const SizedBox(height: 4),
                     Text(
-                      _formatTime(timestamp.toDate()),
+                      _formatTime(timestamp),
                       style: GoogleFonts.inter(
                         fontSize: 10,
                         color: isMe

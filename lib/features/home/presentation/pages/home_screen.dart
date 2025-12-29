@@ -59,6 +59,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               _buildSliderCards(),
               const SizedBox(height: 32),
               _buildParticipantsBanner(context),
+              const SizedBox(height: 32),
+              _buildJoinMembersList(),
               const SizedBox(height: 48),
               _buildSponsorsSection(),
               const SizedBox(height: 48),
@@ -379,6 +381,114 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildJoinMembersList() {
+    final membersAsync = ref.watch(participantsStreamProvider);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'JOIN MEMBERS',
+                style: GoogleFonts.outfit(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 14,
+                  letterSpacing: 2,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              TextButton(
+                onPressed: () => context.push('/participants'),
+                child: Text(
+                  'VIEW ALL',
+                  style: GoogleFonts.inter(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        SizedBox(
+          height: 120,
+          child: membersAsync.when(
+            data: (members) {
+              if (members.isEmpty) {
+                return Center(
+                  child: Text(
+                    'No members yet',
+                    style: TextStyle(color: AppColors.textDim, fontSize: 12),
+                  ),
+                );
+              }
+              return ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: members.length,
+                itemBuilder: (context, index) {
+                  final member = members[index];
+                  return GestureDetector(
+                    onTap: () => context.push('/member-profile', extra: member),
+                    child: Container(
+                      width: 100,
+                      margin: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Column(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(color: AppColors.primary.withOpacity(0.5)),
+                            ),
+                            child: CircleAvatar(
+                              radius: 30,
+                              backgroundImage: member.profileImage != null && member.profileImage!.isNotEmpty
+                                  ? NetworkImage(member.profileImage!)
+                                  : null,
+                              backgroundColor: AppColors.surface,
+                              child: member.profileImage == null || member.profileImage!.isEmpty
+                                  ? const Icon(Icons.person, color: AppColors.textDim)
+                                  : null,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            member.name.isEmpty ? 'User' : member.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.inter(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          Text(
+                            'ID: ${member.id.substring(0, 4)}...',
+                            style: TextStyle(color: AppColors.textDim, fontSize: 8),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (err, _) => Center(child: Text('Error', style: TextStyle(color: AppColors.error))),
+          ),
+        ),
+      ],
     );
   }
 

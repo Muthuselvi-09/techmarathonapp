@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'core/theme/app_theme.dart';
@@ -9,7 +10,9 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
   final app = await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
+    options: (defaultTargetPlatform == TargetPlatform.android)
+        ? DefaultFirebaseOptions.android
+        : DefaultFirebaseOptions.currentPlatform,
   );
 
   debugPrint('Firebase initialized for project: ${app.options.projectId}');

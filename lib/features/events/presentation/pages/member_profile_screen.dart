@@ -87,14 +87,28 @@ class MemberProfileScreen extends ConsumerWidget {
             const SizedBox(height: 16),
             _buildInfoCard(Icons.check_circle_rounded, 'Status', 'Verified Member'),
             const SizedBox(height: 48),
-            SizedBox(
-              width: double.infinity,
-              child: NeonButton(
-                text: 'CHAT NOW',
-                onPressed: () {
-                  context.push('/chat', extra: member);
-                },
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: NeonButton(
+                    text: 'VIEW INFO',
+                    onPressed: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Viewing latest profile info')),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: NeonButton(
+                    text: 'CHAT NOW',
+                    onPressed: () {
+                      context.push('/chat', extra: member);
+                    },
+                  ),
+                ),
+              ],
             ),
           ],
         ),

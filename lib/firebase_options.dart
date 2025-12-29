@@ -21,15 +21,6 @@ class DefaultFirebaseOptions {
         return android;
       case TargetPlatform.iOS:
         return ios;
-      case TargetPlatform.macOS:
-        return macos;
-      case TargetPlatform.windows:
-        return windows;
-      case TargetPlatform.linux:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for linux - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
       default:
         throw UnsupportedError(
           'DefaultFirebaseOptions are not supported for this platform.',
@@ -64,22 +55,4 @@ class DefaultFirebaseOptions {
     iosBundleId: 'com.techmarathon.app',
   );
 
-  static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'YOUR-MACOS-API-KEY',
-    appId: 'YOUR-MACOS-APP-ID',
-    messagingSenderId: 'YOUR-SENDER-ID',
-    projectId: 'YOUR-PROJECT-ID',
-    storageBucket: 'YOUR-PROJECT-ID.appspot.com',
-    iosBundleId: 'com.example.techMarathonApp',
-  );
-
-  static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'YOUR-WINDOWS-API-KEY',
-    appId: 'YOUR-WINDOWS-APP-ID',
-    messagingSenderId: 'YOUR-SENDER-ID',
-    projectId: 'YOUR-PROJECT-ID',
-    authDomain: 'YOUR-PROJECT-ID.firebaseapp.com',
-    storageBucket: 'YOUR-PROJECT-ID.appspot.com',
-    measurementId: 'YOUR-MEASUREMENT-ID',
-  );
 }
