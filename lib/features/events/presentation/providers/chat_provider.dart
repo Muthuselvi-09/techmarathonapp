@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:tech_marathon_app/features/events/domain/event_models.dart';
+import 'package:tech_marathon_app/features/home/domain/event_models.dart';
 import 'package:tech_marathon_app/features/events/data/chat_repository.dart';
 import 'package:tech_marathon_app/features/auth/data/auth_repository.dart';
 

@@ -51,5 +51,9 @@
 	<string>We need access to your camera to allow you to take a profile picture.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>We need access to your microphone for video features.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>We need access to your location to show nearby events and sponsors.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>We need access to your location to show nearby events and sponsors even in the background.</string>
 </dict>
 </plist>

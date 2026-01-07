@@ -6,7 +6,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/event_widgets.dart';
 import '../../data/mock_data.dart';
-import '../../domain/event_models.dart';
+import 'package:tech_marathon_app/features/home/domain/event_models.dart';
 
 class EventOverviewScreen extends ConsumerWidget {
   const EventOverviewScreen({super.key});

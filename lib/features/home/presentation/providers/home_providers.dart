@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../domain/models.dart';
+import 'package:tech_marathon_app/features/home/domain/event_models.dart';
 
 final featuredCoursesProvider = Provider<List<CourseModel>>((ref) {
   return [
@@ -33,16 +33,16 @@ final featuredCoursesProvider = Provider<List<CourseModel>>((ref) {
   ];
 });
 
-final upcomingEventsProvider = Provider<List<EventModel>>((ref) {
+final upcomingEventsProvider = Provider<List<CodingEvent>>((ref) {
   return [
-    EventModel(
+    CodingEvent(
       id: '1',
-      title: 'Tech Marathon 2025',
+      name: 'Tech Marathon 2025',
       description: 'The ultimate code sprint.',
       date: DateTime(2025, 3, 15),
       location: 'Bangalore, India',
-      imageUrl: 'https://images.unsplash.com/photo-1540575861501-7ad060e39fe1',
-      speakers: ['John Doe', 'Jane Smith'],
+      imageUrl: 'https://images.unsplash.com/photo-1540575861501-7ad060e1c27b',
+      speakerIds: ['John Doe', 'Jane Smith'],
       category: 'Hackathon',
     ),
   ];

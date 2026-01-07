@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../events/domain/event_models.dart';
+import 'package:tech_marathon_app/features/home/domain/event_models.dart';
 
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -16,18 +16,27 @@ class ProfileRepository {
 
   ProfileRepository(this._firestore, this._storage);
 
+  FirebaseFirestore getFirestoreInstance() => _firestore;
+
   CollectionReference get _usersCollection => _firestore.collection('users');
 
   Future<void> saveProfile(Participant user) async {
-    await _usersCollection.doc(user.id).set({
+    final Map<String, dynamic> data = {
       'name': user.name,
       'email': user.email,
       'mobile': user.mobile,
       'profileImage': user.profileImage,
       'profileCompletion': user.profileCompletion,
       'isComplete': user.profileCompletion >= 1.0,
+      'role': user.role,
       'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    };
+
+    if (user.joinedAt == null) {
+      data['joinedAt'] = FieldValue.serverTimestamp();
+    }
+
+    await _usersCollection.doc(user.id).set(data, SetOptions(merge: true));
   }
 
   Future<Participant?> getProfile(String userId) async {
@@ -42,6 +51,8 @@ class ProfileRepository {
       mobile: data['mobile'] ?? '',
       profileImage: data['profileImage'],
       profileCompletion: (data['profileCompletion'] ?? 0.0).toDouble(),
+      role: data['role'] ?? 'user',
+      joinedAt: (data['joinedAt'] as Timestamp?)?.toDate(),
     );
   }
 
@@ -67,6 +78,8 @@ class ProfileRepository {
           mobile: data['mobile'] ?? '',
           profileImage: data['profileImage'],
           profileCompletion: (data['profileCompletion'] ?? 0.0).toDouble(),
+          role: data['role'] ?? 'user',
+          joinedAt: (data['joinedAt'] as Timestamp?)?.toDate(),
         );
       }).toList();
     });

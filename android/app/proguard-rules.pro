@@ -27,3 +27,8 @@
 # Keep Riverpod
 -keep class com.riverpod.** { *; }
 -dontwarn com.riverpod.**
+
+# Keep Firebase Messaging
+-keep class com.google.firebase.messaging.** { *; }
+-keepclassmembers class com.google.firebase.messaging.** { *; }
+-dontwarn com.google.firebase.messaging.**

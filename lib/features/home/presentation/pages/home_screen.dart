@@ -1,18 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // Direct import for robust check
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../events/data/mock_data.dart';
 import '../../../profile/presentation/providers/profile_provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import '../../../auth/data/auth_repository.dart';
+import '../../../auth/data/user_repository.dart';
 import '../../../../core/widgets/event_drawer.dart';
+import '../../../admin/data/admin_repository.dart'; // Import AdminRepo for real data
+import '../../../admin/presentation/providers/optimistic_state_provider.dart'; // Import optimistic state
 import 'package:url_launcher/url_launcher.dart';
+import '../../presentation/providers/search_provider.dart';
+import '../../data/search_repository.dart';
+import '../../../core/services/location_service.dart';
+import '../../domain/event_models.dart';
+import '../../data/proximity_repository.dart';
+import '../../../core/models/user_location.dart';
+import '../../../core/providers/user_location_provider.dart';
 import 'sponsor_details_screen.dart';
 import 'speaker_details_screen.dart';
 import 'schedule_details_screen.dart';
 import 'event_info_screen.dart';
 import 'food_course_screen.dart';
+import '../../../chat/presentation/pages/admin_chat_page.dart';
+import 'view_all_screens.dart'; // Import ViewAll screens
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -25,6 +39,30 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
 
+  @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(() {
+      ref.read(debouncedSearchQueryProvider.notifier).update(_searchController.text);
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _listenToLocation() {
+    ref.listen(userLocationProvider, (previous, next) {
+      final user = ref.read(authStateProvider).valueOrNull;
+      if (user != null && next.value != null) {
+        ref.read(userRepositoryProvider).updateLocation(user.uid, next.value!.toMap());
+      }
+    });
+  }
+
   Future<void> _launchURL(String url) async {
     final Uri uri = Uri.parse(url);
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
@@ -36,9 +74,60 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
+
+// Enhanced providers with optimistic state merging
+final currentEventStreamProvider = StreamProvider<CodingEvent?>((ref) {
+  final firestoreEvents = ref.watch(adminRepositoryProvider).watchEvents();
+  final optimisticEvents = ref.watch(optimisticEventsProvider);
+  
+  return firestoreEvents.map((events) {
+    // Merge optimistic events with Firestore events
+    final allEvents = [...optimisticEvents, ...events];
+    if (allEvents.isEmpty) return null;
+    return allEvents.first;
+  });
+});
+
+final mergedSpeakersProvider = StreamProvider<List<Speaker>>((ref) {
+  final firestoreSpeakers = ref.watch(adminRepositoryProvider).watchSpeakers();
+  final optimisticSpeakers = ref.watch(optimisticSpeakersProvider);
+  
+  return firestoreSpeakers.map((speakers) {
+    // Merge optimistic with Firestore, avoiding duplicates
+    final merged = <String, Speaker>{};
+    for (final s in speakers) {
+      merged[s.id] = s;
+    }
+    for (final s in optimisticSpeakers) {
+      merged[s.id] = s; // Optimistic overrides Firestore
+    }
+    return merged.values.toList();
+  });
+});
+
+final mergedSponsorsProvider = StreamProvider<List<Sponsor>>((ref) {
+  final firestoreSponsors = ref.watch(adminRepositoryProvider).watchSponsors();
+  final optimisticSponsors = ref.watch(optimisticSponsorsProvider);
+  
+  return firestoreSponsors.map((sponsors) {
+    final merged = <String, Sponsor>{};
+    for (final s in sponsors) {
+      merged[s.id] = s;
+    }
+    for (final s in optimisticSponsors) {
+      merged[s.id] = s;
+    }
+    return merged.values.toList();
+  });
+});
+
+
   @override
   Widget build(BuildContext context) {
-    final event = MockData.currentEvent;
+    _listenToLocation();
+    final locationAsync = ref.watch(userLocationProvider);
+    final searchResultsAsync = ref.watch(searchProvider);
+    final currentEventAsync = ref.watch(currentEventStreamProvider);
 
     return Container(
       decoration: const BoxDecoration(gradient: AppColors.backgroundGradient),
@@ -46,32 +135,137 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         backgroundColor: Colors.transparent,
         drawer: const EventDrawer(),
       body: SafeArea(
-        child: SingleChildScrollView(
-          controller: _scrollController,
-          child: Column(
-            children: [
-              _buildHeader(context),
-              const SizedBox(height: 24),
-              _buildLocationAndSearch(event.location),
-              const SizedBox(height: 24),
-              _buildProfileCompletionBanner(),
-              const SizedBox(height: 24),
-              _buildSliderCards(),
-              const SizedBox(height: 32),
-              _buildParticipantsBanner(context),
-              const SizedBox(height: 32),
-              _buildJoinMembersList(),
-              const SizedBox(height: 48),
-              _buildSponsorsSection(),
-              const SizedBox(height: 48),
-              _buildZhaCommerceBanner(),
-              const SizedBox(height: 48),
-              _buildSpeakersSection(),
-              const SizedBox(height: 120), // Extra space for bottom nav
-            ],
-          ),
+        child: Stack(
+          children: [
+            SingleChildScrollView(
+              controller: _scrollController,
+              child: Column(
+                children: [
+                  _buildHeader(context),
+                  const SizedBox(height: 24),
+                  _buildLocationAndSearch(
+                    locationAsync.when(
+                      data: (loc) => loc != null ? '${loc.area}, ${loc.city}' : (currentEventAsync.value?.location ?? MockData.currentEvent.location),
+                      loading: () => 'Detecting location...',
+                      error: (_, __) => currentEventAsync.value?.location ?? MockData.currentEvent.location,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  _buildProfileCompletionBanner(),
+                  const SizedBox(height: 24),
+                  _buildSliderCards(),
+                  const SizedBox(height: 32),
+                  _buildParticipantsBanner(context),
+                  const SizedBox(height: 32),
+                  _buildJoinMembersList(),
+                  const SizedBox(height: 48),
+                  _buildSponsorsSection(),
+                  const SizedBox(height: 48),
+                  _buildZhaCommerceBanner(),
+                  const SizedBox(height: 48),
+                  _buildSpeakersSection(),
+                  const SizedBox(height: 120), // Extra space for bottom nav
+                ],
+              ),
+            ),
+            // Search Results Overlay
+            if (_searchController.text.length >= 2)
+              _buildSearchResultsOverlay(searchResultsAsync),
+          ],
         ),
       ),
+      ),
+    );
+  }
+
+  Widget _buildSearchResultsOverlay(AsyncValue<List<SearchResult>> searchResultsAsync) {
+    return Positioned(
+      top: 140, // Adjust based on search bar position
+      left: 24,
+      right: 24,
+      child: Container(
+        constraints: const BoxConstraints(maxHeight: 400),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.5),
+              blurRadius: 10,
+              offset: const Offset(0, 5),
+            ),
+          ],
+          border: Border.all(color: Colors.white.withOpacity(0.1)),
+        ),
+        child: searchResultsAsync.when(
+          data: (results) {
+            if (results.isEmpty) {
+              return Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text('No results found', style: TextStyle(color: AppColors.textDim)),
+              );
+            }
+            return ListView.separated(
+              shrinkWrap: true,
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              itemCount: results.length,
+              separatorBuilder: (_, __) => Divider(color: Colors.white.withOpacity(0.05)),
+              itemBuilder: (context, index) {
+                final result = results[index];
+                return ListTile(
+                  title: Text(result.title, style: const TextStyle(color: Colors.white)),
+                  subtitle: Text(result.type, style: TextStyle(color: AppColors.primary, fontSize: 10)),
+                  trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 12, color: AppColors.textDim),
+                  onTap: () {
+                     // Navigate based on type
+                     if (result.type == 'Member') {
+                       final member = Participant(
+                         id: result.id,
+                         name: result.title,
+                         email: result.data['email'] ?? '',
+                         mobile: result.data['mobile'] ?? '',
+                         profileImage: result.data['profileImage'],
+                         profileCompletion: (result.data['profileCompletion'] ?? 0.0).toDouble(),
+                       );
+                       context.push('/member-profile', extra: member);
+                     } else if (result.type == 'Sponsor') {
+                       Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => SponsorDetailsScreen(
+                            image: result.data['logoUrl'] ?? '',
+                            name: result.data['name'] ?? '',
+                            description: result.data['company'] ?? '',
+                          ),
+                        ),
+                      );
+                     } else if (result.type == 'Speaker') {
+                       Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => SpeakerDetailsScreen(
+                            image: result.data['photoUrl'] ?? 'assets/images/speaker1.png',
+                            name: result.data['name'] ?? '',
+                            role: result.data['topic'] ?? '',
+                            bio: result.data['company'] ?? '',
+                          ),
+                        ),
+                      );
+                     }
+                  },
+                );
+              },
+            );
+          },
+          loading: () => const Padding(
+            padding: EdgeInsets.all(16),
+            child: Center(child: CircularProgressIndicator()),
+          ),
+          error: (err, _) => Padding(
+            padding: EdgeInsets.all(16),
+            child: Text('Error: $err', style: TextStyle(color: AppColors.error)),
+          ),
+        ),
       ),
     );
   }
@@ -164,9 +358,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               color: AppColors.textPrimary,
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined, color: AppColors.textPrimary),
-            onPressed: () => context.push('/notifications'),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.admin_panel_settings_outlined, color: AppColors.textPrimary),
+                onPressed: () {
+                  // Direct SDK check to avoid provider stream latency/conflicts
+                  final user = FirebaseAuth.instance.currentUser;
+                  if (user != null) {
+                    context.push('/admin'); // Correct route path per internal router
+                  } else {
+                    context.push('/admin-login');
+                  }
+                },
+              ),
+              IconButton(
+                icon: const Icon(Icons.notifications_outlined, color: AppColors.textPrimary),
+                onPressed: () => context.push('/notifications'),
+              ),
+            ],
           ),
         ],
       ),
@@ -320,7 +531,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildParticipantsBanner(BuildContext context) {
-    final countAsync = ref.watch(completedProfilesProvider);
+    final countAsync = ref.watch(totalParticipantsProvider);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -405,7 +616,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ),
               TextButton(
-                onPressed: () => context.push('/participants'),
+                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ViewAllMembersScreen())),
                 child: Text(
                   'VIEW ALL',
                   style: GoogleFonts.inter(
@@ -493,83 +704,108 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildSponsorsSection() {
-    final sponsors = MockData.currentEvent.sponsors;
+    final mergedSponsorsAsync = ref.watch(mergedSponsorsProvider);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Text(
-            'EVENT SPONSORS',
-            style: GoogleFonts.outfit(
-              fontWeight: FontWeight.w900,
-              fontSize: 14,
-              letterSpacing: 2,
-              color: AppColors.textPrimary,
-            ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'EVENT SPONSORS',
+                style: GoogleFonts.outfit(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 14,
+                  letterSpacing: 2,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              TextButton(
+                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ViewAllSponsorsScreen())),
+                child: Text('VIEW ALL', style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primary)),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 24),
         SizedBox(
           height: 200,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            itemCount: sponsors.length,
-            itemBuilder: (context, index) {
-              final sponsor = sponsors[index];
-              return Container(
-                width: 160,
-                margin: const EdgeInsets.symmetric(horizontal: 8),
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
-                ),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(24),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => SponsorDetailsScreen(
-                            image: sponsor.logoUrl,
-                            name: sponsor.name,
-                            description: sponsor.company,
+          child: mergedSponsorsAsync.when(
+            data: (mergedSponsors) {
+              final allSponsors = [...MockData.currentEvent.sponsors, ...mergedSponsors];
+
+              if (allSponsors.isEmpty) {
+                 return const Center(child: Text('No sponsors yet', style: TextStyle(color: Colors.white38)));
+              }
+
+              return ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: allSponsors.length,
+              itemBuilder: (context, index) {
+                final sponsor = allSponsors[index];
+                return Container(
+                      width: 160,
+                      margin: const EdgeInsets.symmetric(horizontal: 8),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: Colors.white.withOpacity(0.05)),
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(24),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => SponsorDetailsScreen(
+                                  image: sponsor.logoUrl,
+                                  name: sponsor.name,
+                                  description: sponsor.company,
+                                ),
+                              ),
+                            );
+                          },
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Image.network(sponsor.logoUrl, height: 40, width: 40, fit: BoxFit.contain, errorBuilder: (_,__,___) => const Icon(Icons.business)),
+                                ),
+                              const SizedBox(height: 16),
+                              Text(
+                                sponsor.name,
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white),
+                              ),
+                              Text(
+                                sponsor.company,
+                                style: TextStyle(color: AppColors.textDim, fontSize: 10),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                sponsor.jobPosition,
+                                style: const TextStyle(fontSize: 10, color: AppColors.primary),
+                              ),
+                            ],
                           ),
                         ),
-                      );
-                    },
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        CircleAvatar(
-                          radius: 35,
-                          backgroundImage: NetworkImage(sponsor.logoUrl),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          sponsor.name,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                        ),
-                        Text(
-                          sponsor.company,
-                          style: TextStyle(color: AppColors.textDim, fontSize: 10),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          sponsor.jobPosition,
-                          style: const TextStyle(fontSize: 10, color: AppColors.primary),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+                      ),
+                    );
+                },
               );
             },
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (err, _) => Center(child: Text('Error loading sponsors', style: TextStyle(color: AppColors.error))),
           ),
         ),
       ],
@@ -621,7 +857,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildSpeakersSection() {
-    final speakers = MockData.currentEvent.speakers;
+    final mergedSpeakersAsync = ref.watch(mergedSpeakersProvider);
     final speakerImages = [
       'assets/images/speaker1.png',
       'assets/images/speaker2.png',
@@ -633,99 +869,118 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Text(
-            'SPEAKERS',
-            style: GoogleFonts.outfit(
-              fontWeight: FontWeight.w900,
-              fontSize: 14,
-              letterSpacing: 2,
-              color: AppColors.textPrimary,
-            ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'SPEAKERS',
+                style: GoogleFonts.outfit(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 14,
+                  letterSpacing: 2,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              TextButton(
+                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ViewAllSpeakersScreen())),
+                child: Text('VIEW ALL', style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primary)),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 24),
         SizedBox(
           height: 240,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            itemCount: speakers.length,
-            itemBuilder: (context, index) {
-              final speaker = speakers[index];
-              final imageAsset = speakerImages[index % speakerImages.length];
-              
-              return Container(
-                width: 200,
-                margin: const EdgeInsets.symmetric(horizontal: 8),
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(24),
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => SpeakerDetailsScreen(
-                            image: imageAsset,
-                            name: speaker.name,
-                            role: speaker.topic,
-                            bio: speaker.company,
-                          ),
-                        ),
-                      );
-                    },
-                    child: Stack(
-                      children: [
-                        Image.asset(
-                          imageAsset,
-                          height: double.infinity,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                        ),
-                        Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [Colors.black.withValues(alpha: 0.8), Colors.transparent],
-                              begin: Alignment.bottomCenter,
-                              end: Alignment.topCenter,
+          child: mergedSpeakersAsync.when(
+            data: (mergedSpeakers) {
+              final allSpeakers = [...MockData.currentEvent.speakers, ...mergedSpeakers];
+
+              if (allSpeakers.isEmpty) {
+                 return const Center(child: Text('No speakers yet', style: TextStyle(color: Colors.white38)));
+              }
+
+              return ListView.builder(
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: allSpeakers.length,
+                itemBuilder: (context, index) {
+                final speaker = allSpeakers[index];
+                final imageAsset = speaker.photoUrl.isNotEmpty ? speaker.photoUrl : speakerImages[index % speakerImages.length];
+                final isNetwork = speaker.photoUrl.isNotEmpty;
+                
+                return Container(
+                  width: 200,
+                  margin: const EdgeInsets.symmetric(horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => SpeakerDetailsScreen(
+                              image: imageAsset,
+                              name: speaker.name,
+                              role: speaker.topic,
+                              bio: speaker.bio ?? '',
                             ),
                           ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                speaker.name,
-                                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                        );
+                      },
+                      child: Stack(
+                        children: [
+                          isNetwork 
+                            ? Image.network(imageAsset, height: double.infinity, width: double.infinity, fit: BoxFit.cover, errorBuilder: (_,__,___) => Container(color: Colors.grey))
+                            : Image.asset(imageAsset, height: double.infinity, width: double.infinity, fit: BoxFit.cover),
+                          Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [Colors.black.withOpacity(0.8), Colors.transparent],
+                                begin: Alignment.bottomCenter,
+                                end: Alignment.topCenter,
                               ),
-                              Text(
-                                speaker.company,
-                                style: const TextStyle(fontSize: 10, color: AppColors.primary),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                speaker.topic,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontSize: 10, color: Colors.white70),
-                              ),
-                            ],
+                            ),
                           ),
-                        ),
-                      ],
+                          Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  speaker.name,
+                                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                                ),
+                                Text(
+                                  speaker.company,
+                                  style: const TextStyle(fontSize: 10, color: AppColors.primary),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  speaker.topic,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontSize: 10, color: Colors.white70),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
+                );
+                },
               );
             },
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (err, _) => Center(child: Text('Error loading speakers', style: TextStyle(color: AppColors.error))),
           ),
         ),
       ],

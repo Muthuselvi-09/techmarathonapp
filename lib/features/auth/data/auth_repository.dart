@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -30,12 +31,23 @@ class AuthRepository {
     try {
       final credential = await _auth.signInWithEmailAndPassword(email: email, password: password);
       if (credential.user != null) {
-        await _userRepository.syncUser(
-          credential.user!.uid,
-          name: credential.user!.displayName ?? email.split('@')[0],
-          email: credential.user!.email,
-          isOnline: true,
-        );
+        // Check if this is an Admin login attempt
+        final adminDoc = await FirebaseFirestore.instance
+            .collection('admins')
+            .doc(credential.user!.uid)
+            .get();
+
+        if (!adminDoc.exists) {
+          // Only sync if NOT an admin
+          final fcmToken = await FirebaseMessaging.instance.getToken();
+          await _userRepository.syncUser(
+            credential.user!.uid,
+            name: credential.user!.displayName ?? email.split('@')[0],
+            email: credential.user!.email,
+            fcmToken: fcmToken,
+            isOnline: true,
+          );
+        }
       }
       return credential;
     } on FirebaseAuthException catch (e) {
@@ -48,10 +60,12 @@ class AuthRepository {
     try {
       final credential = await _auth.createUserWithEmailAndPassword(email: email, password: password);
       if (credential.user != null) {
+        final fcmToken = await FirebaseMessaging.instance.getToken();
         await _userRepository.syncUser(
           credential.user!.uid,
           name: credential.user!.displayName ?? email.split('@')[0],
           email: credential.user!.email,
+          fcmToken: fcmToken,
           isOnline: true,
         );
       }

@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/neon_button.dart';
-import '../../domain/event_models.dart';
+import '../../../../features/home/domain/event_models.dart';
 
 class MemberProfileScreen extends ConsumerWidget {
   final Participant member;

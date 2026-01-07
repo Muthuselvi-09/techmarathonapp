@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../features/auth/data/auth_repository.dart';
 import '../../features/events/presentation/pages/all_events_screen.dart';
-import '../../features/events/domain/event_models.dart';
+import '../../features/home/domain/event_models.dart';
 
 // Import pages
 
@@ -12,6 +11,10 @@ import '../../features/auth/presentation/pages/splash_screen.dart';
 import '../../features/auth/presentation/pages/login_screen.dart';
 import '../../features/auth/presentation/pages/signup_screen.dart';
 import '../../features/auth/presentation/pages/onboarding_screen.dart';
+import '../../features/auth/presentation/pages/admin_login_screen.dart';
+import '../../features/auth/presentation/pages/admin_signup_screen.dart';
+import '../../features/auth/presentation/pages/admin_forgot_password_screen.dart';
+import '../../features/admin/presentation/pages/admin_dashboard_screen.dart';
 import '../widgets/main_scaffold.dart';
 import '../../features/events/presentation/pages/event_login_screen.dart';
 import '../../features/events/presentation/pages/event_overview_screen.dart';
@@ -28,34 +31,29 @@ import '../../features/profile/presentation/pages/profile_screen.dart';
 import '../../features/profile/presentation/pages/profile_completion_screen.dart';
 import '../../features/profile/presentation/providers/profile_provider.dart';
 
-final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authStateProvider);
-  final isProfileComplete = ref.watch(profileProvider.select((s) => s.isComplete));
+import '../../features/auth/data/auth_repository.dart';
 
+final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/',
     refreshListenable: AuthRefreshListenable(ref),
     redirect: (context, state) {
-      final user = authState.valueOrNull;
+      final user = ref.read(authStateProvider).valueOrNull;
       final isAuthRoute = state.matchedLocation == '/login' || 
                           state.matchedLocation == '/signup' ||
                           state.matchedLocation == '/onboarding' ||
                           state.matchedLocation == '/';
-      
+      final isAdminLoginRoute = state.matchedLocation == '/admin-login';
+
       // If not logged in and trying to access protected route -> login
       if (user == null) {
-        return isAuthRoute ? null : '/login';
+        return (isAuthRoute || isAdminLoginRoute) ? null : '/login';
       }
 
-      // If logged in and on auth pages -> home
-      if (isAuthRoute) {
+      // If logged in and on auth pages (except splash) -> home
+      if (isAuthRoute && state.matchedLocation != '/') {
         return '/home';
       }
-      
-      // Profile completion check removed to allow Home access
-      // if (isProtectedCore && !isProfileComplete) {
-      //   return '/profile-completion';
-      // }
 
       return null;
     },
@@ -71,6 +69,18 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/signup',
         builder: (context, state) => const SignupScreen(),
+      ),
+      GoRoute(
+        path: '/admin-login',
+        builder: (context, state) => const AdminLoginScreen(),
+      ),
+      GoRoute(
+        path: '/admin-signup',
+        builder: (context, state) => const AdminSignUpScreen(),
+      ),
+      GoRoute(
+        path: '/admin-forgot-password',
+        builder: (context, state) => const AdminForgotPasswordScreen(),
       ),
       GoRoute(
         path: '/onboarding',
@@ -137,6 +147,32 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/event-profile',
         builder: (context, state) => const EventProfileScreen(),
+      ),
+      GoRoute(
+        path: '/admin',
+        builder: (context, state) => const AdminDashboardScreen(initialTab: 0),
+        routes: [
+          GoRoute(
+            path: 'events',
+            builder: (context, state) => const AdminDashboardScreen(initialTab: 1),
+          ),
+          GoRoute(
+            path: 'members',
+            builder: (context, state) => const AdminDashboardScreen(initialTab: 2),
+          ),
+          GoRoute(
+            path: 'speakers',
+            builder: (context, state) => const AdminDashboardScreen(initialTab: 3),
+          ),
+          GoRoute(
+            path: 'sponsors',
+            builder: (context, state) => const AdminDashboardScreen(initialTab: 4),
+          ),
+          GoRoute(
+            path: 'chat',
+            builder: (context, state) => const AdminDashboardScreen(initialTab: 5),
+          ),
+        ],
       ),
     ],
   );

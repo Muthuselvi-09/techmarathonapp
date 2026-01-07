@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../domain/event_models.dart';
+import 'package:tech_marathon_app/features/home/domain/event_models.dart';
 import '../../../profile/presentation/providers/profile_provider.dart';
 import '../../../profile/data/profile_repository.dart';
 

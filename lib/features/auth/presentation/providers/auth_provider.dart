@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../data/auth_repository.dart';
 
 final authControllerProvider = StateNotifierProvider<AuthController, AsyncValue<void>>((ref) {
@@ -25,3 +26,7 @@ class AuthController extends StateNotifier<AsyncValue<void>> {
     state = await AsyncValue.guard(() => _repository.signOut());
   }
 }
+
+final authStateProvider = StreamProvider<User?>((ref) {
+  return ref.watch(authRepositoryProvider).authStateChanges;
+});

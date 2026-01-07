@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/neon_button.dart';
-import '../../../home/domain/models.dart';
+import 'package:tech_marathon_app/features/home/domain/event_models.dart';
 
 class CourseDetailsScreen extends StatelessWidget {
   final CourseModel course;

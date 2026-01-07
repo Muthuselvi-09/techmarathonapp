@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../theme/app_colors.dart';
 import '../../features/auth/presentation/providers/auth_provider.dart';
+import '../../features/profile/presentation/providers/profile_provider.dart';
 import 'event_widgets.dart';
+import '../../features/chat/presentation/pages/admin_chat_page.dart';
 
 class EventDrawer extends ConsumerWidget {
   const EventDrawer({super.key});
@@ -39,7 +41,23 @@ class EventDrawer extends ConsumerWidget {
             _buildNavItem(context, Icons.campaign_outlined, 'Speakers', '/speakers'),
             _buildNavItem(context, Icons.person_outline_rounded, 'Profile', '/profile'),
             _buildNavItem(context, Icons.notifications_none_rounded, 'Notifications', '/notifications'),
-            // Chat item removed as requested
+            ListTile(
+              leading: const Icon(Icons.support_agent_rounded, color: AppColors.codingRimPrimary),
+              title: const Text(
+                'System Support',
+                style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+              ),
+              onTap: () {
+                context.pop();
+                final user = ref.read(authStateProvider).valueOrNull;
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => AdminChatPage(userId: user?.uid ?? 'anonymous_admin'),
+                  ),
+                );
+              },
+            ),
             _buildNavItem(context, Icons.settings_outlined, 'Settings', '/settings'),
             const Spacer(),
             Container(
