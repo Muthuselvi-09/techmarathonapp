@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../features/auth/data/auth_repository.dart';
 import '../../features/events/presentation/pages/all_events_screen.dart';
 import '../../features/home/domain/event_models.dart';
-import '../../features/home/presentation/pages/view_all_screens.dart';
 
 // Import pages
 
@@ -15,7 +15,6 @@ import '../../features/auth/presentation/pages/onboarding_screen.dart';
 import '../../features/auth/presentation/pages/admin_login_screen.dart';
 import '../../features/auth/presentation/pages/admin_signup_screen.dart';
 import '../../features/auth/presentation/pages/admin_forgot_password_screen.dart';
-import '../../features/admin/presentation/pages/admin_dashboard_screen.dart';
 import '../widgets/main_scaffold.dart';
 import '../../features/events/presentation/pages/event_login_screen.dart';
 import '../../features/events/presentation/pages/event_overview_screen.dart';
@@ -31,8 +30,7 @@ import '../../features/settings/presentation/pages/settings_screen.dart';
 import '../../features/profile/presentation/pages/profile_screen.dart';
 import '../../features/profile/presentation/pages/profile_completion_screen.dart';
 import '../../features/profile/presentation/providers/profile_provider.dart';
-
-import '../../features/auth/data/auth_repository.dart';
+import '../../features/admin/presentation/pages/admin_dashboard_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -121,7 +119,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/events',
-        builder: (context, state) => const ViewAllEventsScreen(),
+        builder: (context, state) => const AllEventsScreen(),
       ),
       GoRoute(
         path: '/chat',
@@ -151,29 +149,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/admin',
-        builder: (context, state) => const AdminDashboardScreen(initialTab: 0),
-        routes: [
-          GoRoute(
-            path: 'events',
-            builder: (context, state) => const AdminDashboardScreen(initialTab: 1),
-          ),
-          GoRoute(
-            path: 'members',
-            builder: (context, state) => const AdminDashboardScreen(initialTab: 2),
-          ),
-          GoRoute(
-            path: 'speakers',
-            builder: (context, state) => const AdminDashboardScreen(initialTab: 3),
-          ),
-          GoRoute(
-            path: 'sponsors',
-            builder: (context, state) => const AdminDashboardScreen(initialTab: 4),
-          ),
-          GoRoute(
-            path: 'chat',
-            builder: (context, state) => const AdminDashboardScreen(initialTab: 5),
-          ),
-        ],
+        builder: (context, state) => const AdminDashboardScreen(),
       ),
     ],
   );
