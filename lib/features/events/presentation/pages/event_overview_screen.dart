@@ -5,42 +5,63 @@ import 'package:go_router/go_router.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/event_widgets.dart';
-import '../../data/mock_data.dart';
+import 'package:tech_marathon_app/features/home/presentation/providers/event_stream_providers.dart';
+import 'package:tech_marathon_app/features/home/domain/event_models.dart' as new_speaker;
+import 'package:tech_marathon_app/features/home/domain/event_models.dart' as new_sponsor;
 import 'package:tech_marathon_app/features/home/domain/event_models.dart';
+
 
 class EventOverviewScreen extends ConsumerWidget {
   const EventOverviewScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final event = MockData.currentEvent;
+    final currentEventAsync = ref.watch(currentEventStreamProvider);
+    final speakersAsync = ref.watch(mergedSpeakersProvider);
+    final sponsorsAsync = ref.watch(mergedSponsorsProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: CustomScrollView(
-        slivers: [
-          _buildSliverAppBar(),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildEventTitle(event),
-                  const SizedBox(height: 32),
-                  _buildEntryPass(context),
-                  const SizedBox(height: 48),
-                  _buildParticipantsBanner(context),
-                  const SizedBox(height: 48),
-                  _buildSponsorsSlider(event.sponsors),
-                  const SizedBox(height: 48),
-                  _buildSpeakersList(event.speakers),
-                  const SizedBox(height: 120),
-                ],
+      body: currentEventAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, _) => Center(child: Text('Error: $err', style: const TextStyle(color: Colors.red))),
+        data: (event) {
+          if (event == null) return const Center(child: Text('No active event', style: TextStyle(color: Colors.white38)));
+
+          return CustomScrollView(
+            slivers: [
+              _buildSliverAppBar(),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildEventTitle(event),
+                      const SizedBox(height: 32),
+                      _buildEntryPass(context),
+                      const SizedBox(height: 48),
+                      _buildParticipantsBanner(context),
+                      const SizedBox(height: 48),
+                      sponsorsAsync.when(
+                        data: (sponsors) => _buildSponsorsSlider(sponsors),
+                        loading: () => const CircularProgressIndicator(),
+                        error: (_, __) => const SizedBox.shrink(),
+                      ),
+                      const SizedBox(height: 48),
+                      speakersAsync.when(
+                        data: (speakers) => _buildSpeakersList(speakers),
+                        loading: () => const CircularProgressIndicator(),
+                        error: (_, __) => const SizedBox.shrink(),
+                      ),
+                      const SizedBox(height: 120),
+                    ],
+                  ),
+                ),
               ),
-            ),
-          ),
-        ],
+            ],
+          );
+        },
       ),
     );
   }
@@ -238,7 +259,7 @@ class EventOverviewScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildSponsorsSlider(List<Sponsor> sponsors) {
+  Widget _buildSponsorsSlider(List<new_sponsor.Sponsor> sponsors) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -279,7 +300,7 @@ class EventOverviewScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildSpeakersList(List<Speaker> speakers) {
+  Widget _buildSpeakersList(List<new_speaker.Speaker> speakers) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -297,9 +318,24 @@ class EventOverviewScreen extends ConsumerWidget {
                 padding: const EdgeInsets.all(16),
                 child: Row(
                   children: [
-                    CircleAvatar(
-                      radius: 35,
-                      backgroundImage: NetworkImage(speaker.photoUrl),
+                    Container(
+                      width: 70,
+                      height: 70,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white12,
+                      ),
+                      child: ClipOval(
+                        child: speaker.imageUrl.isNotEmpty
+                            ? Image.network(
+                                speaker.imageUrl,
+                                width: 70,
+                                height: 70,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => const Icon(Icons.person, color: Colors.white),
+                              )
+                            : const Icon(Icons.person, color: Colors.white),
+                      ),
                     ),
                     const SizedBox(width: 20),
                     Expanded(
@@ -315,12 +351,12 @@ class EventOverviewScreen extends ConsumerWidget {
                             ),
                           ),
                           Text(
-                            speaker.company,
+                            speaker.role,
                             style: TextStyle(color: AppColors.primary, fontSize: 12),
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            speaker.topic,
+                            speaker.bio ?? '',
                             style: TextStyle(color: AppColors.textDim, fontSize: 13),
                           ),
                         ],

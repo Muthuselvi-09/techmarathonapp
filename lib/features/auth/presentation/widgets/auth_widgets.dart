@@ -9,35 +9,13 @@ class AnimatedGradientBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        // Base Layer
-        Container(color: const Color(0xFF0F0C29)),
-        
-        // Animated Orbs / Gradients
-        Positioned.fill(
-          child: Opacity(
-            opacity: 0.6,
-            child: Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Color(0xFF6A11CB), // Purple
-                    Color(0xFF2575FC), // Blue
-                    Color(0xFFFF0844), // Pink
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ).animate(onPlay: (controller) => controller.repeat(reverse: true))
-         .shimmer(duration: 5.seconds, color: Colors.white10),
-
-        // Content
-        child,
-      ],
+    return Container(
+      width: double.infinity,
+      height: double.infinity,
+      decoration: const BoxDecoration(
+        gradient: AppColors.backgroundGradient,
+      ),
+      child: child,
     );
   }
 }
@@ -101,15 +79,11 @@ class PremiumGradientButton extends StatelessWidget {
       width: double.infinity,
       height: 60,
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: colors ?? [const Color(0xFF2575FC), const Color(0xFF6A11CB)],
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-        ),
+        gradient: AppColors.codingRimGradient,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: (colors?.first ?? const Color(0xFF2575FC)).withOpacity(0.3),
+            color: AppColors.codingRimPrimary.withOpacity(0.3),
             blurRadius: 15,
             offset: const Offset(0, 8),
           ),

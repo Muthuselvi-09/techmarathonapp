@@ -2,18 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/app_colors.dart';
 
+import 'package:tech_marathon_app/features/home/domain/event_models.dart';
+
 class SpeakerDetailsScreen extends StatelessWidget {
-  final String image;
-  final String name;
-  final String role;
-  final String bio;
+  final Speaker speaker;
 
   const SpeakerDetailsScreen({
     super.key,
-    required this.image,
-    required this.name,
-    required this.role,
-    required this.bio,
+    required this.speaker,
   });
 
   @override
@@ -47,11 +43,14 @@ class SpeakerDetailsScreen extends StatelessWidget {
               child: Stack(
                 children: [
                    Positioned.fill(
-                    child: Image.asset(
-                      image,
-                      fit: BoxFit.cover,
-                      alignment: Alignment.topCenter,
-                    ),
+                    child: speaker.imageUrl.isNotEmpty
+                        ? Image.network(
+                            speaker.imageUrl,
+                            fit: BoxFit.cover,
+                            alignment: Alignment.topCenter,
+                            errorBuilder: (context, error, stackTrace) => Container(color: AppColors.background, child: const Icon(Icons.mic, color: Colors.white24, size: 80)),
+                          )
+                        : Container(color: AppColors.surface, child: const Icon(Icons.person, color: Colors.white24, size: 80)),
                   ),
                   Positioned.fill(
                     child: Container(
@@ -80,7 +79,7 @@ class SpeakerDetailsScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      name,
+                      speaker.name,
                       style: GoogleFonts.outfit(
                         fontSize: 32,
                         fontWeight: FontWeight.bold,
@@ -90,7 +89,7 @@ class SpeakerDetailsScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      role,
+                      speaker.role,
                       style: GoogleFonts.outfit(
                         fontSize: 20,
                         fontWeight: FontWeight.w600,
@@ -99,7 +98,7 @@ class SpeakerDetailsScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      bio,
+                      speaker.bio ?? '',
                       style: GoogleFonts.inter(
                         fontSize: 14,
                         color: AppColors.textDim,
@@ -118,13 +117,25 @@ class SpeakerDetailsScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'An industry expert with over 10 years of experience in $role. Leading innovation and passionate about sharing knowledge with the community.',
+                      'An industry expert sharing insights and knowledge with the community at the event.',
                       style: GoogleFonts.inter(
                         fontSize: 16,
                         color: AppColors.textSecondary,
                         height: 1.6,
                       ),
                     ),
+                    const SizedBox(height: 32),
+                    if (speaker.linkedinUrl.isNotEmpty)
+                      ElevatedButton.icon(
+                        onPressed: () {}, // Link launching handled elsewhere or add here
+                        icon: const Icon(Icons.link, size: 18),
+                        label: const Text('View LinkedIn Profile'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.black,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
                   ],
                 ),
               ),

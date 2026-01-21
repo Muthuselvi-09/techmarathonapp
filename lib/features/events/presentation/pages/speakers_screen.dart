@@ -6,6 +6,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/event_drawer.dart';
 import 'package:tech_marathon_app/features/home/domain/event_models.dart';
 import '../../../profile/presentation/providers/profile_provider.dart';
+import 'package:tech_marathon_app/features/home/presentation/providers/event_stream_providers.dart';
 
 class SpeakersScreen extends ConsumerWidget {
   const SpeakersScreen({super.key});
@@ -75,25 +76,34 @@ class SpeakersScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 16),
-            _buildSpeakerCard(
-              'Dr. Sarah Johnson',
-              'Keynote Speaker',
-              'assets/images/speaker1.png',
-              'AI in Modern Tech',
-            ),
-            const SizedBox(height: 20),
-            _buildSpeakerCard(
-              'Michael Chen',
-              'Tech Lead, Google',
-              'assets/images/speaker2.png',
-              'Flutter Architecture',
-            ),
-            const SizedBox(height: 20),
-            _buildSpeakerCard(
-              'Emily Davis',
-              'Product Designer',
-              'assets/images/speaker3.png',
-              'UX/UI Principles',
+            ref.watch(mergedSpeakersProvider).when(
+              data: (speakers) {
+                if (speakers.isEmpty) {
+                  return const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(40.0),
+                      child: Text('No speakers registered for this event.', style: TextStyle(color: Colors.white38)),
+                    ),
+                  );
+                }
+                return ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: speakers.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 20),
+                  itemBuilder: (context, index) {
+                    final speaker = speakers[index];
+                    return _buildSpeakerCard(
+                      speaker.name,
+                      speaker.role,
+                      speaker.imageUrl,
+                      speaker.topic,
+                    );
+                  },
+                );
+              },
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (err, _) => Center(child: Text('Error: $err', style: const TextStyle(color: Colors.red))),
             ),
           ],
         ),
@@ -177,12 +187,16 @@ class SpeakersScreen extends ConsumerWidget {
             height: 80,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              image: DecorationImage(
-                image: AssetImage(imageUrl),
-                fit: BoxFit.cover,
-              ),
+              image: imageUrl.isNotEmpty
+                ? DecorationImage(
+                    image: NetworkImage(imageUrl),
+                    fit: BoxFit.cover,
+                  )
+                : null,
+              color: Colors.white12,
               border: Border.all(color: AppColors.primary.withValues(alpha: 0.5), width: 2),
             ),
+            child: imageUrl.isEmpty ? const Icon(Icons.mic, color: Colors.white24) : null,
           ),
           const SizedBox(width: 20),
           Expanded(

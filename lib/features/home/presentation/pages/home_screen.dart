@@ -1,25 +1,29 @@
+// Sync version: 2026-01-09-15-45
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart'; // Direct import for robust check
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../events/data/mock_data.dart';
-import '../../../profile/presentation/providers/profile_provider.dart';
+
+import 'package:tech_marathon_app/features/profile/presentation/providers/profile_provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import '../../../auth/data/auth_repository.dart';
-import '../../../auth/data/user_repository.dart';
-import '../../../../core/widgets/event_drawer.dart';
-import '../../../admin/data/admin_repository.dart'; // Import AdminRepo for real data
-import '../../../admin/presentation/providers/optimistic_state_provider.dart'; // Import optimistic state
+import 'package:tech_marathon_app/features/auth/data/auth_repository.dart';
+import 'package:tech_marathon_app/features/auth/data/user_repository.dart';
+import 'package:tech_marathon_app/core/widgets/event_drawer.dart';
+import 'package:tech_marathon_app/features/admin/data/admin_repository.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../../presentation/providers/search_provider.dart';
-import '../../data/search_repository.dart';
-import '../../../core/services/location_service.dart';
-import '../../domain/event_models.dart';
-import '../../data/proximity_repository.dart';
-import '../../../core/models/user_location.dart';
-import '../../../core/providers/user_location_provider.dart';
+import 'package:tech_marathon_app/features/home/presentation/providers/search_provider.dart';
+import 'package:tech_marathon_app/features/home/data/search_repository.dart';
+import 'package:tech_marathon_app/features/core/services/location_service.dart';
+import 'package:tech_marathon_app/features/home/domain/event_models.dart';
+import 'package:tech_marathon_app/features/home/data/proximity_repository.dart';
+import 'package:tech_marathon_app/features/core/models/user_location.dart';
+import 'package:tech_marathon_app/features/core/providers/user_location_provider.dart';
+import 'package:tech_marathon_app/core/providers.dart';
+import 'package:tech_marathon_app/features/home/domain/event_models.dart' as new_speaker;
+import 'package:tech_marathon_app/features/home/domain/event_models.dart' as new_sponsor;
+
 import 'sponsor_details_screen.dart';
 import 'speaker_details_screen.dart';
 import 'schedule_details_screen.dart';
@@ -27,6 +31,11 @@ import 'event_info_screen.dart';
 import 'food_course_screen.dart';
 import '../../../chat/presentation/pages/admin_chat_page.dart';
 import 'view_all_screens.dart'; // Import ViewAll screens
+
+
+import 'package:tech_marathon_app/features/home/presentation/providers/event_stream_providers.dart';
+import 'package:tech_marathon_app/features/home/presentation/providers/branding_provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -57,8 +66,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void _listenToLocation() {
     ref.listen(userLocationProvider, (previous, next) {
       final user = ref.read(authStateProvider).valueOrNull;
-      if (user != null && next.value != null) {
-        ref.read(userRepositoryProvider).updateLocation(user.uid, next.value!.toMap());
+      final location = next.value;
+      if (user != null && location != null) {
+        ref.read(userRepositoryProvider).updateLocation(user.uid, location.toMap());
       }
     });
   }
@@ -76,50 +86,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
 
 // Enhanced providers with optimistic state merging
-final currentEventStreamProvider = StreamProvider<CodingEvent?>((ref) {
-  final firestoreEvents = ref.watch(adminRepositoryProvider).watchEvents();
-  final optimisticEvents = ref.watch(optimisticEventsProvider);
-  
-  return firestoreEvents.map((events) {
-    // Merge optimistic events with Firestore events
-    final allEvents = [...optimisticEvents, ...events];
-    if (allEvents.isEmpty) return null;
-    return allEvents.first;
-  });
-});
-
-final mergedSpeakersProvider = StreamProvider<List<Speaker>>((ref) {
-  final firestoreSpeakers = ref.watch(adminRepositoryProvider).watchSpeakers();
-  final optimisticSpeakers = ref.watch(optimisticSpeakersProvider);
-  
-  return firestoreSpeakers.map((speakers) {
-    // Merge optimistic with Firestore, avoiding duplicates
-    final merged = <String, Speaker>{};
-    for (final s in speakers) {
-      merged[s.id] = s;
-    }
-    for (final s in optimisticSpeakers) {
-      merged[s.id] = s; // Optimistic overrides Firestore
-    }
-    return merged.values.toList();
-  });
-});
-
-final mergedSponsorsProvider = StreamProvider<List<Sponsor>>((ref) {
-  final firestoreSponsors = ref.watch(adminRepositoryProvider).watchSponsors();
-  final optimisticSponsors = ref.watch(optimisticSponsorsProvider);
-  
-  return firestoreSponsors.map((sponsors) {
-    final merged = <String, Sponsor>{};
-    for (final s in sponsors) {
-      merged[s.id] = s;
-    }
-    for (final s in optimisticSponsors) {
-      merged[s.id] = s;
-    }
-    return merged.values.toList();
-  });
-});
+// Enhanced providers using proper Repository pattern and Event ID dependency
 
 
   @override
@@ -145,26 +112,28 @@ final mergedSponsorsProvider = StreamProvider<List<Sponsor>>((ref) {
                   const SizedBox(height: 24),
                   _buildLocationAndSearch(
                     locationAsync.when(
-                      data: (loc) => loc != null ? '${loc.area}, ${loc.city}' : (currentEventAsync.value?.location ?? MockData.currentEvent.location),
+                      data: (loc) => loc != null ? '${loc.area}, ${loc.city}' : (currentEventAsync.value?.location ?? 'Unknown Location'),
                       loading: () => 'Detecting location...',
-                      error: (_, __) => currentEventAsync.value?.location ?? MockData.currentEvent.location,
+                      error: (_, __) => currentEventAsync.value?.location ?? 'Unknown Location',
                     ),
                   ),
                   const SizedBox(height: 24),
                   _buildProfileCompletionBanner(),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 32),
+                  _buildEventsSection(),
+                  const SizedBox(height: 48),
+                  _buildSponsorsSection(),
+                  const SizedBox(height: 48),
                   _buildSliderCards(),
                   const SizedBox(height: 32),
                   _buildParticipantsBanner(context),
                   const SizedBox(height: 32),
                   _buildJoinMembersList(),
                   const SizedBox(height: 48),
-                  _buildSponsorsSection(),
-                  const SizedBox(height: 48),
                   _buildZhaCommerceBanner(),
                   const SizedBox(height: 48),
                   _buildSpeakersSection(),
-                  const SizedBox(height: 120), // Extra space for bottom nav
+                  const SizedBox(height: 120),
                 ],
               ),
             ),
@@ -229,28 +198,37 @@ final mergedSponsorsProvider = StreamProvider<List<Sponsor>>((ref) {
                        );
                        context.push('/member-profile', extra: member);
                      } else if (result.type == 'Sponsor') {
+                       final sponsor = new_sponsor.Sponsor(
+                         id: result.id,
+                         eventId: result.data['eventId'] ?? '',
+                         name: result.data['name'] ?? '',
+                         tier: result.data['tier'] ?? 'Gold',
+                         company: result.data['company'] ?? result.data['tier'] ?? 'Gold',
+                         logoUrl: result.data['logoUrl'] ?? '',
+                         websiteUrl: result.data['websiteUrl'] ?? '',
+                       );
                        Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => SponsorDetailsScreen(
-                            image: result.data['logoUrl'] ?? '',
-                            name: result.data['name'] ?? '',
-                            description: result.data['company'] ?? '',
-                          ),
-                        ),
-                      );
+                         context,
+                         MaterialPageRoute(
+                           builder: (context) => SponsorDetailsScreen(sponsor: sponsor),
+                         ),
+                       );
                      } else if (result.type == 'Speaker') {
+                       final speaker = new_speaker.Speaker(
+                         id: result.id,
+                         eventId: result.data['eventId'] ?? '',
+                         name: result.data['name'] ?? '',
+                         imageUrl: result.data['imageUrl'] ?? result.data['photoUrl'] ?? '',
+                         role: result.data['role'] ?? result.data['topic'] ?? '',
+                         bio: result.data['bio'] ?? result.data['company'] ?? '',
+                         linkedinUrl: result.data['linkedinUrl'] ?? result.data['linkedInUrl'] ?? '',
+                       );
                        Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => SpeakerDetailsScreen(
-                            image: result.data['photoUrl'] ?? 'assets/images/speaker1.png',
-                            name: result.data['name'] ?? '',
-                            role: result.data['topic'] ?? '',
-                            bio: result.data['company'] ?? '',
-                          ),
-                        ),
-                      );
+                         context,
+                         MaterialPageRoute(
+                           builder: (context) => SpeakerDetailsScreen(speaker: speaker),
+                         ),
+                       );
                      }
                   },
                 );
@@ -336,50 +314,120 @@ final mergedSponsorsProvider = StreamProvider<List<Sponsor>>((ref) {
     ).animate().fadeIn().slideY(begin: 0.2, end: 0, duration: 600.ms, curve: Curves.easeOut);
   }
 
-  // Refactored to standard Widget to scroll with the page
   Widget _buildHeader(BuildContext context) {
+    final brandingAsync = ref.watch(brandingProvider);
+    
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 8.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Builder(
-            builder: (context) => IconButton(
-              icon: const Icon(Icons.menu_rounded, color: AppColors.textPrimary),
-              onPressed: () => Scaffold.of(context).openDrawer(),
+      child: brandingAsync.when(
+        data: (branding) => Stack(
+          alignment: Alignment.center,
+          children: [
+            // Left: Menu
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Builder(
+                builder: (context) => IconButton(
+                  icon: const Icon(Icons.menu_rounded, color: AppColors.textPrimary),
+                  onPressed: () => Scaffold.of(context).openDrawer(),
+                ),
+              ),
             ),
-          ),
-          Text(
-            'CODING RIM',
-            style: GoogleFonts.outfit(
-              fontWeight: FontWeight.w900,
-              letterSpacing: 2,
-              fontSize: 16,
-              color: AppColors.textPrimary,
+            
+            // Center: Company Name
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 100.0), // More space to avoid logo overlap
+              child: Center(
+                child: Container(
+                  constraints: const BoxConstraints(maxWidth: 180),
+                  child: Text(
+                    branding.companyName.toUpperCase(),
+                    textAlign: TextAlign.center,
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                    style: GoogleFonts.outfit(
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 2,
+                      fontSize: 16,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ),
+              ),
             ),
-          ),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconButton(
+            
+            // Right: Logo + Actions
+            Align(
+              alignment: Alignment.centerRight,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (branding.companyLogoUrl != null && branding.companyLogoUrl!.isNotEmpty) ...[
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 50), // Allow wider logos, up to 50px
+                      child: CachedNetworkImage(
+                        imageUrl: branding.companyLogoUrl!,
+                        height: 24,
+                        fit: BoxFit.contain,
+                        placeholder: (_, __) => const SizedBox(width: 24, height: 24),
+                        errorWidget: (_, __, ___) => const SizedBox.shrink(),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                  ],
+                  IconButton(
+                    icon: const Icon(Icons.admin_panel_settings_outlined, color: AppColors.textPrimary),
+                    onPressed: () {
+                      final user = FirebaseAuth.instance.currentUser;
+                      if (user != null) {
+                        context.push('/admin');
+                      } else {
+                        context.push('/admin-login');
+                      }
+                    },
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.notifications_outlined, color: AppColors.textPrimary),
+                    onPressed: () => context.push('/notifications'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        loading: () => const Center(
+          child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+        ),
+        error: (_, __) => Stack(
+          alignment: Alignment.center,
+          children: [
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Builder(
+                builder: (context) => IconButton(
+                  icon: const Icon(Icons.menu_rounded, color: AppColors.textPrimary),
+                  onPressed: () => Scaffold.of(context).openDrawer(),
+                ),
+              ),
+            ),
+            Text(
+              'EVENT APP',
+              style: GoogleFonts.outfit(
+                fontWeight: FontWeight.w900,
+                letterSpacing: 2,
+                fontSize: 16,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            Align(
+              alignment: Alignment.centerRight,
+              child: IconButton(
                 icon: const Icon(Icons.admin_panel_settings_outlined, color: AppColors.textPrimary),
-                onPressed: () {
-                  // Direct SDK check to avoid provider stream latency/conflicts
-                  final user = FirebaseAuth.instance.currentUser;
-                  if (user != null) {
-                    context.push('/admin'); // Correct route path per internal router
-                  } else {
-                    context.push('/admin-login');
-                  }
-                },
+                onPressed: () => context.push('/admin-login'),
               ),
-              IconButton(
-                icon: const Icon(Icons.notifications_outlined, color: AppColors.textPrimary),
-                onPressed: () => context.push('/notifications'),
-              ),
-            ],
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -425,6 +473,164 @@ final mergedSponsorsProvider = StreamProvider<List<Sponsor>>((ref) {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildEventsSection() {
+    final allEventsAsync = ref.watch(allEventsStreamProvider);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'EVENTS',
+                style: GoogleFonts.outfit(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 14,
+                  letterSpacing: 2,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              TextButton(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ViewAllEventsScreen()),
+                ),
+                child: Text(
+                  'VIEW ALL',
+                  style: GoogleFonts.inter(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        SizedBox(
+          height: 220,
+          child: allEventsAsync.when(
+            data: (events) {
+              if (events.isEmpty) {
+                return const Center(child: Text('No events found', style: TextStyle(color: Colors.white38)));
+              }
+              return ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: events.length,
+                itemBuilder: (context, index) {
+                  final event = events[index];
+                  return Container(
+                    width: 280,
+                    margin: const EdgeInsets.symmetric(horizontal: 8),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: Colors.white.withOpacity(0.05)),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(24),
+                      child: Stack(
+                        children: [
+                          if (event.imageUrl.isNotEmpty)
+                            Positioned.fill(
+                              child: Image.network(
+                                event.imageUrl,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Container(
+                                  color: Colors.white12,
+                                  child: const Center(child: Icon(Icons.event_note, color: Colors.white10, size: 40)),
+                                ),
+                              ),
+                            )
+                          else
+                             Positioned.fill(
+                              child: Container(
+                                color: Colors.white12,
+                                child: const Center(child: Icon(Icons.event_note, color: Colors.white10, size: 40)),
+                              ),
+                            ),
+                          Positioned.fill(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.bottomCenter,
+                                  end: Alignment.topCenter,
+                                  colors: [
+                                    Colors.black.withOpacity(0.8),
+                                    Colors.black.withOpacity(0.2),
+                                    Colors.transparent,
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(24),
+                              onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => EventInfoScreen(eventId: event.id),
+                                ),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(20),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  children: [
+                                    Text(
+                                      event.name,
+                                      style: GoogleFonts.outfit(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.location_on, size: 12, color: AppColors.primary),
+                                        const SizedBox(width: 4),
+                                        Expanded(
+                                          child: Text(
+                                            event.location,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: GoogleFonts.inter(
+                                              fontSize: 10,
+                                              color: Colors.white70,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (err, _) => Center(child: Text('Error: $err', style: TextStyle(color: AppColors.error))),
+          ),
+        ),
+      ],
     );
   }
 
@@ -661,15 +867,20 @@ final mergedSponsorsProvider = StreamProvider<List<Sponsor>>((ref) {
                               shape: BoxShape.circle,
                               border: Border.all(color: AppColors.primary.withOpacity(0.5)),
                             ),
-                            child: CircleAvatar(
-                              radius: 30,
-                              backgroundImage: member.profileImage != null && member.profileImage!.isNotEmpty
-                                  ? NetworkImage(member.profileImage!)
-                                  : null,
-                              backgroundColor: AppColors.surface,
-                              child: member.profileImage == null || member.profileImage!.isEmpty
-                                  ? const Icon(Icons.person, color: AppColors.textDim)
-                                  : null,
+                            child: Builder(
+                              builder: (context) {
+                                final String? imageUrl = member.profileImage;
+                                return CircleAvatar(
+                                  radius: 30,
+                                  backgroundImage: (imageUrl != null && imageUrl.isNotEmpty)
+                                      ? NetworkImage(imageUrl)
+                                      : null,
+                                  backgroundColor: AppColors.surface,
+                                  child: (imageUrl == null || imageUrl.isEmpty)
+                                      ? const Icon(Icons.person, color: AppColors.textDim)
+                                      : null,
+                                );
+                              }
                             ),
                           ),
                           const SizedBox(height: 8),
@@ -735,7 +946,7 @@ final mergedSponsorsProvider = StreamProvider<List<Sponsor>>((ref) {
           height: 200,
           child: mergedSponsorsAsync.when(
             data: (mergedSponsors) {
-              final allSponsors = [...MockData.currentEvent.sponsors, ...mergedSponsors];
+              final allSponsors = mergedSponsors;
 
               if (allSponsors.isEmpty) {
                  return const Center(child: Text('No sponsors yet', style: TextStyle(color: Colors.white38)));
@@ -763,11 +974,7 @@ final mergedSponsorsProvider = StreamProvider<List<Sponsor>>((ref) {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => SponsorDetailsScreen(
-                                  image: sponsor.logoUrl,
-                                  name: sponsor.name,
-                                  description: sponsor.company,
-                                ),
+                                builder: (context) => SponsorDetailsScreen(sponsor: sponsor),
                               ),
                             );
                           },
@@ -788,12 +995,12 @@ final mergedSponsorsProvider = StreamProvider<List<Sponsor>>((ref) {
                                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white),
                               ),
                               Text(
-                                sponsor.company,
+                                sponsor.tier,
                                 style: TextStyle(color: AppColors.textDim, fontSize: 10),
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                sponsor.jobPosition,
+                                sponsor.websiteUrl,
                                 style: const TextStyle(fontSize: 10, color: AppColors.primary),
                               ),
                             ],
@@ -801,11 +1008,11 @@ final mergedSponsorsProvider = StreamProvider<List<Sponsor>>((ref) {
                         ),
                       ),
                     );
-                },
-              );
+              },
+            );
             },
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (err, _) => Center(child: Text('Error loading sponsors', style: TextStyle(color: AppColors.error))),
+            error: (err, _) => Center(child: Text('Error loading sponsors: $err', style: TextStyle(color: AppColors.error))),
           ),
         ),
       ],
@@ -858,12 +1065,6 @@ final mergedSponsorsProvider = StreamProvider<List<Sponsor>>((ref) {
 
   Widget _buildSpeakersSection() {
     final mergedSpeakersAsync = ref.watch(mergedSpeakersProvider);
-    final speakerImages = [
-      'assets/images/speaker1.png',
-      'assets/images/speaker2.png',
-      'assets/images/speaker3.png',
-    ];
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -893,7 +1094,7 @@ final mergedSponsorsProvider = StreamProvider<List<Sponsor>>((ref) {
           height: 240,
           child: mergedSpeakersAsync.when(
             data: (mergedSpeakers) {
-              final allSpeakers = [...MockData.currentEvent.speakers, ...mergedSpeakers];
+              final allSpeakers = mergedSpeakers;
 
               if (allSpeakers.isEmpty) {
                  return const Center(child: Text('No speakers yet', style: TextStyle(color: Colors.white38)));
@@ -906,8 +1107,8 @@ final mergedSponsorsProvider = StreamProvider<List<Sponsor>>((ref) {
                 itemCount: allSpeakers.length,
                 itemBuilder: (context, index) {
                 final speaker = allSpeakers[index];
-                final imageAsset = speaker.photoUrl.isNotEmpty ? speaker.photoUrl : speakerImages[index % speakerImages.length];
-                final isNetwork = speaker.photoUrl.isNotEmpty;
+                final imageAsset = speaker.imageUrl;
+                final isNetwork = speaker.imageUrl.isNotEmpty;
                 
                 return Container(
                   width: 200,
@@ -924,20 +1125,27 @@ final mergedSponsorsProvider = StreamProvider<List<Sponsor>>((ref) {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => SpeakerDetailsScreen(
-                              image: imageAsset,
-                              name: speaker.name,
-                              role: speaker.topic,
-                              bio: speaker.bio ?? '',
-                            ),
+                            builder: (context) => SpeakerDetailsScreen(speaker: speaker),
                           ),
                         );
                       },
                       child: Stack(
                         children: [
                           isNetwork 
-                            ? Image.network(imageAsset, height: double.infinity, width: double.infinity, fit: BoxFit.cover, errorBuilder: (_,__,___) => Container(color: Colors.grey))
-                            : Image.asset(imageAsset, height: double.infinity, width: double.infinity, fit: BoxFit.cover),
+                            ? Image.network(
+                                imageAsset, 
+                                height: double.infinity, 
+                                width: double.infinity, 
+                                fit: BoxFit.cover, 
+                                errorBuilder: (_,__,___) => Container(
+                                  color: Colors.white12,
+                                  child: const Icon(Icons.person, color: Colors.white24, size: 50),
+                                ),
+                              )
+                            : Container(
+                                color: Colors.white12,
+                                child: const Icon(Icons.person, color: Colors.white24, size: 50),
+                              ),
                           Container(
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
@@ -958,12 +1166,12 @@ final mergedSponsorsProvider = StreamProvider<List<Sponsor>>((ref) {
                                   style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
                                 ),
                                 Text(
-                                  speaker.company,
+                                  speaker.role, // Use role
                                   style: const TextStyle(fontSize: 10, color: AppColors.primary),
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  speaker.topic,
+                                  speaker.bio ?? '', // Bio provided
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(fontSize: 10, color: Colors.white70),

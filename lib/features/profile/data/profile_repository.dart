@@ -105,10 +105,9 @@ class ProfileRepository {
         .collection('chats')
         .doc(chatId)
         .collection('messages')
-        .orderBy('timestamp', descending: true)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs.map((doc) {
+      final messages = snapshot.docs.map((doc) {
         final data = doc.data();
         return ChatMessage(
           text: data['text'] ?? '',
@@ -116,6 +115,10 @@ class ProfileRepository {
           timestamp: (data['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
         );
       }).toList();
+      
+      // Sort in-memory by timestamp descending
+      messages.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+      return messages;
     });
   }
 

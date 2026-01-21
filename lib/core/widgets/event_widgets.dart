@@ -16,35 +16,26 @@ class BrandHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     // Cross-platform safe image loading
     // On Web, absolute filesystem paths are not accessible and Image.file is not supported.
-    if (kIsWeb) {
-      return Text(
-        showZhaCommerce ? 'ZhaCommerce' : 'CODING RIM',
-        style: GoogleFonts.outfit(
-          fontWeight: FontWeight.w900,
-          color: AppColors.textPrimary,
-          fontSize: 20,
-          letterSpacing: 2,
+    // Simplified branding to avoid hardcoded absolute logic
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          showZhaCommerce ? Icons.business_center_rounded : Icons.code_rounded,
+          color: AppColors.codingRimPrimary,
+          size: 28,
         ),
-      );
-    }
-
-    // On Mobile/Desktop platforms where dart:io is supported
-    return Image.file(
-      io.File(showZhaCommerce 
-        ? '/Users/zhacommerce/.gemini/antigravity/brain/596e026f-fb7b-4abb-bd6d-27a077ef7775/uploaded_image_0_1766472268564.png'
-        : '/Users/zhacommerce/.gemini/antigravity/brain/596e026f-fb7b-4abb-bd6d-27a077ef7775/uploaded_image_1_1766472268564.jpg'
-      ),
-      height: 40,
-      fit: BoxFit.contain,
-      errorBuilder: (context, error, stackTrace) => Text(
-        showZhaCommerce ? 'ZhaCommerce' : 'CODING RIM',
-        style: GoogleFonts.outfit(
-          fontWeight: FontWeight.w900,
-          color: AppColors.textPrimary,
-          fontSize: 20,
-          letterSpacing: 2,
+        const SizedBox(width: 12),
+        Text(
+          showZhaCommerce ? 'ZhaCommerce' : 'CODING RIM',
+          style: GoogleFonts.outfit(
+            fontWeight: FontWeight.w900,
+            color: AppColors.textPrimary,
+            fontSize: 20,
+            letterSpacing: 2,
+          ),
         ),
-      ),
+      ],
     );
   }
 }

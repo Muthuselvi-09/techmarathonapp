@@ -103,11 +103,17 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
                         ),
                       ],
                     ),
-                    child: ClipRRect(
-                      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(60)),
-                      child: Image.network(
-                        'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1000&auto=format&fit=crop',
-                        fit: BoxFit.cover,
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Color(0xFF8B1874), Color(0xFF2C0A4B)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.vertical(bottom: Radius.circular(60)),
+                      ),
+                      child: const Center(
+                        child: Icon(Icons.admin_panel_settings, size: 80, color: Colors.white10),
                       ),
                     ),
                   ).animate().fadeIn(duration: 1.seconds).slideY(begin: -0.2, end: 0, curve: Curves.easeOutCubic),

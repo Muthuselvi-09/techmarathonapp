@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../events/data/mock_data.dart';
+import 'package:tech_marathon_app/features/home/presentation/providers/event_stream_providers.dart';
 
 class MyEventsScreen extends ConsumerStatefulWidget {
   const MyEventsScreen({super.key});
@@ -33,15 +33,17 @@ class _MyEventsScreenState extends ConsumerState<MyEventsScreen> {
       final doc = await _firestore.collection('users').doc(userId).get();
       final data = doc.data();
       if (data != null && data['registeredEvents'] != null) {
-        setState(() {
-          _registeredEventIds = Set<String>.from(data['registeredEvents']);
-          _isLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            _registeredEventIds = Set<String>.from(data['registeredEvents']);
+            _isLoading = false;
+          });
+        }
       } else {
-        setState(() => _isLoading = false);
+        if (mounted) setState(() => _isLoading = false);
       }
     } catch (e) {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -54,9 +56,11 @@ class _MyEventsScreenState extends ConsumerState<MyEventsScreen> {
         'registeredEvents': FieldValue.arrayUnion([eventId]),
       }, SetOptions(merge: true));
 
-      setState(() {
-        _registeredEventIds.add(eventId);
-      });
+      if (mounted) {
+        setState(() {
+          _registeredEventIds.add(eventId);
+        });
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -80,7 +84,8 @@ class _MyEventsScreenState extends ConsumerState<MyEventsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final event = MockData.currentEvent;
+    // Watch all events from repository instead of just one if we want "Available Events"
+    final currentEventAsync = ref.watch(currentEventStreamProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -104,48 +109,60 @@ class _MyEventsScreenState extends ConsumerState<MyEventsScreen> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'AVAILABLE EVENTS',
-                    style: GoogleFonts.outfit(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 12,
-                      letterSpacing: 2,
-                      color: AppColors.textDim,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  _buildEventCard(
-                    eventId: 'event_001',
-                    eventName: event.name,
-                    eventDate: '${event.date.day}/${event.date.month}/${event.date.year}',
-                    location: event.location,
-                  ),
-                  const SizedBox(height: 32),
-                  if (_registeredEventIds.isNotEmpty) ...[
-                    Text(
-                      'MY REGISTERED EVENTS',
-                      style: GoogleFonts.outfit(
-                        fontWeight: FontWeight.w900,
-                        fontSize: 12,
-                        letterSpacing: 2,
-                        color: AppColors.textDim,
+          : currentEventAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (err, _) => Center(child: Text('Error: $err', style: const TextStyle(color: Colors.red))),
+              data: (activeEvent) {
+                if (activeEvent == null) {
+                  return const Center(child: Text('No active events available', style: TextStyle(color: Colors.white54)));
+                }
+
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'AVAILABLE EVENTS',
+                        style: GoogleFonts.outfit(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 12,
+                          letterSpacing: 2,
+                          color: AppColors.textDim,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    ..._registeredEventIds.map((eventId) => _buildRegisteredEventCard(
-                          eventId: eventId,
-                          eventName: event.name,
-                          eventDate: '${event.date.day}/${event.date.month}/${event.date.year}',
-                          location: event.location,
-                        )),
-                  ],
-                ],
-              ),
+                      const SizedBox(height: 16),
+                      _buildEventCard(
+                        eventId: activeEvent.id,
+                        eventName: activeEvent.name,
+                        eventDate: '${activeEvent.date.day}/${activeEvent.date.month}/${activeEvent.date.year}',
+                        location: activeEvent.location,
+                      ),
+                      const SizedBox(height: 32),
+                      if (_registeredEventIds.isNotEmpty) ...[
+                        Text(
+                          'MY REGISTERED EVENTS',
+                          style: GoogleFonts.outfit(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 12,
+                            letterSpacing: 2,
+                            color: AppColors.textDim,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        // For now we only show the card if it matches the current active event or is in the list
+                        if (_registeredEventIds.contains(activeEvent.id))
+                          _buildRegisteredEventCard(
+                            eventId: activeEvent.id,
+                            eventName: activeEvent.name,
+                            eventDate: '${activeEvent.date.day}/${activeEvent.date.month}/${activeEvent.date.year}',
+                            location: activeEvent.location,
+                          ),
+                      ],
+                    ],
+                  ),
+                );
+              },
             ),
     );
   }

@@ -48,9 +48,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         ),
         title: Row(
           children: [
-            const CircleAvatar(
+            CircleAvatar(
               radius: 16,
-              backgroundImage: NetworkImage('https://images.unsplash.com/photo-1539571696357-5a69c17a67c6'),
+              backgroundImage: (widget.otherUser.profileImage != null && widget.otherUser.profileImage!.isNotEmpty)
+                  ? NetworkImage(widget.otherUser.profileImage!)
+                  : null,
+              child: (widget.otherUser.profileImage == null || widget.otherUser.profileImage!.isEmpty)
+                  ? const Icon(Icons.person, size: 16)
+                  : null,
             ),
             const SizedBox(width: 12),
             Column(

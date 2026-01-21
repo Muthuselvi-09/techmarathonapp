@@ -7,8 +7,6 @@ import '../../../../core/widgets/neon_button.dart';
 import '../providers/profile_provider.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../data/profile_repository.dart';
-import 'package:image_picker/image_picker.dart';
-import '../../data/profile_repository.dart';
 
 class ProfileCompletionScreen extends ConsumerStatefulWidget {
   const ProfileCompletionScreen({super.key});

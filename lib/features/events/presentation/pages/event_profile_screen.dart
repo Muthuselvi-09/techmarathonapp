@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../profile/presentation/providers/profile_provider.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/event_drawer.dart';
 
@@ -11,70 +13,100 @@ class EventProfileScreen extends StatefulWidget {
 }
 
 class _EventProfileScreenState extends State<EventProfileScreen> {
-  final _nameController = TextEditingController(text: 'Alex Johnson');
-  final _emailController = TextEditingController(text: 'alex.j@example.com');
-  final _mobileController = TextEditingController(text: '+1 234 567 8900');
-  final _ageController = TextEditingController(text: '28');
+  late TextEditingController _nameController;
+  late TextEditingController _emailController;
+  late TextEditingController _mobileController;
+  late TextEditingController _ageController;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController();
+    _emailController = TextEditingController();
+    _mobileController = TextEditingController();
+    _ageController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _mobileController.dispose();
+    _ageController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      drawer: const EventDrawer(),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
-          onPressed: () {
-            Navigator.pop(context);
-          },
-        ),
-        centerTitle: true,
-        title: Text('PROFILE', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, letterSpacing: 2)),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            // Profile Progress
-            _buildProgressCard(),
-            const SizedBox(height: 32),
-            
-            // Profile Form
-            _buildProfileImage(),
-            const SizedBox(height: 40),
-            
-            _buildEditableField('Full Name', _nameController, Icons.person_outline),
-            const SizedBox(height: 16),
-            _buildEditableField('Email Address', _emailController, Icons.alternate_email_rounded),
-            const SizedBox(height: 16),
-            _buildEditableField('Mobile Number', _mobileController, Icons.phone_android_rounded),
-            const SizedBox(height: 16),
-            _buildEditableField('Age', _ageController, Icons.calendar_month_outlined),
-            
-            const SizedBox(height: 48),
-            
-            SizedBox(
-              width: double.infinity,
-              height: 56,
-              child: ElevatedButton(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Profile Updated Successfully!'), backgroundColor: AppColors.success),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.black,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                ),
-                child: const Text('SAVE CHANGES', style: TextStyle(fontWeight: FontWeight.bold)),
-              ),
+    return Consumer(
+      builder: (context, ref, child) {
+        final profile = ref.watch(profileProvider);
+        final user = profile.user;
+
+        if (user != null) {
+          if (_nameController.text.isEmpty) _nameController.text = user.name;
+          if (_emailController.text.isEmpty) _emailController.text = user.email;
+          // _mobileController and _ageController could be added to model if available
+        }
+        return Scaffold(
+          backgroundColor: AppColors.background,
+          drawer: const EventDrawer(),
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+              onPressed: () {
+                Navigator.pop(context);
+              },
             ),
-          ],
-        ),
-      ),
+            centerTitle: true,
+            title: Text('PROFILE', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, letterSpacing: 2)),
+          ),
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              children: [
+                // Profile Progress
+                _buildProgressCard(),
+                const SizedBox(height: 32),
+                
+                // Profile Form
+                _buildProfileImage(),
+                const SizedBox(height: 40),
+                
+                _buildEditableField('Full Name', _nameController, Icons.person_outline),
+                const SizedBox(height: 16),
+                _buildEditableField('Email Address', _emailController, Icons.alternate_email_rounded),
+                const SizedBox(height: 16),
+                _buildEditableField('Mobile Number', _mobileController, Icons.phone_android_rounded),
+                const SizedBox(height: 16),
+                _buildEditableField('Age', _ageController, Icons.calendar_month_outlined),
+                
+                const SizedBox(height: 48),
+                
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Profile Updated Successfully!'), backgroundColor: AppColors.success),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.black,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    ),
+                    child: const Text('SAVE CHANGES', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -131,7 +163,7 @@ class _EventProfileScreenState extends State<EventProfileScreen> {
           ),
           child: const CircleAvatar(
             radius: 60,
-            backgroundImage: NetworkImage('https://images.unsplash.com/photo-1539571696357-5a69c17a67c6'),
+            child: Icon(Icons.person, size: 60),
           ),
         ),
         Positioned(

@@ -93,6 +93,7 @@ class _AdminSignUpScreenState extends State<AdminSignUpScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -101,118 +102,108 @@ class _AdminSignUpScreenState extends State<AdminSignUpScreen> {
           onPressed: () => context.pop(),
         ),
       ),
-      extendBodyBehindAppBar: true,
       body: AnimatedGradientBackground(
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              Container(
-                height: MediaQuery.of(context).size.height * 0.35,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      AppColors.codingRimPrimary.withOpacity(0.8),
-                      Colors.black87,
-                    ],
+        child: SafeArea(
+          child: SingleChildScrollView(
+            child: Column(
+              children: [
+                const SizedBox(height: 40),
+                // Header Icon
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.05),
+                    shape: BoxShape.circle,
                   ),
-                  borderRadius: const BorderRadius.vertical(bottom: Radius.circular(60)),
+                  child: const Icon(
+                    Icons.admin_panel_settings_rounded,
+                    size: 64,
+                    color: AppColors.codingRimPrimary,
+                  ),
                 ),
-                child: Center(
+                const SizedBox(height: 24),
+                Text(
+                  'ADMIN REGISTRATION',
+                  style: GoogleFonts.outfit(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 4,
+                    color: AppColors.codingRimPrimary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Create Account',
+                  style: GoogleFonts.outfit(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                Padding(
+                  padding: const EdgeInsets.all(32),
                   child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(
-                        Icons.person_add_rounded,
-                        size: 60,
-                        color: AppColors.codingRimPrimary,
-                      ).animate().scale(duration: 600.ms, curve: Curves.easeOutBack),
+                      PremiumTextField(
+                        controller: _nameController,
+                        hintText: 'Full Name',
+                        icon: Icons.person_outline_rounded,
+                      ).animate().fadeIn(delay: 700.ms).slideY(begin: 0.1, end: 0),
                       const SizedBox(height: 16),
-                      Text(
-                        'ADMIN REGISTRATION',
-                        style: GoogleFonts.outfit(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 4,
-                          color: AppColors.codingRimPrimary,
-                        ),
-                      ).animate().fadeIn(delay: 400.ms),
-                      Text(
-                        'Create Account',
-                        style: GoogleFonts.outfit(
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ).animate().fadeIn(delay: 600.ms).slideY(begin: 0.2, end: 0),
-                    ],
-                  ),
-                ),
-              ),
+                      PremiumTextField(
+                        controller: _emailController,
+                        hintText: 'Admin Email',
+                        icon: Icons.alternate_email_rounded,
+                      ).animate().fadeIn(delay: 800.ms).slideY(begin: 0.1, end: 0),
+                      const SizedBox(height: 16),
+                      PremiumTextField(
+                        controller: _passwordController,
+                        hintText: 'Password',
+                        icon: Icons.lock_outline_rounded,
+                        isPassword: _obscurePassword,
+                      ).animate().fadeIn(delay: 900.ms).slideY(begin: 0.1, end: 0),
+                      const SizedBox(height: 16),
+                      PremiumTextField(
+                        controller: _confirmPasswordController,
+                        hintText: 'Confirm Password',
+                        icon: Icons.lock_clock_outlined,
+                        isPassword: _obscurePassword,
+                      ).animate().fadeIn(delay: 1.seconds).slideY(begin: 0.1, end: 0),
+                      
+                      const SizedBox(height: 32),
+                      
+                      PremiumGradientButton(
+                        text: _isLoading ? 'CREATING...' : 'CREATE ADMIN',
+                        onPressed: _handleSignUp,
+                      ).animate().fadeIn(delay: 1.1.seconds).scale(begin: const Offset(0.9, 0.9), end: const Offset(1, 1)),
 
-              Padding(
-                padding: const EdgeInsets.all(32),
-                child: Column(
-                  children: [
-                    PremiumTextField(
-                      controller: _nameController,
-                      hintText: 'Full Name',
-                      icon: Icons.person_outline_rounded,
-                    ).animate().fadeIn(delay: 700.ms).slideY(begin: 0.1, end: 0),
-                    const SizedBox(height: 16),
-                    PremiumTextField(
-                      controller: _emailController,
-                      hintText: 'Admin Email',
-                      icon: Icons.alternate_email_rounded,
-                    ).animate().fadeIn(delay: 800.ms).slideY(begin: 0.1, end: 0),
-                    const SizedBox(height: 16),
-                    PremiumTextField(
-                      controller: _passwordController,
-                      hintText: 'Password',
-                      icon: Icons.lock_outline_rounded,
-                      isPassword: _obscurePassword,
-                    ).animate().fadeIn(delay: 900.ms).slideY(begin: 0.1, end: 0),
-                    const SizedBox(height: 16),
-                    PremiumTextField(
-                      controller: _confirmPasswordController,
-                      hintText: 'Confirm Password',
-                      icon: Icons.lock_clock_outlined,
-                      isPassword: _obscurePassword,
-                    ).animate().fadeIn(delay: 1.seconds).slideY(begin: 0.1, end: 0),
-                    
-                    const SizedBox(height: 32),
-                    
-                    PremiumGradientButton(
-                      text: _isLoading ? 'CREATING...' : 'CREATE ADMIN',
-                      onPressed: _handleSignUp,
-                    ).animate().fadeIn(delay: 1.1.seconds).scale(begin: const Offset(0.9, 0.9), end: const Offset(1, 1)),
-
-                    const SizedBox(height: 24),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Text(
-                          "Already have an admin account? ",
-                          style: TextStyle(color: Colors.white70),
-                        ),
-                        GestureDetector(
-                          onTap: () => context.pop(),
-                          child: const Text(
-                            "Login",
-                            style: TextStyle(
-                              color: AppColors.codingRimPrimary,
-                              fontWeight: FontWeight.bold,
+                      const SizedBox(height: 24),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Text(
+                            "Already have an admin account? ",
+                            style: TextStyle(color: Colors.white70),
+                          ),
+                          GestureDetector(
+                            onTap: () => context.pop(),
+                            child: const Text(
+                              "Login",
+                              style: TextStyle(
+                                color: AppColors.codingRimPrimary,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
-                        ),
-                      ],
-                    ).animate().fadeIn(delay: 1.2.seconds),
-                  ],
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

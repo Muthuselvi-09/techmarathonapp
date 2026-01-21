@@ -9,7 +9,10 @@ import '../../../../features/home/domain/event_models.dart';
 import 'sponsor_details_screen.dart';
 import 'speaker_details_screen.dart';
 import 'package:tech_marathon_app/features/profile/presentation/providers/profile_provider.dart';
-import 'package:tech_marathon_app/features/events/data/mock_data.dart';
+import '../providers/event_stream_providers.dart';
+import 'package:tech_marathon_app/features/home/domain/event_models.dart' as new_speaker;
+import 'package:tech_marathon_app/features/home/domain/event_models.dart' as new_sponsor;
+import 'event_info_screen.dart';
 
 // --- VIEW ALL MEMBERS ---
 class ViewAllMembersScreen extends ConsumerWidget {
@@ -30,7 +33,7 @@ class ViewAllMembersScreen extends ConsumerWidget {
             return ListView.separated(
               padding: const EdgeInsets.all(24),
               itemCount: members.length,
-              separatorBuilder: (_, __) => Divider(color: Colors.white.withOpacity(0.05)),
+              separatorBuilder: (_, __) => Divider(color: Colors.white.withValues(alpha: 0.05)),
               itemBuilder: (context, index) {
                 final member = members[index];
                 return ListTile(
@@ -62,31 +65,31 @@ class ViewAllSpeakersScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Ideally use a shared EventRepository, but reusing AdminRepo for consistent Real-Time data
-    final speakersStream = ref.watch(adminRepositoryProvider).watchSpeakers();
+    final speakersAsync = ref.watch(mergedSpeakersProvider);
 
     return Container(
       decoration: BoxDecoration(gradient: AppColors.backgroundGradient),
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: _buildAppBar(context, 'ALL SPEAKERS'),
-        body: ListView.separated(
+        body: speakersAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (err, _) => Center(child: Text('Error: $err', style: TextStyle(color: AppColors.error))),
+          data: (speakers) {
+            if (speakers.isEmpty) return const Center(child: Text('No speakers yet', style: TextStyle(color: Colors.white38)));
+            
+            return ListView.separated(
               padding: const EdgeInsets.all(24),
-              itemCount: MockData.currentEvent.speakers.length,
+              itemCount: speakers.length,
               separatorBuilder: (_, __) => const SizedBox(height: 16),
               itemBuilder: (context, index) {
-                final speaker = MockData.currentEvent.speakers[index];
+                final speaker = speakers[index];
                 return GestureDetector(
                   onTap: () {
                      Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => SpeakerDetailsScreen(
-                          image: speaker.photoUrl,
-                          name: speaker.name,
-                          role: speaker.topic,
-                          bio: speaker.bio ?? '',
-                        ),
+                        builder: (context) => SpeakerDetailsScreen(speaker: speaker),
                       ),
                     );
                   },
@@ -95,19 +98,21 @@ class ViewAllSpeakersScreen extends ConsumerWidget {
                     decoration: BoxDecoration(
                       color: AppColors.surface,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.white.withOpacity(0.05)),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
                     ),
                     child: Row(
                       children: [
                         ClipRRect(
                           borderRadius: BorderRadius.circular(12),
-                          child: Image.network(
-                            speaker.photoUrl,
-                            width: 60,
-                            height: 60,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(width: 60, height: 60, color: Colors.white12, child: const Icon(Icons.mic, color: Colors.white)),
-                          ),
+                          child: speaker.imageUrl.isNotEmpty
+                            ? Image.network(
+                                speaker.imageUrl,
+                                width: 60,
+                                height: 60,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Container(width: 60, height: 60, color: Colors.white12, child: const Icon(Icons.mic, color: Colors.white)),
+                              )
+                            : Container(width: 60, height: 60, color: Colors.white12, child: const Icon(Icons.person, color: Colors.white)),
                         ),
                         const SizedBox(width: 16),
                         Expanded(
@@ -116,8 +121,8 @@ class ViewAllSpeakersScreen extends ConsumerWidget {
                             children: [
                               Text(speaker.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
                               const SizedBox(height: 4),
-                              Text(speaker.topic, style: const TextStyle(color: AppColors.primary, fontSize: 12)),
-                              Text(speaker.company, style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                              Text(speaker.role, style: const TextStyle(color: AppColors.primary, fontSize: 12)),
+                              Text(speaker.bio ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white54, fontSize: 12)),
                             ],
                           ),
                         ),
@@ -126,7 +131,9 @@ class ViewAllSpeakersScreen extends ConsumerWidget {
                   ),
                 );
               },
-            ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -138,15 +145,20 @@ class ViewAllSponsorsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Reusing AdminRepo stream for Real-Time Sponsors
-    final sponsorsStream = ref.watch(adminRepositoryProvider).watchSponsors();
+    final sponsorsAsync = ref.watch(mergedSponsorsProvider);
 
     return Container(
       decoration: BoxDecoration(gradient: AppColors.backgroundGradient),
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: _buildAppBar(context, 'ALL SPONSORS'),
-        body: GridView.builder(
+        body: sponsorsAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (err, _) => Center(child: Text('Error: $err', style: TextStyle(color: AppColors.error))),
+          data: (sponsors) {
+            if (sponsors.isEmpty) return const Center(child: Text('No sponsors yet', style: TextStyle(color: Colors.white38)));
+            
+            return GridView.builder(
               padding: const EdgeInsets.all(24),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
@@ -154,19 +166,15 @@ class ViewAllSponsorsScreen extends ConsumerWidget {
                 mainAxisSpacing: 16,
                 childAspectRatio: 0.8,
               ),
-              itemCount: MockData.currentEvent.sponsors.length,
+              itemCount: sponsors.length,
               itemBuilder: (context, index) {
-                final sponsor = MockData.currentEvent.sponsors[index];
+                final sponsor = sponsors[index];
                 return GestureDetector(
                   onTap: () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => SponsorDetailsScreen(
-                          image: sponsor.logoUrl,
-                          name: sponsor.name,
-                          description: sponsor.company,
-                        ),
+                        builder: (context) => SponsorDetailsScreen(sponsor: sponsor),
                       ),
                     );
                   },
@@ -185,18 +193,376 @@ class ViewAllSponsorsScreen extends ConsumerWidget {
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: Image.network(sponsor.logoUrl, height: 40, width: 40, fit: BoxFit.contain, errorBuilder: (_,__,___) => const Icon(Icons.business)),
+                          child: sponsor.logoUrl.isNotEmpty
+                            ? Image.network(sponsor.logoUrl, height: 40, width: 40, fit: BoxFit.contain, errorBuilder: (_,__,___) => const Icon(Icons.business))
+                            : const Icon(Icons.business, color: Colors.black),
                         ),
                         const SizedBox(height: 16),
                         Text(sponsor.name, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                         const SizedBox(height: 4),
-                        Text(sponsor.jobPosition, textAlign: TextAlign.center, style: const TextStyle(color: AppColors.primary, fontSize: 10)),
+                        Text(sponsor.tier, textAlign: TextAlign.center, style: const TextStyle(color: AppColors.primary, fontSize: 10)),
                       ],
                     ),
                   ),
                 );
               },
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+// --- VIEW ALL EVENTS ---
+class ViewAllEventsScreen extends ConsumerStatefulWidget {
+  const ViewAllEventsScreen({super.key});
+
+  @override
+  ConsumerState<ViewAllEventsScreen> createState() => _ViewAllEventsScreenState();
+}
+
+class _ViewAllEventsScreenState extends ConsumerState<ViewAllEventsScreen> {
+  String selectedCategory = 'All';
+  final List<String> categories = ['All', 'Weddings', 'Concerts', 'Sports', 'Education'];
+
+  @override
+  Widget build(BuildContext context) {
+    final eventsAsync = ref.watch(allEventsStreamProvider);
+    final userProfile = ref.watch(profileProvider);
+
+    return Scaffold(
+      body: Container(
+        decoration: const BoxDecoration(gradient: AppColors.backgroundGradient),
+        child: SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildListingHeader(userProfile.user?.name ?? 'Guest'),
+              const SizedBox(height: 16),
+              _buildPremiumSearchBar(),
+              const SizedBox(height: 24),
+              _buildCategoryChips(),
+              const SizedBox(height: 24),
+              Expanded(
+                child: eventsAsync.when(
+                  data: (events) {
+                    final filteredEvents = selectedCategory == 'All'
+                        ? events
+                        : events.where((e) => e.category == selectedCategory).toList();
+
+                    return SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (filteredEvents.isNotEmpty)
+                            _buildFeaturedCard(filteredEvents.first),
+                          const SizedBox(height: 32),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Trending',
+                                style: GoogleFonts.outfit(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              Text(
+                                'See All',
+                                style: GoogleFonts.inter(
+                                  fontSize: 12,
+                                  color: Colors.white70,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          ...filteredEvents.skip(1).map((e) => _buildTrendingItem(e)),
+                          const SizedBox(height: 100),
+                        ],
+                      ),
+                    );
+                  },
+                  loading: () => const Center(child: CircularProgressIndicator()),
+                  error: (err, _) => Center(child: Text('Error: $err', style: const TextStyle(color: Colors.red))),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildListingHeader(String name) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.arrow_back, color: Colors.white)),
+              CircleAvatar(
+                radius: 20,
+                backgroundColor: Colors.white.withValues(alpha: 0.1),
+                child: Text(name.isNotEmpty ? name[0].toUpperCase() : 'U', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Hello,', style: GoogleFonts.inter(fontSize: 12, color: Colors.white70)),
+                  Text(name, style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+                ],
+              ),
+            ],
+          ),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
             ),
+            child: const Icon(Icons.notifications_none, color: Colors.white, size: 24),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPremiumSearchBar() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              height: 56,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.search, color: Colors.white70, size: 24),
+                  const SizedBox(width: 12),
+                  Text('Search', style: GoogleFonts.inter(color: Colors.white54, fontSize: 16)),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            height: 56,
+            width: 56,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+            ),
+            child: const Icon(Icons.tune, color: Colors.white, size: 24),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCategoryChips() {
+    return SizedBox(
+      height: 40,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: categories.length,
+        itemBuilder: (context, index) {
+          final cat = categories[index];
+          final isSelected = selectedCategory == cat;
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: GestureDetector(
+              onTap: () => setState(() => selectedCategory = cat),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  gradient: isSelected
+                      ? AppColors.mainGradient
+                      : null,
+                  color: isSelected ? null : Colors.white.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(20),
+                  border: isSelected ? null : Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                ),
+                child: Text(
+                  cat,
+                  style: GoogleFonts.inter(
+                    color: Colors.white,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildFeaturedCard(CodingEvent event) {
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => EventInfoScreen(eventId: event.id)),
+      ),
+      child: Container(
+        height: 380,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(32),
+          image: (event.imageUrl.isNotEmpty)
+              ? DecorationImage(
+                  image: NetworkImage(event.imageUrl),
+                  fit: BoxFit.cover,
+                )
+              : null,
+          color: AppColors.surface,
+        ),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(32),
+            gradient: LinearGradient(
+              begin: Alignment.bottomCenter,
+              end: Alignment.topCenter,
+              colors: [
+                Colors.black.withValues(alpha: 0.9),
+                Colors.black.withValues(alpha: 0.4),
+                Colors.transparent,
+              ],
+            ),
+          ),
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              Text(
+                event.name,
+                style: GoogleFonts.outfit(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '${event.date.month}/${event.date.day}/${event.date.year}', 
+                style: GoogleFonts.inter(fontSize: 14, color: Colors.white70),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Icon(Icons.location_on, size: 16, color: Colors.white70),
+                  const SizedBox(width: 4),
+                  Text(event.location, style: GoogleFonts.inter(fontSize: 12, color: Colors.white70)),
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                    ),
+                    child: const Text('Free Entry', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    decoration: BoxDecoration(
+                      gradient: AppColors.mainGradient,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Text('Book Now', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTrendingItem(CodingEvent event) {
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => EventInfoScreen(eventId: event.id)),
+      ),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+        ),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Image.network(
+                event.imageUrl,
+                width: 80,
+                height: 80,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Container(width: 80, height: 80, color: Colors.white10),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    event.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Icon(Icons.location_on, size: 12, color: Colors.white70),
+                      const SizedBox(width: 4),
+                      Text(event.location, style: GoogleFonts.inter(fontSize: 11, color: Colors.white70)),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                gradient: AppColors.mainGradient,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Text('FREE', style: TextStyle(color: Colors.black, fontSize: 11, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
       ),
     );
   }

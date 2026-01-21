@@ -1,12 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../providers/event_stream_providers.dart';
 
-class EventInfoScreen extends StatelessWidget {
-  const EventInfoScreen({super.key});
+class EventInfoScreen extends ConsumerWidget {
+  final String? eventId;
+  const EventInfoScreen({super.key, this.eventId});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentEventAsync = eventId != null 
+        ? ref.watch(allEventsStreamProvider).whenData((events) => events.any((e) => e.id == eventId) ? events.firstWhere((e) => e.id == eventId) : null)
+        : ref.watch(currentEventStreamProvider);
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -27,75 +34,70 @@ class EventInfoScreen extends StatelessWidget {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildSectionHeader('EVENT OVERVIEW'),
-            const SizedBox(height: 16),
-            _buildContentCard(
-              'Tech Marathon 2025 is a premier technology conference bringing together innovators, developers, and industry leaders. Join us for a day of learning, networking, and exploring the latest trends in technology.',
-            ),
-            const SizedBox(height: 32),
-            _buildSectionHeader('VENUE DETAILS'),
-            const SizedBox(height: 16),
-            _buildInfoRow(Icons.business, 'Tech Convention Center'),
-            _buildInfoRow(Icons.location_city, 'Downtown Tech District'),
-            _buildInfoRow(Icons.stairs, 'Hall A, 3rd Floor'),
-            _buildInfoRow(Icons.local_parking, 'Parking Available - Basement Levels 1-3'),
-            const SizedBox(height: 32),
-            _buildSectionHeader('ENTRY TIMING'),
-            const SizedBox(height: 16),
-            _buildContentCard(
-              'Registration opens at 8:00 AM. Please arrive early to collect your badge and event materials. Entry closes at 9:30 AM sharp.',
-            ),
-            const SizedBox(height: 32),
-            _buildSectionHeader('FLOOR MAP INFO'),
-            const SizedBox(height: 16),
-            _buildFloorItem('3rd Floor - Hall A', 'Main Event Hall, Registration Desk'),
-            _buildFloorItem('3rd Floor - Hall B', 'Workshop Rooms 1-3'),
-            _buildFloorItem('2nd Floor', 'Networking Lounge, Sponsor Booths'),
-            _buildFloorItem('Ground Floor', 'Cafeteria, Information Desk'),
-            const SizedBox(height: 32),
-            _buildSectionHeader('RULES & INSTRUCTIONS'),
-            const SizedBox(height: 16),
-            _buildRuleItem('Carry a valid ID for registration'),
-            _buildRuleItem('Maintain professional conduct at all times'),
-            _buildRuleItem('Photography allowed, but respect speaker requests'),
-            _buildRuleItem('Keep mobile phones on silent during sessions'),
-            _buildRuleItem('Follow COVID-19 safety guidelines'),
-            const SizedBox(height: 32),
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [AppColors.primary.withOpacity(0.2), AppColors.surface],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+      body: currentEventAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, _) => Center(child: Text('Error: $err', style: const TextStyle(color: Colors.red))),
+        data: (event) {
+          if (event == null) return const Center(child: Text('No active event found', style: TextStyle(color: Colors.white54)));
+
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildSectionHeader('EVENT OVERVIEW'),
+                const SizedBox(height: 16),
+                _buildContentCard(event.description),
+                const SizedBox(height: 32),
+                _buildSectionHeader('VENUE DETAILS'),
+                const SizedBox(height: 16),
+                _buildInfoRow(Icons.business, event.location),
+                const SizedBox(height: 32),
+                _buildSectionHeader('ENTRY TIMING'),
+                const SizedBox(height: 16),
+                _buildContentCard(
+                  'Registration opens at 8:00 AM. Please arrive early to collect your badge and event materials. Entry closes at 9:30 AM sharp.',
                 ),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.primary.withOpacity(0.3)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.info_outline, color: AppColors.primary, size: 28),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Text(
-                      'For any queries, contact the help desk or visit our information counter.',
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        color: AppColors.textSecondary,
-                        height: 1.5,
-                      ),
+                const SizedBox(height: 32),
+                _buildSectionHeader('RULES & INSTRUCTIONS'),
+                const SizedBox(height: 16),
+                _buildRuleItem('Carry a valid ID for registration'),
+                _buildRuleItem('Maintain professional conduct at all times'),
+                _buildRuleItem('Photography allowed, but respect speaker requests'),
+                _buildRuleItem('Keep mobile phones on silent during sessions'),
+                const SizedBox(height: 32),
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [AppColors.primary.withOpacity(0.2), AppColors.surface],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppColors.primary.withOpacity(0.3)),
                   ),
-                ],
-              ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.info_outline, color: AppColors.primary, size: 28),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Text(
+                          'For any queries, contact the help desk or visit our information counter.',
+                          style: GoogleFonts.inter(
+                            fontSize: 14,
+                            color: AppColors.textSecondary,
+                            height: 1.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }

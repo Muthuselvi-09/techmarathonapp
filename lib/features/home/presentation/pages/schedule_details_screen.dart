@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../providers/event_stream_providers.dart';
 
-class ScheduleDetailsScreen extends StatelessWidget {
+class ScheduleDetailsScreen extends ConsumerWidget {
   const ScheduleDetailsScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentEventAsync = ref.watch(currentEventStreamProvider);
+    final schedulesAsync = ref.watch(schedulesStreamProvider);
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -23,71 +28,79 @@ class ScheduleDetailsScreen extends StatelessWidget {
         elevation: 0,
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+          icon: Icon(Icons.arrow_back, color: AppColors.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildInfoCard(
-              icon: Icons.event,
-              title: 'Event Name',
-              content: 'Tech Marathon 2025',
+      body: currentEventAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, _) => Center(child: Text('Error: $err', style: TextStyle(color: Colors.red))),
+        data: (event) {
+          if (event == null) return const Center(child: Text('No active event found', style: TextStyle(color: Colors.white54)));
+
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildInfoCard(
+                  icon: Icons.event,
+                  title: 'Event Name',
+                  content: event.name,
+                ),
+                const SizedBox(height: 16),
+                _buildInfoCard(
+                  icon: Icons.calendar_today,
+                  title: 'Date',
+                  content: '${event.date.day}/${event.date.month}/${event.date.year}',
+                ),
+                const SizedBox(height: 16),
+                _buildInfoCard(
+                  icon: Icons.location_on,
+                  title: 'Location',
+                  content: event.location,
+                ),
+                const SizedBox(height: 32),
+                Text(
+                  'EVENT AGENDA',
+                  style: GoogleFonts.outfit(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 12,
+                    letterSpacing: 2,
+                    color: AppColors.textDim,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                schedulesAsync.when(
+                  loading: () => const Center(child: CircularProgressIndicator()),
+                  error: (err, _) => Text('Error loading schedule: $err', style: const TextStyle(color: Colors.red)),
+                  data: (schedules) {
+                    if (schedules.isEmpty) {
+                      return const Padding(
+                        padding: EdgeInsets.only(top: 16),
+                        child: Text('No schedule slots defined yet.', style: TextStyle(color: Colors.white38)),
+                      );
+                    }
+                    
+                    // Sort by day and then by startTime
+                    final sortedSchedules = List.from(schedules)..sort((a, b) {
+                      final dayComp = a.day.compareTo(b.day);
+                      if (dayComp != 0) return dayComp;
+                      return a.startTime.compareTo(b.startTime);
+                    });
+
+                    return Column(
+                      children: sortedSchedules.map((slot) => _buildAgendaItem(
+                        '${slot.startTime.hour}:${slot.startTime.minute.toString().padLeft(2, '0')}',
+                        '${slot.title} - Day ${slot.day}',
+                      )).toList(),
+                    );
+                  },
+                ),
+              ],
             ),
-            const SizedBox(height: 16),
-            _buildInfoCard(
-              icon: Icons.calendar_today,
-              title: 'Date',
-              content: 'January 15, 2025',
-            ),
-            const SizedBox(height: 16),
-            _buildInfoCard(
-              icon: Icons.access_time,
-              title: 'Time',
-              content: '9:00 AM - 6:00 PM',
-            ),
-            const SizedBox(height: 16),
-            _buildInfoCard(
-              icon: Icons.location_on,
-              title: 'Location',
-              content: 'Tech Convention Center, Hall A, 3rd Floor',
-            ),
-            const SizedBox(height: 32),
-            Text(
-              'FOOD TIMINGS',
-              style: GoogleFonts.outfit(
-                fontWeight: FontWeight.w900,
-                fontSize: 12,
-                letterSpacing: 2,
-                color: AppColors.textDim,
-              ),
-            ),
-            const SizedBox(height: 16),
-            _buildTimelineItem('Breakfast', '8:00 AM - 9:00 AM', 'Ground Floor Cafeteria'),
-            _buildTimelineItem('Lunch', '12:30 PM - 2:00 PM', 'Main Hall Dining Area'),
-            _buildTimelineItem('Snacks', '4:00 PM - 4:30 PM', 'Lounge Area'),
-            const SizedBox(height: 32),
-            Text(
-              'EVENT AGENDA',
-              style: GoogleFonts.outfit(
-                fontWeight: FontWeight.w900,
-                fontSize: 12,
-                letterSpacing: 2,
-                color: AppColors.textDim,
-              ),
-            ),
-            const SizedBox(height: 16),
-            _buildAgendaItem('9:00 AM', 'Registration & Welcome Coffee'),
-            _buildAgendaItem('10:00 AM', 'Opening Keynote - Future of AI'),
-            _buildAgendaItem('11:30 AM', 'Workshop Session 1 - Cloud Architecture'),
-            _buildAgendaItem('2:00 PM', 'Panel Discussion - Tech Trends 2025'),
-            _buildAgendaItem('3:30 PM', 'Workshop Session 2 - Mobile Development'),
-            _buildAgendaItem('5:00 PM', 'Networking & Closing Remarks'),
-          ],
-        ),
+          );
+        },
       ),
     );
   }

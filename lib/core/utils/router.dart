@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/events/presentation/pages/all_events_screen.dart';
 import '../../features/home/domain/event_models.dart';
+import '../../features/home/presentation/pages/view_all_screens.dart';
 
 // Import pages
 
@@ -120,7 +121,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/events',
-        builder: (context, state) => const AllEventsScreen(),
+        builder: (context, state) => const ViewAllEventsScreen(),
       ),
       GoRoute(
         path: '/chat',

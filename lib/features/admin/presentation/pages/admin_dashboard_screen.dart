@@ -1,20 +1,27 @@
+// Sync version: 2026-01-12-16-14 - Fixed imports and unified models.
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import '../../../../core/theme/app_colors.dart';
-import '../../../../features/auth/presentation/widgets/auth_widgets.dart';
-import '../../../home/domain/event_models.dart';
-import '../../data/admin_repository.dart';
-import '../providers/optimistic_state_provider.dart'; // Import optimistic state
-import '../../../chat/data/chat_repository.dart';
-import '../../../../features/auth/data/user_repository.dart';
-import 'package:tech_marathon_app/features/events/data/mock_data.dart';
+import 'package:tech_marathon_app/core/theme/app_colors.dart';
+import 'package:tech_marathon_app/features/home/domain/event_models.dart';
+import 'package:tech_marathon_app/features/admin/data/admin_repository.dart';
+import 'package:tech_marathon_app/features/chat/data/chat_repository.dart';
+import 'package:tech_marathon_app/features/auth/data/user_repository.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:flutter/foundation.dart'; // for kIsWeb
+import 'package:tech_marathon_app/core/providers.dart';
+import 'package:tech_marathon_app/data/models/schedule.dart' as new_schedule;
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:shimmer/shimmer.dart';
+import 'package:tech_marathon_app/features/home/presentation/providers/branding_provider.dart';
+
+
 
 class AdminDashboardScreen extends ConsumerStatefulWidget {
   final int initialTab;
@@ -25,7 +32,14 @@ class AdminDashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> with SingleTickerProviderStateMixin {
-  late int _currentTab; // 0: Overview, 1: Events, 2: Members, 3: Speakers, 4: Sponsors, 5: Chat
+  int _currentTab = 0; // 0: Overview, 1: Events, 2: Members, 3: Speakers, 4: Sponsors, 5: Schedules, 6: Chat, 7: Branding
+  String? _selectedEventId;
+  
+  // Branding state
+  XFile? _brandingLogo;
+  Uint8List? _brandingLogoBytes;
+  bool _isSavingBranding = false;
+  final TextEditingController _brandingNameController = TextEditingController();
 
   @override
   void initState() {
@@ -35,7 +49,6 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
 
   // Gold + Black Theme Constants
   final Color _gold = const Color(0xFFFFD700);
-  final Color _darkBg = const Color(0xFF121212); // Deep Black/Grey
 
   @override
   Widget build(BuildContext context) {
@@ -53,7 +66,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                    colors: [
                      Colors.black,
                      const Color(0xFF1A1A1A),
-                     _gold.withOpacity(0.05), // Subtle gold hint
+                     _gold.withValues(alpha: 0.05), // Subtle gold hint
                    ],
                  ),
                ),
@@ -75,12 +88,16 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
     );
   }
 
+  void _handleFABPressed() async {
+    // Method intentionally removed as FAB is no longer used
+  }
+
   Widget _buildTopBar() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.5),
-        border: Border(bottom: BorderSide(color: _gold.withOpacity(0.1))),
+        color: Colors.black.withValues(alpha: 0.5),
+        border: Border(bottom: BorderSide(color: _gold.withValues(alpha: 0.1))),
       ),
       child: Row(
         children: [
@@ -90,7 +107,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
             child: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
+                color: Colors.white.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: Colors.white10),
               ),
@@ -100,13 +117,44 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
           
           Expanded(
             child: Center(
-              child: Text(
-                'CODING RIM',
-                style: GoogleFonts.outfit(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 3,
-                  color: _gold, // Gold Title
+              child: ref.watch(brandingProvider).when(
+                data: (branding) => Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        branding.companyName.toUpperCase(),
+                        textAlign: TextAlign.center,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.outfit(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 3,
+                          color: _gold,
+                        ),
+                      ),
+                    ),
+                    if (branding.companyLogoUrl != null && branding.companyLogoUrl!.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      CachedNetworkImage(
+                        imageUrl: branding.companyLogoUrl!,
+                        height: 28, // Slightly larger for Admin Panel
+                        fit: BoxFit.contain,
+                        placeholder: (_, __) => const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFFFD700))),
+                        errorWidget: (_, __, ___) => const SizedBox.shrink(),
+                      ),
+                    ],
+                  ],
+                ),
+                loading: () => const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFFFD700))),
+                error: (_, __) => Text(
+                  'ADMIN PANEL',
+                  style: GoogleFonts.outfit(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 3,
+                    color: _gold,
+                  ),
                 ),
               ).animate().fadeIn(duration: 600.ms),
             ),
@@ -146,7 +194,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
       child: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.05),
+          color: Colors.white.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Icon(icon, color: Colors.white, size: 20),
@@ -165,7 +213,9 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
           _tabItem(2, 'Members'),
           _tabItem(3, 'Speakers'),
           _tabItem(4, 'Sponsors'),
-          _tabItem(5, 'Chat'),
+          _tabItem(5, 'Schedules'),
+          _tabItem(6, 'Chat'),
+          _tabItem(7, 'Branding'),
         ],
       ),
     );
@@ -181,13 +231,13 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
         margin: const EdgeInsets.only(right: 12),
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
         decoration: BoxDecoration(
-          color: isSelected ? _gold : Colors.white.withOpacity(0.05),
+          color: isSelected ? _gold : Colors.white.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(30),
           border: Border.all(
-            color: isSelected ? _gold : Colors.white.withOpacity(0.1),
+            color: isSelected ? _gold : Colors.white.withValues(alpha: 0.1),
           ),
           boxShadow: isSelected 
-            ? [BoxShadow(color: _gold.withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 4))] 
+            ? [BoxShadow(color: _gold.withValues(alpha: 0.3), blurRadius: 12, offset: const Offset(0, 4))] 
             : [],
         ),
         child: Text(
@@ -210,7 +260,9 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
       case 2: return _buildMembersSection();
       case 3: return _buildSpeakersSection();
       case 4: return _buildSponsorsSection();
-      case 5: return _buildChatSection();
+      case 5: return _buildSchedulesSection();
+      case 6: return _buildChatSection();
+      case 7: return _buildBrandingSection();
       default: return _buildOverview();
     }
   }
@@ -251,6 +303,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
       children: [
+        _sectionTitle('Control Center'),
+        const SizedBox(height: 20),
          // Module 1: Ticket Sales Analytics (Revenue Hero Card)
         _buildHeroModule(),
         const SizedBox(height: 24),
@@ -275,6 +329,9 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
     return StreamBuilder<List<CodingEvent>>(
       stream: adminRepo.watchEvents(),
       builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SizedBox(height: 160, child: Center(child: CircularProgressIndicator()));
+        }
         final totalEvents = snapshot.data?.length ?? 0;
         final revenue = totalEvents * 1500; // Mock revenue
 
@@ -288,7 +345,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                   Text('TICKET SALES ANALYTICS', style: GoogleFonts.outfit(color: Colors.white70, fontSize: 12, letterSpacing: 1.5, fontWeight: FontWeight.bold)),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(color: const Color(0xFF00FF94).withOpacity(0.2), borderRadius: BorderRadius.circular(20)),
+                    decoration: BoxDecoration(color: const Color(0xFF00FF94).withValues(alpha: 0.2), borderRadius: BorderRadius.circular(20)),
                     child: const Text('LIVE +12%', style: TextStyle(color: Color(0xFF00FF94), fontSize: 10, fontWeight: FontWeight.bold)),
                   ),
                 ],
@@ -323,7 +380,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
   Widget _statBadge(IconData icon, String label, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(color: color.withOpacity(0.15), borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(color: color.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)),
       child: Row(
         children: [
           Icon(icon, size: 16, color: color),
@@ -345,6 +402,9 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
           stream: userRepo.watchOnlineUsersCount(),
           initialData: 0,
           builder: (context, snapshot) {
+             if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
+               return const SizedBox(height: 100, child: Center(child: CircularProgressIndicator()));
+             }
              final onlineCount = snapshot.data ?? 0;
              return _GlassCard(
                child: Column(
@@ -418,8 +478,16 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
         StreamBuilder<List<CodingEvent>>(
           stream: adminRepo.watchEvents(),
           builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const SizedBox(height: 140, child: Center(child: CircularProgressIndicator()));
+            }
             final events = snapshot.data ?? [];
-            if (events.isEmpty) return const Text('No active events', style: TextStyle(color: Colors.white38));
+            if (events.isEmpty) {
+              return const SizedBox(
+                height: 140,
+                child: Center(child: Text('No active events', style: TextStyle(color: Colors.white38))),
+              );
+            }
             
             return SizedBox(
               height: 140, // Height for horizontal cards
@@ -439,7 +507,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                             children: [
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(color: _gold.withOpacity(0.2), borderRadius: BorderRadius.circular(8)),
+                                decoration: BoxDecoration(color: _gold.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(8)),
                                 child: Text(_formatDate(event.date), style: TextStyle(color: _gold, fontSize: 10, fontWeight: FontWeight.bold)),
                               ),
                               const Spacer(),
@@ -471,28 +539,6 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
 
 
 
-  Widget _actionBtn(String label, IconData icon, Color color, {bool isDarkText = false, VoidCallback? onTap}) {
-    return InkWell(
-      onTap: onTap ?? () {},
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 20),
-        decoration: BoxDecoration(
-          color: color.withOpacity(isDarkText ? 1.0 : 0.15),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: color.withOpacity(isDarkText ? 0.0 : 0.3)),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, color: isDarkText ? Colors.black : color, size: 24),
-            const SizedBox(height: 8),
-            Text(label, style: TextStyle(color: isDarkText ? Colors.black : color, fontWeight: FontWeight.bold, fontSize: 13)),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _moduleHeader(String title, IconData icon, Color accent) {
     return Row(
       children: [
@@ -500,6 +546,55 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
         const SizedBox(width: 8),
         Text(title, style: GoogleFonts.outfit(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
       ],
+    );
+  }
+
+  Widget _buildEventSelector(List<CodingEvent> events) {
+    return Container(
+      height: 40,
+      margin: const EdgeInsets.only(top: 8),
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: events.length,
+        itemBuilder: (context, index) {
+          final event = events[index];
+          final isSelected = event.id == _selectedEventId;
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: ChoiceChip(
+              label: Text(event.name, style: TextStyle(color: isSelected ? Colors.black : Colors.white70, fontSize: 12)),
+              selected: isSelected,
+              onSelected: (selected) {
+                if (selected) setState(() => _selectedEventId = event.id);
+              },
+              backgroundColor: Colors.white12,
+              selectedColor: _gold,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              showCheckmark: false,
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _actionBtn(String label, IconData icon, Color color, VoidCallback onTap) {
+    return _GlassCard(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: color.withValues(alpha: 0.1), shape: BoxShape.circle),
+              child: Icon(icon, color: color, size: 24),
+            ),
+            const SizedBox(height: 12),
+            Text(label, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+          ],
+        ),
+      ),
     );
   }
 
@@ -515,6 +610,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
       padding: const EdgeInsets.all(24),
       child: Column(
         children: [
+          // Always show header with Add button (outside StreamBuilder)
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -522,7 +618,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
               ElevatedButton.icon(
                 onPressed: () => _showEventDialog(),
                 icon: const Icon(Icons.add, size: 18),
-                label: const Text('New Event'),
+                label: const Text('Add Event'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.codingRimPrimary,
                   foregroundColor: Colors.black,
@@ -535,20 +631,56 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
             child: StreamBuilder<List<CodingEvent>>(
               stream: adminRepo.watchEvents(),
               builder: (context, snapshot) {
-                if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-                if (snapshot.data!.isEmpty) return const Center(child: Text('No events found', style: TextStyle(color: Colors.white38)));
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const SizedBox(height: 200, child: Center(child: CircularProgressIndicator()));
+                }
                 
-                // Merge MockData with Firestore data
+                if (snapshot.hasError) {
+                  return SizedBox(
+                    height: 200,
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.error_outline, color: Colors.red, size: 48),
+                          const SizedBox(height: 16),
+                          Text('Error: ${snapshot.error}', style: const TextStyle(color: Colors.red)),
+                        ],
+                      ),
+                    ),
+                  );
+                }
+                
                 final firestoreEvents = snapshot.data ?? [];
-                // Check if currentEvent is already meant to be in list, or just add it
-                final allEvents = [MockData.currentEvent, ...firestoreEvents];
 
-                if (allEvents.isEmpty) return const Center(child: Text('No events found', style: TextStyle(color: Colors.white38)));
+                if (firestoreEvents.isEmpty) {
+                  return SizedBox(
+                    height: 200,
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.event_available_outlined, size: 64, color: Colors.white.withValues(alpha: 0.1)),
+                          const SizedBox(height: 16),
+                          Text(
+                            'No events yet',
+                            style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 16),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Click "Add Event" to create your first event',
+                            style: TextStyle(color: Colors.white.withValues(alpha: 0.2), fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }
                 
                 return ListView.builder(
-                  itemCount: allEvents.length,
+                  itemCount: firestoreEvents.length,
                   itemBuilder: (context, index) {
-                    final event = allEvents[index];
+                    final event = firestoreEvents[index];
                     return _eventItem(event);
                   },
                 );
@@ -565,16 +697,34 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: Colors.white12, borderRadius: BorderRadius.circular(12)),
-            child: const Icon(Icons.event_note, color: AppColors.codingRimPrimary),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: event.imageUrl.isNotEmpty
+              ? CachedNetworkImage(
+                  imageUrl: event.imageUrl,
+                  width: 44,
+                  height: 44,
+                  fit: BoxFit.cover,
+                  placeholder: (_, __) => Shimmer.fromColors(
+                  baseColor: Colors.white10,
+                  highlightColor: Colors.white24,
+                  child: Container(width: 44, height: 44, color: Colors.white),
+                ),
+                  errorWidget: (_, __, ___) => const Icon(Icons.event_note, color: AppColors.codingRimPrimary, size: 20),
+                )
+              : Container(
+                  width: 44,
+                  height: 44,
+                  color: Colors.white12,
+                  child: const Icon(Icons.event_note, color: AppColors.codingRimPrimary, size: 20),
+                ),
           ),
+
           const SizedBox(width: 16),
           Expanded(
             child: Column(
@@ -603,108 +753,195 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
     final categoryController = TextEditingController(text: event?.category);
     final descController = TextEditingController(text: event?.description);
     
-    XFile? selectedImage;
+    // Generate ID immediately for new events to ensure storage path availability
+    final String tempEventId = event?.id ?? FirebaseFirestore.instance.collection('events').doc().id;
+
+    bool isSaving = false;
+    XFile? selectedImageFile;
+    Uint8List? selectedImageBytes;
     String? currentImageUrl = event?.imageUrl;
 
     showDialog(
       context: context,
+      barrierDismissible: false, // Prevent closing while saving
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
           backgroundColor: AppColors.surface,
-          title: Text(event == null ? 'New Event' : 'Edit Event', style: const TextStyle(color: Colors.white)),
+          title: Text(event == null ? 'Add Event' : 'Edit Event', style: const TextStyle(color: Colors.white)),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 GestureDetector(
-                  onTap: () async {
+                  onTap: isSaving ? null : () async {
                     final picker = ImagePicker();
-                    final image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
+                    final image = await picker.pickImage(source: ImageSource.gallery);
+                    
                     if (image != null) {
-                      setState(() => selectedImage = image);
+                      final bytes = await image.readAsBytes();
+                      Uint8List? compressed;
+                      try {
+                        // STRICT IMAGE COMPRESSION (1024, 70)
+                        compressed = await FlutterImageCompress.compressWithList(
+                          bytes,
+                          minWidth: 1024,
+                          minHeight: 1024,
+                          quality: 70,
+                        );
+                      } catch (e) {
+                         debugPrint('Compression error: $e');
+                      }
+
+                      final finalBytes = compressed ?? bytes;
+                      setState(() { 
+                        selectedImageFile = image;
+                        selectedImageBytes = finalBytes; 
+                      });
                     }
                   },
                   child: Container(
-                    height: 150,
+                    height: 180,
                     width: double.infinity,
                     decoration: BoxDecoration(
                       color: Colors.white12,
                       borderRadius: BorderRadius.circular(12),
-                      image: selectedImage != null 
-                        ? DecorationImage(
-                            image: kIsWeb 
-                                ? NetworkImage(selectedImage!.path) 
-                                : FileImage(File(selectedImage!.path)) as ImageProvider,
-                            fit: BoxFit.cover
-                          )
-                        : (currentImageUrl != null && currentImageUrl!.isNotEmpty)
-                          ? DecorationImage(image: NetworkImage(currentImageUrl!), fit: BoxFit.cover)
-                          : null,
+                      border: Border.all(color: Colors.white24),
                     ),
-                    child: selectedImage == null && (currentImageUrl == null || currentImageUrl!.isEmpty)
-                      ? Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.add_photo_alternate_rounded, color: Colors.white54, size: 40),
-                            const SizedBox(height: 8),
-                            const Text('Add Cover Image', style: TextStyle(color: Colors.white54, fontSize: 12)),
-                          ],
-                        )
-                      : null,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                           if (selectedImageBytes != null)
+                             Image.memory(selectedImageBytes!, fit: BoxFit.cover)
+                           else if (currentImageUrl != null && currentImageUrl.isNotEmpty)
+                             CachedNetworkImage(
+                               imageUrl: currentImageUrl!,
+                               fit: BoxFit.cover,
+                               placeholder: (_, __) => Shimmer.fromColors(
+                                 baseColor: Colors.white10,
+                                 highlightColor: Colors.white24,
+                                 child: Container(color: Colors.white),
+                               ),
+                               errorWidget: (_, __, ___) => const Icon(Icons.error),
+                             )
+                           else
+                             const Center(
+                               child: Column(
+                                 mainAxisAlignment: MainAxisAlignment.center,
+                                 children: [
+                                   Icon(Icons.add_photo_alternate_rounded, color: Colors.white54, size: 48),
+                                   SizedBox(height: 12),
+                                   Text('Tap to add cover image', style: TextStyle(color: Colors.white54, fontSize: 14)),
+                                 ],
+                               ),
+                             ),
+                           if (isSaving) 
+                             Container(
+                               color: Colors.black45,
+                               child: const Center(child: CircularProgressIndicator()),
+                             ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),
-                TextField(controller: titleController, decoration: const InputDecoration(labelText: 'Event Title'), style: const TextStyle(color: Colors.white)),
-                TextField(controller: locationController, decoration: const InputDecoration(labelText: 'Location'), style: const TextStyle(color: Colors.white)),
-                TextField(controller: categoryController, decoration: const InputDecoration(labelText: 'Category'), style: const TextStyle(color: Colors.white)),
-                TextField(controller: descController, decoration: const InputDecoration(labelText: 'Description'), style: const TextStyle(color: Colors.white), maxLines: 3),
+                TextField(enabled: !isSaving, controller: titleController, decoration: const InputDecoration(labelText: 'Event Title'), style: const TextStyle(color: Colors.white)),
+                TextField(enabled: !isSaving, controller: locationController, decoration: const InputDecoration(labelText: 'Location'), style: const TextStyle(color: Colors.white)),
+                TextField(enabled: !isSaving, controller: categoryController, decoration: const InputDecoration(labelText: 'Category'), style: const TextStyle(color: Colors.white)),
+                TextField(enabled: !isSaving, controller: descController, decoration: const InputDecoration(labelText: 'Description'), style: const TextStyle(color: Colors.white), maxLines: 3),
               ],
             ),
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context), 
+              onPressed: isSaving ? null : () => Navigator.pop(context), 
               child: const Text('Cancel')
             ),
             ElevatedButton(
-              onPressed: () {
-                 if (titleController.text.isEmpty) return;
-                 
-                 // Create optimistic event with current/placeholder image
-                 final optimisticEvent = CodingEvent(
-                   id: event?.id ?? 'temp_${DateTime.now().millisecondsSinceEpoch}',
-                   name: titleController.text,
-                   location: locationController.text,
-                   category: categoryController.text,
-                   description: descController.text,
-                   date: event?.date ?? DateTime.now(),
-                   speakerIds: event?.speakerIds ?? [],
-                   imageUrl: currentImageUrl ?? 'https://images.unsplash.com/photo-1540575467063-178a50c2df87',
-                 );
-
-                 // INSTANT UPDATE: Add to optimistic state immediately
-                 if (event == null) {
-                   ref.read(optimisticEventsProvider.notifier).addEvent(optimisticEvent);
-                 } else {
-                   ref.read(optimisticEventsProvider.notifier).updateEvent(optimisticEvent);
+              onPressed: isSaving ? null : () async {
+                 if (titleController.text.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Title is required')));
+                    return;
                  }
+                 
+                 setState(() => isSaving = true);
 
-                 // INSTANT CLOSE: Dialog closes immediately
-                 Navigator.pop(context);
+                 try {
+                   // 1. CAPTURE ALL DATA
+                   final messenger = ScaffoldMessenger.of(context);
+                   final repo = ref.read(adminRepositoryProvider);
+                   
+                   final String name = titleController.text.trim();
+                   final String location = locationController.text.trim();
+                   final String category = categoryController.text.trim();
+                   final String desc = descController.text.trim();
+                   
+                   final String existingId = tempEventId;
+                   final DateTime date = event?.date ?? DateTime.now();
+                   final List<String> speakerIds = event?.speakerIds ?? [];
+                   final int pCount = event?.participantCount ?? 0;
+                   final bool isNewEntry = event == null;
+                   
+                   final String initialImageUrl = currentImageUrl ?? '';
+                   final Uint8List? imageBytes = selectedImageBytes;
 
-                 // BACKGROUND SYNC: Process image upload and backend save
-                 ref.read(adminRepositoryProvider).saveEventOptimistically(
-                   optimisticEvent,
-                   selectedImage,
-                   isNew: event == null,
-                 );
+                   // 2. SEQUENTIAL WORK (No background)
+                   String finalUrl = initialImageUrl;
+                   
+                   // Upload if new image selected
+                   if (imageBytes != null) {
+                      finalUrl = await repo.uploadToCloudinary(imageBytes);
+                   }
 
-                 // Remove from optimistic state after a delay (Firestore will take over)
-                 Future.delayed(const Duration(seconds: 3), () {
-                   ref.read(optimisticEventsProvider.notifier).removeEvent(optimisticEvent.id);
-                 });
+                   if (finalUrl.isEmpty) {
+                      throw 'Image required';
+                   }
+
+                   final newEvent = CodingEvent(
+                     id: existingId, 
+                     name: name,
+                     location: location,
+                     category: category,
+                     description: desc,
+                     date: date,
+                     speakerIds: speakerIds,
+                     imageUrl: finalUrl,
+                     participantCount: pCount,
+                     isActive: true,
+                     // createdAt and updatedAt will be handled by repo using FieldValue.serverTimestamp()
+                   );
+
+                   await repo.saveEvent(newEvent, isNew: isNewEntry);
+                   
+                   // 3. SUCCESS UPDATE & CLOSE
+                   if (context.mounted) {
+                     Navigator.pop(context);
+                     ScaffoldMessenger.of(context).showSnackBar(
+                       const SnackBar(content: Text('Event Saved Successfully! ✅'), backgroundColor: Colors.green)
+                     );
+                   }
+                 } catch (e) {
+                   debugPrint('Save Error: $e');
+                   if (context.mounted) {
+                     ScaffoldMessenger.of(context).showSnackBar(
+                       SnackBar(content: Text('Error saving event: $e'), backgroundColor: Colors.red)
+                     );
+                   }
+                 } finally {
+                   if (context.mounted) {
+                     setState(() => isSaving = false);
+                   }
+                 }
               },
-              child: const Text('Save'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.codingRimPrimary,
+                foregroundColor: Colors.black,
+              ),
+              child: isSaving 
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
+                : const Text('Save Event'),
             ),
           ],
         ),
@@ -722,28 +959,33 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
         StreamBuilder<List<Participant>>(
           stream: ref.watch(userRepositoryProvider).getRealTimeMembers(),
           builder: (context, snapshot) {
-            if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: Color(0xFFFFD700)));
-            if (snapshot.data!.isEmpty) {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const SizedBox(height: 40),
-                    Icon(Icons.people_outline, size: 48, color: Colors.white.withOpacity(0.1)),
-                    const SizedBox(height: 16),
-                    Text('No one has joined yet', style: TextStyle(color: Colors.white.withOpacity(0.3))),
-                  ],
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const SizedBox(height: 100, child: Center(child: CircularProgressIndicator(color: Color(0xFFFFD700))));
+            }
+            if (!snapshot.hasData || snapshot.data!.isEmpty) {
+              return SizedBox(
+                height: 200,
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.people_outline, size: 48, color: Colors.white.withValues(alpha: 0.1)),
+                      const SizedBox(height: 16),
+                      Text('No one has joined yet', style: TextStyle(color: Colors.white.withValues(alpha: 0.3))),
+                    ],
+                  ),
                 ),
               );
             }
             
+            final members = snapshot.data!;
             return ListView.separated(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              itemCount: snapshot.data!.length,
-              separatorBuilder: (_, __) => Divider(color: Colors.white.withOpacity(0.05)),
+              itemCount: members.length,
+              separatorBuilder: (context, index) => Divider(color: Colors.white.withValues(alpha: 0.05)),
               itemBuilder: (context, index) {
-                final member = snapshot.data![index];
+                final member = members[index];
                 return _memberItem(member);
               },
             );
@@ -755,105 +997,136 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
 
 
 
-  // --- 4. SPEAKERS SECTION ---
+  // --- 4. SPEAKERS SECTION (Real-time & Persisted) ---
   Widget _buildSpeakersSection() {
-    final adminRepo = ref.watch(adminRepositoryProvider);
+    final repo = ref.watch(adminRepositoryProvider);
     
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return StreamBuilder<List<CodingEvent>>(
+      stream: repo.watchEvents(),
+      builder: (context, eventSnapshot) {
+        final events = eventSnapshot.data ?? [];
+        final hasEvents = events.isNotEmpty;
+        
+        // Robust ID derivation: State > First Event > Null
+        String? effectiveId = _selectedEventId;
+        if (effectiveId == null && hasEvents) {
+          effectiveId = events.first.id;
+        } else if (effectiveId != null && hasEvents && !events.any((e) => e.id == effectiveId)) {
+          // If selected event no longer exists, reset to first
+          effectiveId = events.first.id;
+        }
+
+        final currentEvent = events.any((e) => e.id == effectiveId) 
+            ? events.firstWhere((e) => e.id == effectiveId)
+            : null;
+        
+        return Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
             children: [
-              _sectionTitle('Manage Speakers'),
-              ElevatedButton.icon(
-                onPressed: () => _showSpeakerDialog(),
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('Add Speaker'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _gold,
-                  foregroundColor: Colors.black,
+              if (eventSnapshot.connectionState == ConnectionState.waiting)
+                const Center(child: Padding(
+                  padding: EdgeInsets.all(40.0),
+                  child: CircularProgressIndicator(),
+                ))
+              else ...[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _sectionTitle('Manage Speakers'),
+                          if (hasEvents)
+                            _buildEventSelector(events),
+                          if (currentEvent == null)
+                            const Text('No event selected', style: TextStyle(color: Colors.orange, fontSize: 12)),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        if (!hasEvents) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Please create an event first in the "Events" tab')),
+                          );
+                          return;
+                        }
+                        if (_selectedEventId == null) {
+                          if (events.isNotEmpty) {
+                            setState(() => _selectedEventId = events.first.id);
+                            _showSpeakerDialog(eventId: events.first.id);
+                          }
+                          return;
+                        }
+                        _showSpeakerDialog(eventId: _selectedEventId!);
+                      },
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('Add Speaker'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _gold,
+                        foregroundColor: Colors.black,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Expanded(
-            child: StreamBuilder<List<Speaker>>(
-              stream: adminRepo.watchSpeakers(),
-              builder: (context, snapshot) {
-                if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-                if (snapshot.data!.isEmpty) return const Center(child: Text('No speakers yet', style: TextStyle(color: Colors.white38)));
-                
-                // Merge MockData
-                final firestoreSpeakers = snapshot.data ?? [];
-                final allSpeakers = [...MockData.currentEvent.speakers, ...firestoreSpeakers];
-                
-                if (allSpeakers.isEmpty) return const Center(child: Text('No speakers yet', style: TextStyle(color: Colors.white38)));
-                
-                return ListView.builder(
-                  itemCount: allSpeakers.length,
-                  itemBuilder: (context, index) => _speakerItem(allSpeakers[index]),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _speakerItem(Speaker speaker) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 24,
-            backgroundImage: speaker.photoUrl.isNotEmpty ? NetworkImage(speaker.photoUrl) : null,
-            backgroundColor: Colors.white12,
-            child: speaker.photoUrl.isEmpty ? const Icon(Icons.mic, color: Colors.white) : null,
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(speaker.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                Text('${speaker.topic} • ${speaker.company}', style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                const SizedBox(height: 20),
+                Expanded(
+                  child: !hasEvents
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.event_busy, size: 64, color: Colors.white.withValues(alpha: 0.1)),
+                            const SizedBox(height: 16),
+                            const Text(
+                              'No events available',
+                              style: TextStyle(color: Colors.white, fontSize: 16),
+                            ),
+                            const SizedBox(height: 8),
+                            const SizedBox(height: 8),
+                            const Text(
+                              'Please wait for an event to be created',
+                              style: TextStyle(color: Colors.white54, fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      )
+                    : AdminSpeakerList(
+                        eventId: effectiveId!,
+                        onEdit: (speaker) => _showSpeakerDialog(speaker: speaker, eventId: speaker.eventId),
+                        onDelete: (speaker) => ref.read(speakerRepositoryProvider).deleteSpeaker(speaker.eventId, speaker.id),
+                      ),
+                ),
               ],
-            ),
-          ),
-          PopupMenuButton(
-            icon: const Icon(Icons.more_vert, color: Colors.white38),
-            itemBuilder: (context) => [
-              PopupMenuItem(child: const Text('Edit'), onTap: () => Future.delayed(Duration.zero, () => _showSpeakerDialog(speaker: speaker))),
-              PopupMenuItem(child: const Text('Delete', style: TextStyle(color: Colors.red)), onTap: () => ref.read(adminRepositoryProvider).deleteSpeaker(speaker.id)),
             ],
           ),
-        ],
-      ),
+        );
+      }
     );
   }
 
-  void _showSpeakerDialog({Speaker? speaker}) {
+
+
+  void _showSpeakerDialog({Speaker? speaker, required String eventId}) {
     final nameController = TextEditingController(text: speaker?.name);
-    final topicController = TextEditingController(text: speaker?.topic);
-    final companyController = TextEditingController(text: speaker?.company);
+    final roleController = TextEditingController(text: speaker?.role);
     final bioController = TextEditingController(text: speaker?.bio);
+    final linkedinController = TextEditingController(text: speaker?.linkedinUrl);
     
+    // Generate ID for storage path consistency
+    final String tempSpeakerId = speaker?.id ?? FirebaseFirestore.instance.collection('events').doc(eventId).collection('speakers').doc().id;
     
     XFile? selectedImage;
-    String? currentPhotoUrl = speaker?.photoUrl;
-
+    Uint8List? selectedImageBytes;
+    String? currentImageUrl = speaker?.imageUrl;
+    bool isSaving = false;
+    
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
           backgroundColor: AppColors.surface,
@@ -863,82 +1136,157 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
               mainAxisSize: MainAxisSize.min,
               children: [
                 GestureDetector(
-                  onTap: () async {
+                  onTap: isSaving ? null : () async {
                     final picker = ImagePicker();
-                    final image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
+                    final image = await picker.pickImage(
+                      source: ImageSource.gallery, 
+                      maxWidth: 1024, 
+                      maxHeight: 1024, 
+                      imageQuality: 70,
+                    );
                     if (image != null) {
-                      setState(() => selectedImage = image);
+                      final bytes = await image.readAsBytes();
+                      Uint8List? compressed;
+                      try {
+                        compressed = await FlutterImageCompress.compressWithList(
+                          bytes,
+                          minWidth: 1024,
+                          minHeight: 1024,
+                          quality: 70,
+                        );
+                      } catch (e) {
+                        debugPrint('Compression error: $e');
+                      }
+
+                      setState(() { 
+                        selectedImage = image;
+                        selectedImageBytes = compressed ?? bytes;
+                      });
                     }
                   },
                   child: Container(
-                    height: 100,
-                    width: 100,
+                    height: 120,
+                    width: 120,
                     decoration: BoxDecoration(
                       color: Colors.white12,
-                      borderRadius: BorderRadius.circular(50),
-                      image: selectedImage != null 
-                        ? DecorationImage(
-                            image: kIsWeb 
-                                ? NetworkImage(selectedImage!.path) 
-                                : FileImage(File(selectedImage!.path)) as ImageProvider,
-                            fit: BoxFit.cover
-                          )
-                        : (currentPhotoUrl != null && currentPhotoUrl!.isNotEmpty)
-                          ? DecorationImage(image: NetworkImage(currentPhotoUrl!), fit: BoxFit.cover)
-                          : null,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white24),
                     ),
-                    child: selectedImage == null && (currentPhotoUrl == null || currentPhotoUrl!.isEmpty)
-                      ? const Icon(Icons.add_a_photo, color: Colors.white54, size: 30)
-                      : null,
+                     child: ClipOval(
+                       child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          if (selectedImageBytes != null)
+                            Image.memory(selectedImageBytes!, fit: BoxFit.cover)
+                          else if (currentImageUrl != null && currentImageUrl!.isNotEmpty)
+                            CachedNetworkImage(
+                              imageUrl: currentImageUrl!,
+                              fit: BoxFit.cover,
+                              placeholder: (_, __) => Shimmer.fromColors(
+                                baseColor: Colors.white10,
+                                highlightColor: Colors.white24,
+                                child: Container(color: Colors.white),
+                              ),
+                            )
+                          else
+                            const Center(
+                               child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.camera_alt, color: Colors.white54, size: 30),
+                                    Text('Photo', style: TextStyle(color: Colors.white54, fontSize: 10)),
+                                  ],
+                                )
+                            ),
+                           if (isSaving)
+                             Container(
+                               color: Colors.black45,
+                               child: const Center(child: CircularProgressIndicator(color: AppColors.codingRimPrimary)),
+                             ),
+                        ],
+                      ),
+                     ),
                   ),
                 ),
                 const SizedBox(height: 16),
                 TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Name'), style: const TextStyle(color: Colors.white)),
-                TextField(controller: topicController, decoration: const InputDecoration(labelText: 'Topic'), style: const TextStyle(color: Colors.white)),
-                TextField(controller: companyController, decoration: const InputDecoration(labelText: 'Company'), style: const TextStyle(color: Colors.white)),
+                TextField(controller: roleController, decoration: const InputDecoration(labelText: 'Role (e.g. Keynote)'), style: const TextStyle(color: Colors.white)),
                 TextField(controller: bioController, decoration: const InputDecoration(labelText: 'Bio'), style: const TextStyle(color: Colors.white), maxLines: 3),
+                TextField(controller: linkedinController, decoration: const InputDecoration(labelText: 'LinkedIn URL'), style: const TextStyle(color: Colors.white)),
               ],
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            TextButton(
+              onPressed: () => Navigator.pop(context), 
+              child: const Text('Cancel')
+            ),
             ElevatedButton(
-              onPressed: () {
-                if (nameController.text.isEmpty) return;
+              onPressed: isSaving ? null : () async {
+                 if (nameController.text.isEmpty) {
+                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Name is required')));
+                   return;
+                 }
 
-                // Create optimistic speaker
-                final optimisticSpeaker = Speaker(
-                  id: speaker?.id ?? 'temp_${DateTime.now().millisecondsSinceEpoch}',
-                  name: nameController.text,
-                  topic: topicController.text,
-                  company: companyController.text,
-                  photoUrl: currentPhotoUrl ?? '',
-                  bio: bioController.text,
-                );
+                 setState(() => isSaving = true);
 
-                // INSTANT UPDATE: Add to optimistic state
-                if (speaker == null) {
-                  ref.read(optimisticSpeakersProvider.notifier).addSpeaker(optimisticSpeaker);
-                } else {
-                  ref.read(optimisticSpeakersProvider.notifier).updateSpeaker(optimisticSpeaker);
-                }
+                 try {
+                   final messenger = ScaffoldMessenger.of(context);
+                   final repo = ref.read(adminRepositoryProvider);
+                   final String name = nameController.text.trim();
+                   final String role = roleController.text.trim();
+                   final String bio = bioController.text.trim();
+                   final String linkedin = linkedinController.text.trim();
+                   
+                   String finalImageUrl = currentImageUrl ?? '';
 
-                // INSTANT CLOSE
-                Navigator.pop(context);
+                   // 1. SEQUENTIAL CLOUDINARY UPLOAD
+                   if (selectedImageBytes != null) {
+                      finalImageUrl = await repo.uploadToCloudinary(selectedImageBytes!);
+                   }
 
-                // BACKGROUND SYNC
-                ref.read(adminRepositoryProvider).saveSpeakerOptimistically(
-                  optimisticSpeaker,
-                  selectedImage,
-                  isNew: speaker == null,
-                );
+                   if (finalImageUrl.isEmpty) {
+                      throw 'Speaker photo is required.';
+                   }
 
-                // Remove from optimistic state after delay
-                Future.delayed(const Duration(seconds: 3), () {
-                  ref.read(optimisticSpeakersProvider.notifier).removeSpeaker(optimisticSpeaker.id);
-                });
+                   // 2. FIRESTORE SAVE
+                   final newSpeaker = Speaker(
+                     id: tempSpeakerId, 
+                     eventId: eventId,
+                     name: name,
+                     role: role,
+                     bio: bio,
+                     imageUrl: finalImageUrl,
+                     linkedinUrl: linkedin,
+                     isActive: true,
+                   );
+
+                   await repo.saveSpeaker(newSpeaker, isNew: speaker == null);
+                   
+                   if (context.mounted) {
+                     Navigator.pop(context);
+                     messenger.showSnackBar(const SnackBar(content: Text('Speaker Saved! ✅'), backgroundColor: Colors.green));
+                   }
+                 } catch (e) {
+                   debugPrint('Speaker Save Error: $e');
+                   if (context.mounted) {
+                     ScaffoldMessenger.of(context).showSnackBar(
+                       SnackBar(content: Text('Failed to save speaker: $e'), backgroundColor: Colors.red)
+                     );
+                   }
+                 } finally {
+                   if (context.mounted) {
+                     setState(() => isSaving = false);
+                   }
+                 }
               },
-              child: const Text('Save'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.codingRimPrimary,
+                foregroundColor: Colors.black,
+              ),
+              child: isSaving 
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
+                : const Text('Save Speaker'),
             ),
           ],
         ),
@@ -946,52 +1294,167 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
     );
   }
 
-  // --- 5. SPONSORS SECTION ---
+  // --- 5. SPONSORS SECTION (Real-time & Persisted) ---
   Widget _buildSponsorsSection() {
-    final adminRepo = ref.watch(adminRepositoryProvider);
+    final repo = ref.watch(adminRepositoryProvider);
     
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return StreamBuilder<List<CodingEvent>>(
+      stream: repo.watchEvents(),
+      builder: (context, eventSnapshot) {
+        final events = eventSnapshot.data ?? [];
+        final hasEvents = events.isNotEmpty;
+        
+        // Robust ID derivation
+        String? effectiveId = _selectedEventId;
+        if (effectiveId == null && hasEvents) {
+          effectiveId = events.first.id;
+        } else if (effectiveId != null && hasEvents && !events.any((e) => e.id == effectiveId)) {
+          effectiveId = events.first.id;
+        }
+        
+        if (effectiveId != null && _selectedEventId != effectiveId) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() => _selectedEventId = effectiveId);
+          });
+        }
+
+        final currentEvent = events.any((e) => e.id == effectiveId) 
+            ? events.firstWhere((e) => e.id == effectiveId)
+            : (hasEvents ? events.first : null);
+        
+        return Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
             children: [
-              _sectionTitle('Manage Sponsors'),
-              ElevatedButton.icon(
-                onPressed: () => _showSponsorDialog(),
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('Add Sponsor'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _gold,
-                  foregroundColor: Colors.black,
+              if (eventSnapshot.connectionState == ConnectionState.waiting)
+                const Center(child: Padding(
+                  padding: EdgeInsets.all(40.0),
+                  child: CircularProgressIndicator(),
+                ))
+              else ...[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _sectionTitle('Manage Sponsors'),
+                          if (hasEvents)
+                            _buildEventSelector(events),
+                          if (currentEvent == null)
+                            const Text('No event selected', style: TextStyle(color: Colors.orange, fontSize: 12)),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        if (!hasEvents) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Please create an event first in the "Events" tab')),
+                          );
+                          return;
+                        }
+                        if (_selectedEventId == null) {
+                          if (events.isNotEmpty) {
+                            setState(() => _selectedEventId = events.first.id);
+                            _showSponsorDialog(eventId: events.first.id);
+                          }
+                          return;
+                        }
+                        _showSponsorDialog(eventId: _selectedEventId!);
+                      },
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('Add Sponsor'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _gold,
+                        foregroundColor: Colors.black,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
+                const SizedBox(height: 20),
+                Expanded(
+                  child: !hasEvents
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.event_busy, size: 64, color: Colors.white.withValues(alpha: 0.1)),
+                            const SizedBox(height: 16),
+                            Text(
+                              'No events available',
+                              style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 16),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Create an event in the Events tab first',
+                              style: TextStyle(color: Colors.white.withValues(alpha: 0.2), fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      )
+                        : StreamBuilder<List<Sponsor>>(
+                        stream: ref.watch(sponsorRepositoryProvider).watchSponsors(effectiveId!),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState == ConnectionState.waiting) {
+                            return const SizedBox(height: 200, child: Center(child: CircularProgressIndicator()));
+                          }
+                          if (snapshot.hasError) {
+                            return SizedBox(
+                              height: 200,
+                              child: Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(Icons.error_outline, color: Colors.red, size: 48),
+                                    const SizedBox(height: 16),
+                                    Text('Error: ${snapshot.error}', style: const TextStyle(color: Colors.red)),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }
+
+                          final sponsors = snapshot.data ?? [];
+                          
+                          if (sponsors.isEmpty) {
+                            return SizedBox(
+                              height: 200,
+                              child: Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.business_center_outlined, size: 64, color: Colors.white.withValues(alpha: 0.1)),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      'No sponsors yet',
+                                      style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 16),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Click "Add Sponsor" to create one',
+                                      style: TextStyle(color: Colors.white.withValues(alpha: 0.2), fontSize: 12),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }
+                          
+                          return ListView.builder(
+                            itemCount: sponsors.length,
+                            itemBuilder: (context, index) => _sponsorItem(sponsors[index]),
+                          );
+                        },
+                      ),
+                ),
+              ],
             ],
           ),
-          const SizedBox(height: 20),
-          Expanded(
-            child: StreamBuilder<List<Sponsor>>(
-              stream: adminRepo.watchSponsors(),
-              builder: (context, snapshot) {
-                if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-                if (snapshot.data!.isEmpty) return const Center(child: Text('No sponsors yet', style: TextStyle(color: Colors.white38)));
-                
-                // Merge MockData with Firestore data
-                final firestoreSponsors = snapshot.data ?? [];
-                final allSponsors = [...MockData.currentEvent.sponsors, ...firestoreSponsors];
-
-                if (allSponsors.isEmpty) return const Center(child: Text('No sponsors yet', style: TextStyle(color: Colors.white38)));
-                
-                return ListView.builder(
-                  itemCount: allSponsors.length,
-                  itemBuilder: (context, index) => _sponsorItem(allSponsors[index]),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
+        );
+      }
     );
   }
 
@@ -1000,7 +1463,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
@@ -1011,7 +1474,12 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(8),
-              image: sponsor.logoUrl.isNotEmpty ? DecorationImage(image: NetworkImage(sponsor.logoUrl), fit: BoxFit.contain) : null,
+              image: sponsor.logoUrl.isNotEmpty 
+                  ? DecorationImage(
+                      image: CachedNetworkImageProvider(sponsor.logoUrl), // Use locally cached image if available
+                      fit: BoxFit.contain,
+                    ) 
+                  : null,
             ),
             child: sponsor.logoUrl.isEmpty ? const Icon(Icons.business, color: Colors.black) : null,
           ),
@@ -1021,30 +1489,37 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(sponsor.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                Text('${sponsor.company} • ${sponsor.jobPosition}', style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                Text('${sponsor.tier} • ${sponsor.websiteUrl}', style: const TextStyle(color: Colors.white54, fontSize: 12)),
               ],
             ),
           ),
           IconButton(
             icon: const Icon(Icons.edit, color: Colors.blueAccent),
-            onPressed: () => _showSponsorDialog(sponsor: sponsor),
+            onPressed: () => _showSponsorDialog(sponsor: sponsor, eventId: sponsor.eventId),
           ),
           IconButton(
             icon: const Icon(Icons.delete_outline, color: Colors.red),
-            onPressed: () => ref.read(adminRepositoryProvider).deleteSponsor(sponsor.id),
+            onPressed: () async {
+                await ref.read(sponsorRepositoryProvider).deleteSponsor(sponsor.eventId, sponsor.id);
+            },
           ),
         ],
       ),
     );
   }
 
-  void _showSponsorDialog({Sponsor? sponsor}) {
+  void _showSponsorDialog({Sponsor? sponsor, required String eventId}) {
     final nameController = TextEditingController(text: sponsor?.name);
-    final companyController = TextEditingController(text: sponsor?.company);
-    final roleController = TextEditingController(text: sponsor?.jobPosition);
+    final tierController = TextEditingController(text: sponsor?.tier);
+    final websiteController = TextEditingController(text: sponsor?.websiteUrl);
     
+    // Generate ID for storage consistency
+    final String tempSponsorId = sponsor?.id ?? FirebaseFirestore.instance.collection('events').doc(eventId).collection('sponsors').doc().id;
+
     XFile? selectedImage;
-    String? currentLogoUrl = sponsor?.logoUrl;
+    Uint8List? selectedImageBytes;
+    String? currentImageUrl = sponsor?.logoUrl;
+    bool isSaving = false;
 
     showDialog(
       context: context,
@@ -1059,35 +1534,93 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                 GestureDetector(
                   onTap: () async {
                     final picker = ImagePicker();
-                    final image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
-                    if (image != null) setState(() => selectedImage = image);
+                    final image = await picker.pickImage(
+                      source: ImageSource.gallery, 
+                      maxWidth: 2048, 
+                      maxHeight: 2048, 
+                      imageQuality: 85,
+                    );
+                    if (image != null) {
+                      final bytes = await image.readAsBytes();
+                      final sizeInKb = bytes.lengthInBytes / 1024;
+                      
+                      if (context.mounted) {
+                         ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Processing Image... (${sizeInKb.toStringAsFixed(1)} KB)'),
+                            backgroundColor: Colors.blueAccent,
+                            duration: const Duration(seconds: 1),
+                          ),
+                        );
+                      }
+
+                      Uint8List? compressed;
+                      try {
+                        compressed = await FlutterImageCompress.compressWithList(
+                          bytes,
+                          minWidth: 1024,
+                          minHeight: 1024,
+                          quality: 70,
+                        );
+                      } catch (e) {
+                        debugPrint('Sponsor compression error: $e');
+                      }
+
+                      setState(() { 
+                        selectedImage = image;
+                        selectedImageBytes = compressed ?? bytes;
+                      });
+                    }
                   },
                   child: Container(
-                    height: 100,
-                    width: 100,
+                    height: 120,
+                    width: 120,
                     decoration: BoxDecoration(
                       color: Colors.white12,
                       borderRadius: BorderRadius.circular(12),
-                      image: selectedImage != null 
-                        ? DecorationImage(
-                            image: kIsWeb 
-                                ? NetworkImage(selectedImage!.path) 
-                                : FileImage(File(selectedImage!.path)) as ImageProvider,
-                            fit: BoxFit.contain
-                          )
-                        : (currentLogoUrl != null && currentLogoUrl!.isNotEmpty)
-                          ? DecorationImage(image: NetworkImage(currentLogoUrl!), fit: BoxFit.contain)
-                          : null,
                     ),
-                    child: selectedImage == null && (currentLogoUrl == null || currentLogoUrl!.isEmpty)
-                      ? const Icon(Icons.add_photo_alternate, color: Colors.white54, size: 30)
-                      : null,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          if (selectedImageBytes != null)
+                            Image.memory(selectedImageBytes!, fit: BoxFit.contain)
+                          else if (currentImageUrl != null && currentImageUrl!.isNotEmpty)
+                            CachedNetworkImage(
+                              imageUrl: currentImageUrl!,
+                              fit: BoxFit.contain,
+                              placeholder: (_, __) => Shimmer.fromColors(
+                                baseColor: Colors.white10,
+                                highlightColor: Colors.white24,
+                                child: Container(color: Colors.white),
+                              ),
+                              errorWidget: (_, __, ___) => const Icon(Icons.error),
+                            )
+                          else
+                            const Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.add_business_rounded, color: Colors.white54, size: 30),
+                                  Text('Logo', style: TextStyle(color: Colors.white54, fontSize: 10)),
+                                ],
+                              ),
+                            ),
+                           if (isSaving)
+                             Container(
+                               color: Colors.black45,
+                               child: const Center(child: CircularProgressIndicator(color: AppColors.codingRimPrimary)),
+                             ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),
                 TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Name'), style: const TextStyle(color: Colors.white)),
-                TextField(controller: companyController, decoration: const InputDecoration(labelText: 'Company'), style: const TextStyle(color: Colors.white)),
-                TextField(controller: roleController, decoration: const InputDecoration(labelText: 'Role / Position'), style: const TextStyle(color: Colors.white)),
+                TextField(controller: tierController, decoration: const InputDecoration(labelText: 'Tier (e.g. Gold)'), style: const TextStyle(color: Colors.white)),
+                TextField(controller: websiteController, decoration: const InputDecoration(labelText: 'Website URL'), style: const TextStyle(color: Colors.white)),
               ],
             ),
           ),
@@ -1097,41 +1630,69 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
               child: const Text('Cancel')
             ),
             ElevatedButton(
-              onPressed: () {
-                 if (nameController.text.isEmpty) return;
-
-                 // Create optimistic sponsor
-                 final optimisticSponsor = Sponsor(
-                   id: sponsor?.id ?? 'temp_${DateTime.now().millisecondsSinceEpoch}',
-                   name: nameController.text,
-                   company: companyController.text,
-                   jobPosition: roleController.text,
-                   logoUrl: currentLogoUrl ?? '',
-                 );
-                 
-                 // INSTANT UPDATE: Add to optimistic state
-                 if (sponsor == null) {
-                   ref.read(optimisticSponsorsProvider.notifier).addSponsor(optimisticSponsor);
-                 } else {
-                   ref.read(optimisticSponsorsProvider.notifier).updateSponsor(optimisticSponsor);
+              onPressed: isSaving ? null : () async {
+                 if (nameController.text.isEmpty) {
+                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Name is required')));
+                   return;
                  }
+                 
+                 setState(() => isSaving = true);
+                 
+                 try {
+                   final messenger = ScaffoldMessenger.of(context);
+                   final repo = ref.read(adminRepositoryProvider);
+                   final String name = nameController.text.trim();
+                   final String tier = tierController.text.trim();
+                   final String website = websiteController.text.trim();
+                   
+                   String finalLogoUrl = currentImageUrl ?? '';
 
-                 // INSTANT CLOSE
-                 Navigator.pop(context);
+                   // 1. SEQUENTIAL CLOUDINARY UPLOAD
+                   if (selectedImageBytes != null) {
+                      finalLogoUrl = await repo.uploadToCloudinary(selectedImageBytes!);
+                   }
+                   
+                   if (finalLogoUrl.isEmpty) {
+                      throw 'Sponsor logo is required.';
+                   }
 
-                 // BACKGROUND SYNC
-                 ref.read(adminRepositoryProvider).saveSponsorOptimistically(
-                   optimisticSponsor,
-                   selectedImage,
-                   isNew: sponsor == null,
-                 );
-
-                 // Remove from optimistic state after delay
-                 Future.delayed(const Duration(seconds: 3), () {
-                   ref.read(optimisticSponsorsProvider.notifier).removeSponsor(optimisticSponsor.id);
-                 });
+                   // 2. FIRESTORE SAVE
+                   final newSponsor = Sponsor(
+                     id: tempSponsorId, 
+                     eventId: eventId,
+                     name: name,
+                     company: tier,
+                     tier: tier,
+                     logoUrl: finalLogoUrl,
+                     websiteUrl: website,
+                   );
+                   
+                   await repo.saveSponsor(newSponsor, isNew: sponsor == null);
+                   
+                   if (context.mounted) {
+                     Navigator.pop(context); 
+                     messenger.showSnackBar(const SnackBar(content: Text('Sponsor Saved! ✅'), backgroundColor: Colors.green));
+                   }
+                 } catch (e) {
+                   debugPrint('Sponsor Save Error: $e');
+                   if (context.mounted) {
+                     ScaffoldMessenger.of(context).showSnackBar(
+                       SnackBar(content: Text('Failed: $e'), backgroundColor: Colors.red)
+                     );
+                   }
+                 } finally {
+                   if (context.mounted) {
+                     setState(() => isSaving = false);
+                   }
+                 }
               },
-              child: const Text('Save'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.codingRimPrimary,
+                foregroundColor: Colors.black,
+              ),
+              child: isSaving 
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
+                : const Text('Save Sponsor'),
             ),
           ],
         ),
@@ -1139,7 +1700,301 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
     );
   }
 
-  // --- 6. CHAT SECTION (Real-time Admin List View) ---
+  // --- 6. SCHEDULES SECTION (Real-time CRUD) ---
+  Widget _buildSchedulesSection() {
+    final repo = ref.watch(adminRepositoryProvider);
+
+    return StreamBuilder<List<CodingEvent>>(
+      stream: repo.watchEvents(),
+      builder: (context, eventSnapshot) {
+        final events = eventSnapshot.data ?? [];
+        final hasEvents = events.isNotEmpty;
+        
+        // Robust ID derivation
+        String? effectiveId = _selectedEventId;
+        if (effectiveId == null && hasEvents) {
+          effectiveId = events.first.id;
+        } else if (effectiveId != null && hasEvents && !events.any((e) => e.id == effectiveId)) {
+          effectiveId = events.first.id;
+        }
+        
+        if (effectiveId != null && _selectedEventId != effectiveId) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() => _selectedEventId = effectiveId);
+          });
+        }
+
+        final currentEvent = events.any((e) => e.id == effectiveId) 
+            ? events.firstWhere((e) => e.id == effectiveId)
+            : null;
+
+        return Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            children: [
+              if (eventSnapshot.connectionState == ConnectionState.waiting)
+                const SizedBox(height: 200, child: Center(child: CircularProgressIndicator()))
+              else ...[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _sectionTitle('Manage Schedules'),
+                          if (hasEvents)
+                            _buildEventSelector(events),
+                          if (currentEvent == null)
+                            const Text('No event selected', style: TextStyle(color: Colors.orange, fontSize: 12)),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        if (!hasEvents) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Please create an event first in the "Events" tab')),
+                          );
+                          return;
+                        }
+                        if (_selectedEventId == null) {
+                          if (events.isNotEmpty) {
+                            setState(() => _selectedEventId = events.first.id);
+                            _showScheduleDialog(eventId: events.first.id);
+                          }
+                          return;
+                        }
+                        _showScheduleDialog(eventId: _selectedEventId!);
+                      },
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('Add Schedule'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _gold,
+                        foregroundColor: Colors.black,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                Expanded(
+                  child: !hasEvents
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.event_busy, size: 64, color: Colors.white.withValues(alpha: 0.1)),
+                            const SizedBox(height: 16),
+                            Text(
+                              'No events available',
+                              style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 16),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Create an event in the Events tab first',
+                              style: TextStyle(color: Colors.white.withValues(alpha: 0.2), fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      )
+                        : StreamBuilder<List<new_schedule.Schedule>>(
+                        stream: ref.watch(scheduleRepositoryProvider).watchSchedules(_selectedEventId!),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState == ConnectionState.waiting) {
+                            return const SizedBox(height: 200, child: Center(child: CircularProgressIndicator()));
+                          }
+                          if (snapshot.hasError) {
+                            return SizedBox(
+                              height: 200,
+                              child: Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(Icons.error_outline, color: Colors.red, size: 48),
+                                    const SizedBox(height: 16),
+                                    Text('Error: ${snapshot.error}', style: const TextStyle(color: Colors.red)),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }
+
+                          final schedules = snapshot.data ?? [];
+                          
+                          if (schedules.isEmpty) {
+                            return SizedBox(
+                              height: 200,
+                              child: Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.calendar_today_outlined, size: 64, color: Colors.white.withValues(alpha: 0.1)),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      'No schedules yet',
+                                      style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 16),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Click "Add Schedule" to create one',
+                                      style: TextStyle(color: Colors.white.withValues(alpha: 0.2), fontSize: 12),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }
+
+                          return ListView.builder(
+                            itemCount: schedules.length,
+                            itemBuilder: (context, index) => _scheduleItem(schedules[index]),
+                          );
+                        },
+                      ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _scheduleItem(new_schedule.Schedule schedule) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(color: _gold.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+            child: Icon(Icons.access_time_rounded, color: _gold, size: 20),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(schedule.title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                Text(
+                  '${schedule.startTime.hour}:${schedule.startTime.minute.toString().padLeft(2, '0')} - ${schedule.endTime.hour}:${schedule.endTime.minute.toString().padLeft(2, '0')} • Day ${schedule.day}',
+                  style: const TextStyle(color: Colors.white54, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.edit, color: Colors.blueAccent, size: 20),
+            onPressed: () => _showScheduleDialog(schedule: schedule, eventId: schedule.eventId),
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+            onPressed: () => ref.read(scheduleRepositoryProvider).deleteSchedule(schedule.eventId, schedule.id),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showScheduleDialog({new_schedule.Schedule? schedule, required String eventId}) {
+    final titleController = TextEditingController(text: schedule?.title);
+    final descController = TextEditingController(text: schedule?.description);
+    final locationController = TextEditingController(text: schedule?.location);
+    final dayController = TextEditingController(text: schedule?.day.toString() ?? '1');
+    bool isSaving = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: Text(schedule == null ? 'Add Schedule Slot' : 'Edit Slot', style: const TextStyle(color: Colors.white)),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: titleController, decoration: const InputDecoration(labelText: 'Title'), style: const TextStyle(color: Colors.white)),
+              TextField(controller: descController, decoration: const InputDecoration(labelText: 'Description'), style: const TextStyle(color: Colors.white), maxLines: 2),
+              TextField(controller: locationController, decoration: const InputDecoration(labelText: 'Location / Room'), style: const TextStyle(color: Colors.white)),
+              TextField(controller: dayController, decoration: const InputDecoration(labelText: 'Day Number'), keyboardType: TextInputType.number, style: const TextStyle(color: Colors.white)),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: isSaving ? null : () async {
+                if (titleController.text.isEmpty) {
+                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Title is required')));
+                   return;
+                }
+                
+                setState(() => isSaving = true);
+                
+                try {
+                  final messenger = ScaffoldMessenger.of(context);
+                  final repo = ref.read(adminRepositoryProvider);
+                  final String title = titleController.text.trim();
+                  final String description = descController.text.trim();
+                  final String location = locationController.text.trim();
+                  final int day = int.tryParse(dayController.text) ?? 1;
+                  final String scheduleId = schedule?.id ?? '';
+                  final bool isNewEntry = schedule == null;
+                  final DateTime startTime = schedule?.startTime ?? DateTime.now();
+                  final DateTime endTime = schedule?.endTime ?? DateTime.now().add(const Duration(hours: 1));
+                  final List<String> mediaUrls = schedule?.mediaUrls ?? [];
+
+                  final newSlot = new_schedule.Schedule(
+                    id: scheduleId,
+                    eventId: eventId,
+                    day: day,
+                    title: title,
+                    description: description,
+                    location: location,
+                    startTime: startTime,
+                    endTime: endTime,
+                    mediaUrls: mediaUrls,
+                  );
+
+                  await repo.saveSchedule(newSlot, isNew: isNewEntry);
+                  
+                  if (context.mounted) {
+                     Navigator.pop(context);
+                     messenger.showSnackBar(const SnackBar(content: Text('Schedule Saved!'), backgroundColor: Colors.green, duration: Duration(seconds: 2)));
+                  }
+                } catch (e) {
+                   setState(() => isSaving = false);
+                   if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error saving schedule: $e'), backgroundColor: Colors.red));
+                   }
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.codingRimPrimary,
+                foregroundColor: Colors.black,
+              ),
+              child: isSaving 
+                ? const SizedBox(
+                    height: 16, 
+                    width: 16, 
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black)
+                  ) 
+                : const Text('Save'),
+            ),
+        ],
+      ),
+    ),
+  );
+  }
+
+  // --- 7. CHAT SECTION (Real-time Admin List View) ---
   Widget _buildChatSection() {
     final chatRepo = ref.watch(adminChatRepositoryProvider);
     
@@ -1157,10 +2012,11 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                 if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
                 if (snapshot.data!.isEmpty) return const Center(child: Text('No active chats', style: TextStyle(color: Colors.white38)));
                 
+                final threadData = snapshot.data!;
                 return ListView.builder(
-                  itemCount: snapshot.data!.length,
+                  itemCount: threadData.length,
                   itemBuilder: (context, index) {
-                    final chat = snapshot.data![index];
+                    final chat = threadData[index];
                     return _chatThreadItem(chat);
                   },
                 );
@@ -1178,9 +2034,9 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(hasUnread ? 0.08 : 0.03),
+        color: Colors.white.withValues(alpha: hasUnread ? 0.08 : 0.03),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: hasUnread ? _gold.withOpacity(0.3) : Colors.transparent),
+        border: Border.all(color: hasUnread ? _gold.withValues(alpha: 0.3) : Colors.transparent),
       ),
       child: ListTile(
         onTap: () => _openAdminChatRoom(chat['userId'], chat['userName'] ?? 'User'),
@@ -1225,7 +2081,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.05))),
+        border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05))),
       ),
       child: Row(
         children: [
@@ -1244,13 +2100,36 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _moduleHeader('Recent Activity', Icons.history, const Color(0xFF00FF94)),
+        _moduleHeader('System Actions', Icons.bolt, const Color(0xFF00FF94)),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _actionBtn(
+                'Add Event', 
+                Icons.add_circle_outline, 
+                const Color(0xFF00FF94),
+                () => _showEventDialog(),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        _moduleHeader('Recent Activity', Icons.history, Colors.white38),
         const SizedBox(height: 12),
         StreamBuilder<List<Participant>>(
           stream: ref.watch(userRepositoryProvider).getRealTimeMembers(),
           builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const SizedBox(height: 100, child: Center(child: CircularProgressIndicator()));
+            }
             final members = snapshot.data ?? [];
-            if (members.isEmpty) return const Text('No recent activity', style: TextStyle(color: Colors.white38));
+            if (members.isEmpty) {
+              return const SizedBox(
+                height: 50,
+                child: Center(child: Text('No recent activity', style: TextStyle(color: Colors.white38))),
+              );
+            }
             
             // Take last 3 joined
             final recent = members.take(3).toList();
@@ -1302,17 +2181,22 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
             padding: const EdgeInsets.all(2),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(color: _gold.withOpacity(0.3)),
+              border: Border.all(color: _gold.withValues(alpha: 0.3)),
             ),
-            child: CircleAvatar(
-              radius: 20,
-              backgroundColor: Colors.white.withOpacity(0.1),
-              backgroundImage: member.profileImage != null && member.profileImage!.isNotEmpty 
-                ? NetworkImage(member.profileImage!) 
-                : null,
-              child: member.profileImage == null || member.profileImage!.isEmpty
-                ? Text(member.name.isNotEmpty ? member.name[0] : 'U', style: const TextStyle(color: Colors.white, fontSize: 14))
-                : null,
+            child: Builder(
+              builder: (context) {
+                final String? imageUrl = member.profileImage;
+                return CircleAvatar(
+                  radius: 20,
+                  backgroundColor: Colors.white.withValues(alpha: 0.1),
+                  backgroundImage: (imageUrl != null && imageUrl.isNotEmpty)
+                    ? CachedNetworkImageProvider(imageUrl) 
+                    : null,
+                  child: (imageUrl == null || imageUrl.isEmpty)
+                    ? Text(member.name.isNotEmpty ? member.name[0] : 'U', style: const TextStyle(color: Colors.white, fontSize: 14))
+                    : null,
+                );
+              }
             ),
           ),
           Positioned(
@@ -1341,7 +2225,6 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
           ),
         ],
       ),
-      trailing: const Icon(Icons.chevron_right, color: Colors.white24, size: 16),
     );
   }
 
@@ -1362,10 +2245,15 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
             children: [
             Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2))),
             const SizedBox(height: 24),
-            CircleAvatar(
-              radius: 40,
-              backgroundImage: member.profileImage != null ? NetworkImage(member.profileImage!) : null,
-              child: member.profileImage == null ? const Icon(Icons.person, size: 40, color: Colors.white54) : null,
+            Builder(
+              builder: (context) {
+                final String? imageUrl = member.profileImage;
+                return CircleAvatar(
+                  radius: 40,
+                  backgroundImage: imageUrl != null ? NetworkImage(imageUrl) : null,
+                  child: imageUrl == null ? const Icon(Icons.person, size: 40, color: Colors.white54) : null,
+                );
+              }
             ),
             const SizedBox(height: 16),
             Text(member.name, style: GoogleFonts.outfit(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
@@ -1388,7 +2276,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
       children: [
         Container(
           padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(8)),
+          decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(8)),
           child: Icon(icon, color: _gold, size: 20),
         ),
         const SizedBox(width: 16),
@@ -1434,8 +2322,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
     return Container(
       padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + MediaQuery.of(context).viewInsets.bottom),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
-        border: Border(top: BorderSide(color: Colors.white.withOpacity(0.1))),
+        color: Colors.white.withValues(alpha: 0.05),
+        border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.1))),
       ),
       child: Row(
         children: [
@@ -1446,7 +2334,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                 hintText: 'Type a reply...',
                 hintStyle: const TextStyle(color: Colors.white38),
                 border: InputBorder.none,
-                fillColor: Colors.white.withOpacity(0.05),
+                fillColor: Colors.white.withValues(alpha: 0.05),
                 filled: true,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
@@ -1480,7 +2368,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
         decoration: BoxDecoration(
-          color: isMe ? _gold : Colors.white.withOpacity(0.1),
+          color: isMe ? _gold : Colors.white.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(18).copyWith(
             bottomRight: isMe ? const Radius.circular(0) : const Radius.circular(18),
             bottomLeft: isMe ? const Radius.circular(18) : const Radius.circular(0),
@@ -1500,6 +2388,283 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
       style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
     );
   }
+
+  @override
+  void dispose() {
+    _brandingNameController.dispose();
+    super.dispose();
+  }
+
+  Widget _buildBrandingSection() {
+    final brandingAsync = ref.watch(brandingProvider);
+
+    return brandingAsync.when(
+      loading: () => Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const CircularProgressIndicator(color: Color(0xFFFFD700)),
+            const SizedBox(height: 16),
+            Text(
+              'Connecting to branding service...',
+              style: GoogleFonts.outfit(color: Colors.white38, fontSize: 14),
+            ),
+          ],
+        ),
+      ),
+      error: (error, _) => Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, color: Colors.red, size: 48),
+            const SizedBox(height: 16),
+            Text('Error: $error', style: const TextStyle(color: Colors.white70)),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: () => ref.invalidate(brandingProvider),
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      ),
+      data: (branding) {
+        // Update controller only if it was empty to avoid overwriting user input while editing
+        if (_brandingNameController.text.isEmpty && branding.companyName != 'Event App') {
+          _brandingNameController.text = branding.companyName;
+        }
+
+        return Padding(
+          padding: const EdgeInsets.all(24),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _sectionTitle('Branding Settings'),
+                const SizedBox(height: 24),
+                _GlassCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Company Name', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _brandingNameController,
+                        style: const TextStyle(color: Colors.white, fontSize: 16),
+                        decoration: InputDecoration(
+                          hintText: 'Enter company name',
+                          hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.2)),
+                          filled: true,
+                          fillColor: Colors.white.withValues(alpha: 0.05),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      const Text('Company Logo', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                      const SizedBox(height: 12),
+                      Center(
+                        child: GestureDetector(
+                          onTap: _isSavingBranding ? null : () async {
+                            final picker = ImagePicker();
+                            final image = await picker.pickImage(
+                              source: ImageSource.gallery,
+                              maxWidth: 1024,
+                              maxHeight: 1024,
+                              imageQuality: 70,
+                            );
+                            if (image != null) {
+                              final bytes = await image.readAsBytes();
+                              Uint8List? compressed;
+                              try {
+                                compressed = await FlutterImageCompress.compressWithList(
+                                  bytes,
+                                  minWidth: 512,
+                                  minHeight: 512,
+                                  quality: 70,
+                                );
+                              } catch (e) {
+                                debugPrint('Branding Logo compression error: $e');
+                              }
+                              setState(() {
+                                _brandingLogo = image;
+                                _brandingLogoBytes = compressed ?? bytes;
+                              });
+                            }
+                          },
+                          child: Container(
+                            width: 120,
+                            height: 120,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.05),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(20),
+                              child: Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  if (_brandingLogoBytes != null)
+                                    Image.memory(_brandingLogoBytes!, fit: BoxFit.contain)
+                                  else if (branding.companyLogoUrl != null)
+                                    CachedNetworkImage(
+                                      imageUrl: branding.companyLogoUrl!,
+                                      fit: BoxFit.contain,
+                                      placeholder: (_, __) => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                                      errorWidget: (_, __, ___) => const Icon(Icons.business, color: Colors.white24, size: 40),
+                                    )
+                                  else
+                                    const Icon(Icons.add_photo_alternate_outlined, color: Colors.white24, size: 40),
+                                  
+                                  if (_isSavingBranding)
+                                    Container(
+                                      color: Colors.black45,
+                                      child: const Center(child: CircularProgressIndicator(color: Color(0xFFFFD700))),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      const Center(
+                        child: Text('Tap to change logo', style: TextStyle(color: Colors.white38, fontSize: 12)),
+                      ),
+                      const SizedBox(height: 32),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: _isSavingBranding ? null : () async {
+                            if (_brandingNameController.text.trim().isEmpty) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Company name cannot be empty'))
+                              );
+                              return;
+                            }
+  
+                            setState(() => _isSavingBranding = true);
+                            try {
+                              String finalUrl = branding.companyLogoUrl ?? '';
+                              if (_brandingLogoBytes != null) {
+                                finalUrl = await ref.read(adminRepositoryProvider).uploadToCloudinary(
+                                  _brandingLogoBytes!, 
+                                  folder: 'branding'
+                                );
+                              }
+  
+                              final updatedBranding = BrandingInfo(
+                                companyName: _brandingNameController.text.trim(),
+                                companyLogoUrl: finalUrl.isEmpty ? null : finalUrl,
+                              );
+  
+                              await ref.read(adminRepositoryProvider).saveBranding(updatedBranding);
+  
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Branding updated successfully!'), backgroundColor: Colors.green)
+                                );
+                                setState(() {
+                                  _brandingLogo = null;
+                                  _brandingLogoBytes = null;
+                                });
+                              }
+                            } catch (e) {
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Failed to update branding: $e'), backgroundColor: Colors.red)
+                                );
+                              }
+                            } finally {
+                              if (mounted) {
+                                setState(() => _isSavingBranding = false);
+                              }
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _gold,
+                            foregroundColor: Colors.black,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          child: _isSavingBranding
+                              ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
+                              : const Text('Save Branding', style: TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      if (branding.companyName != 'Event App' || branding.companyLogoUrl != null)
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton(
+                            onPressed: _isSavingBranding ? null : () async {
+                              final confirm = await showDialog<bool>(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  backgroundColor: Colors.grey[900],
+                                  title: const Text('Delete Branding?', style: TextStyle(color: Colors.white)),
+                                  content: const Text(
+                                    'This will reset the header to default. The logo will be removed from the header but NOT from Cloudinary storage.',
+                                    style: TextStyle(color: Colors.white70),
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(context, false),
+                                      child: const Text('Cancel'),
+                                    ),
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(context, true),
+                                      child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                                    ),
+                                  ],
+                                ),
+                              );
+
+                              if (confirm == true) {
+                                setState(() => _isSavingBranding = true);
+                                try {
+                                  await ref.read(adminRepositoryProvider).deleteBranding();
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Branding reset to default'), backgroundColor: Colors.orange)
+                                    );
+                                    setState(() {
+                                      _brandingLogo = null;
+                                      _brandingLogoBytes = null;
+                                      _brandingNameController.text = 'Event App'; // Reset locally
+                                    });
+                                  }
+                                } catch (e) {
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('Failed to delete branding: $e'), backgroundColor: Colors.red)
+                                    );
+                                  }
+                                } finally {
+                                  if (mounted) {
+                                    setState(() => _isSavingBranding = false);
+                                  }
+                                }
+                              }
+                            },
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: Colors.redAccent),
+                              foregroundColor: Colors.redAccent,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            child: const Text('Delete Branding / Reset to Default'),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 }
 
 class _GlassCard extends StatelessWidget {
@@ -1513,18 +2678,142 @@ class _GlassCard extends StatelessWidget {
     return Container(
       padding: padding ?? const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(28), // Premium rounded corners matching Event Home
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
         ],
       ),
       child: child,
+    );
+  }
+}
+
+class AdminSpeakerList extends ConsumerWidget {
+  final String eventId;
+  final Function(Speaker) onEdit;
+  final Function(Speaker) onDelete;
+
+  const AdminSpeakerList({
+    super.key,
+    required this.eventId,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return StreamBuilder<List<Speaker>>(
+      stream: ref.watch(speakerRepositoryProvider).watchSpeakers(eventId),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SizedBox(height: 200, child: Center(child: CircularProgressIndicator()));
+        }
+        if (snapshot.hasError) {
+          return SizedBox(
+            height: 200,
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error_outline, color: Colors.red, size: 48),
+                  const SizedBox(height: 16),
+                  Text('Error: ${snapshot.error}', style: const TextStyle(color: Colors.red)),
+                ],
+              ),
+            ),
+          );
+        }
+
+        final speakers = snapshot.data ?? [];
+        
+        if (speakers.isEmpty) {
+          return SizedBox(
+            height: 200,
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.mic_none, size: 64, color: Colors.white.withValues(alpha: 0.1)),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No speakers yet',
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 16),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Click "Add Speaker" to create one',
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.2), fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+        
+        return ListView.builder(
+          itemCount: speakers.length,
+          itemBuilder: (context, index) {
+            final speaker = speakers[index];
+            return Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: const BoxDecoration(
+                      color: Colors.white12,
+                      shape: BoxShape.circle,
+                    ),
+                    child: ClipOval(
+                      child: speaker.imageUrl.isNotEmpty
+                          ? CachedNetworkImage(
+                              imageUrl: speaker.imageUrl,
+                              width: 48,
+                              height: 48,
+                              fit: BoxFit.cover,
+                              placeholder: (_, __) => Container(color: Colors.white12),
+                              errorWidget: (_, __, ___) => const Icon(Icons.mic, color: Colors.white),
+                            )
+                          : const Icon(Icons.mic, color: Colors.white),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(speaker.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        Text('${speaker.role} • ${speaker.bio}', maxLines: 1, overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                  PopupMenuButton(
+                    icon: const Icon(Icons.more_vert, color: Colors.white38),
+                    itemBuilder: (context) => [
+                      PopupMenuItem(child: const Text('Edit'), onTap: () => Future.delayed(Duration.zero, () => onEdit(speaker))),
+                      PopupMenuItem(child: const Text('Delete', style: TextStyle(color: Colors.red)), 
+                        onTap: () => onDelete(speaker)),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

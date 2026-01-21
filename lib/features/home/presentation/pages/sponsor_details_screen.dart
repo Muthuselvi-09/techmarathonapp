@@ -2,16 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/app_colors.dart';
 
+import 'package:tech_marathon_app/features/home/domain/event_models.dart';
+
 class SponsorDetailsScreen extends StatelessWidget {
-  final String image;
-  final String name;
-  final String description;
+  final Sponsor sponsor;
 
   const SponsorDetailsScreen({
     super.key,
-    required this.image,
-    required this.name,
-    required this.description,
+    required this.sponsor,
   });
 
   @override
@@ -43,7 +41,7 @@ class SponsorDetailsScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(32),
               decoration: BoxDecoration(
-                color: AppColors.surface,
+                color: Colors.white,
                 shape: BoxShape.circle,
                 border: Border.all(color: AppColors.primary.withOpacity(0.2), width: 2),
                 boxShadow: [
@@ -56,13 +54,14 @@ class SponsorDetailsScreen extends StatelessWidget {
               ),
               child: CircleAvatar(
                 radius: 60,
-                backgroundColor: AppColors.surface,
-                backgroundImage: NetworkImage(image),
+                backgroundColor: Colors.white,
+                backgroundImage: sponsor.logoUrl.isNotEmpty ? NetworkImage(sponsor.logoUrl) : null,
+                child: sponsor.logoUrl.isEmpty ? const Icon(Icons.business, color: Colors.black) : null,
               ),
             ),
             const SizedBox(height: 32),
             Text(
-              name,
+              sponsor.name,
               textAlign: TextAlign.center,
               style: GoogleFonts.outfit(
                 fontSize: 28,
@@ -72,7 +71,7 @@ class SponsorDetailsScreen extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              description,
+              sponsor.tier,
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
                 fontSize: 16,
@@ -104,7 +103,7 @@ class SponsorDetailsScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Proud sponsor of Tech Marathon 2025. Empowering innovation and supporting the tech community. Visit our booth to learn more about our latest products and services.',
+                    'Proud sponsor of the event. Empowering innovation and supporting the tech community.',
                     style: GoogleFonts.inter(
                       fontSize: 14,
                       color: AppColors.textSecondary,
@@ -120,7 +119,7 @@ class SponsorDetailsScreen extends StatelessWidget {
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          'www.${name.toLowerCase().replaceAll(' ', '')}.com',
+                          sponsor.websiteUrl,
                           style: GoogleFonts.inter(
                             fontSize: 14,
                             color: AppColors.primary,

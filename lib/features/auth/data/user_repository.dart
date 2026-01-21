@@ -95,4 +95,17 @@ class UserRepository {
     }
     return 'user';
   }
+
+  Future<void> addMember(Participant member) async {
+    final docRef = member.id.isEmpty ? _usersCollection.doc() : _usersCollection.doc(member.id);
+    await docRef.set(member.toFirestore());
+  }
+
+  Future<void> updateMember(Participant member) async {
+    await _usersCollection.doc(member.id).update(member.toFirestore());
+  }
+
+  Future<void> deleteMember(String id) async {
+    await _usersCollection.doc(id).delete();
+  }
 }
