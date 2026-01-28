@@ -334,47 +334,56 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ),
             
-            // Center: Company Name
+            // Center: Company Name + Logo
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 100.0), // More space to avoid logo overlap
+              padding: const EdgeInsets.symmetric(horizontal: 48.0),
               child: Center(
-                child: Container(
-                  constraints: const BoxConstraints(maxWidth: 180),
-                  child: Text(
-                    branding.companyName.toUpperCase(),
-                    textAlign: TextAlign.center,
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                    style: GoogleFonts.outfit(
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 2,
-                      fontSize: 16,
-                      color: AppColors.textPrimary,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Logo (moved from right)
+                    if (branding.companyLogoUrl != null && branding.companyLogoUrl!.isNotEmpty) ...[
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 40, maxHeight: 40),
+                        child: CachedNetworkImage(
+                          imageUrl: branding.companyLogoUrl!,
+                          fit: BoxFit.contain,
+                          placeholder: (_, __) => const SizedBox(width: 20, height: 20),
+                          errorWidget: (_, __, ___) => const SizedBox.shrink(),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                    ],
+                    
+                    // Name
+                    Flexible(
+                      child: Container(
+                        constraints: const BoxConstraints(maxWidth: 200),
+                        child: Text(
+                          branding.companyName.toUpperCase(),
+                          textAlign: TextAlign.center,
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                          style: GoogleFonts.outfit(
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 2,
+                            fontSize: 18,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
               ),
             ),
             
-            // Right: Logo + Actions
+            // Right: Actions
             Align(
               alignment: Alignment.centerRight,
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (branding.companyLogoUrl != null && branding.companyLogoUrl!.isNotEmpty) ...[
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 50), // Allow wider logos, up to 50px
-                      child: CachedNetworkImage(
-                        imageUrl: branding.companyLogoUrl!,
-                        height: 24,
-                        fit: BoxFit.contain,
-                        placeholder: (_, __) => const SizedBox(width: 24, height: 24),
-                        errorWidget: (_, __, ___) => const SizedBox.shrink(),
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                  ],
                   IconButton(
                     icon: const Icon(Icons.admin_panel_settings_outlined, color: AppColors.textPrimary),
                     onPressed: () {

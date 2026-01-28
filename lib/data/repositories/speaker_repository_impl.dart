@@ -11,6 +11,9 @@ class SpeakerRepositoryImpl implements SpeakerRepository {
   Stream<List<Speaker>> watchSpeakers(String eventId) => _dataSource.watchSpeakers(eventId);
 
   @override
+  Stream<List<Speaker>> watchAllSpeakers() => _dataSource.watchAllSpeakers();
+
+  @override
   Future<Speaker?> getSpeakerById(String id) => _dataSource.getSpeakerById(id);
 
   @override
@@ -20,5 +23,11 @@ class SpeakerRepositoryImpl implements SpeakerRepository {
   Future<void> updateSpeaker(Speaker speaker) => _dataSource.updateSpeaker(speaker);
 
   @override
-  Future<void> deleteSpeaker(String eventId, String id) => _dataSource.deleteSpeaker(eventId, id);
+  Future<void> deleteSpeaker(String id) => _dataSource.deleteSpeaker(id);
+
+  @override
+  Future<void> addSpeakerToEvent(String eventId, String speakerId) => _dataSource.addSpeakerToEvent(eventId, speakerId);
+
+  @override
+  Future<void> removeSpeakerFromEvent(String eventId, String speakerId) => _dataSource.removeSpeakerFromEvent(eventId, speakerId);
 }

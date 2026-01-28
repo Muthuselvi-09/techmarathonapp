@@ -14,26 +14,13 @@ final currentEventStreamProvider = StreamProvider<CodingEvent?>((ref) {
 });
 
 final mergedSpeakersProvider = StreamProvider<List<new_speaker.Speaker>>((ref) {
-  return ref.watch(currentEventStreamProvider).when(
-    data: (event) {
-      if (event == null) return Stream.value([]);
-      return ref.watch(speakerRepositoryProvider).watchSpeakers(event.id);
-    },
-    loading: () => const Stream.empty(),
-    error: (_, __) => Stream.value([]),
-  );
+  return ref.watch(speakerRepositoryProvider).watchAllSpeakers();
 });
 
 final mergedSponsorsProvider = StreamProvider<List<new_sponsor.Sponsor>>((ref) {
-  return ref.watch(currentEventStreamProvider).when(
-    data: (event) {
-      if (event == null) return Stream.value([]);
-      return ref.watch(sponsorRepositoryProvider).watchSponsors(event.id);
-    },
-    loading: () => const Stream.empty(),
-    error: (_, __) => Stream.value([]),
-  );
+  return ref.watch(sponsorRepositoryProvider).watchAllSponsors();
 });
+
 
 final schedulesStreamProvider = StreamProvider<List<new_schedule.Schedule>>((ref) {
   return ref.watch(currentEventStreamProvider).when(

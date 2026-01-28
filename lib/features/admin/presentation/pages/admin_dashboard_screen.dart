@@ -11,6 +11,7 @@ import '../../data/admin_repository.dart';
 import '../providers/optimistic_state_provider.dart'; // Import optimistic state
 import '../../../chat/data/chat_repository.dart';
 import '../../../../features/auth/data/user_repository.dart';
+import '../../../../data/models/schedule.dart' as new_schedule; // Alias for Schedule
 // Removed unused mock data import (non-existent package path)
 // import 'package:tech_marathon_app/features/events/data/mock_data.dart';
 import 'package:image_picker/image_picker.dart';
@@ -30,7 +31,7 @@ class AdminDashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> with SingleTickerProviderStateMixin {
-  late int _currentTab; // 0: Overview, 1: Events, 2: Members, 3: Speakers, 4: Sponsors, 5: Chat, 6: Branding
+  late int _currentTab; // 0: Overview, 1: Events, 2: Members, 3: Speakers, 4: Sponsors, 5: Schedules, 6: Chat, 7: Branding
 
   // Branding state
   XFile? _brandingLogo;
@@ -213,8 +214,9 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
           _tabItem(2, 'Members'),
           _tabItem(3, 'Speakers'),
           _tabItem(4, 'Sponsors'),
-          _tabItem(5, 'Chat'),
-          _tabItem(6, 'Branding'),
+          _tabItem(5, 'Schedules'),
+          _tabItem(6, 'Chat'),
+          _tabItem(7, 'Branding'),
         ],
       ),
     );
@@ -259,8 +261,9 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
       case 2: return _buildMembersSection();
       case 3: return _buildSpeakersSection();
       case 4: return _buildSponsorsSection();
-      case 5: return _buildChatSection();
-      case 6: return _buildBrandingSection();
+      case 5: return _buildSchedulesSection();
+      case 6: return _buildChatSection();
+      case 7: return _buildBrandingSection();
       default: return _buildOverview();
     }
   }
@@ -621,9 +624,22 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: Colors.white12, borderRadius: BorderRadius.circular(12)),
-            child: const Icon(Icons.event_note, color: AppColors.codingRimPrimary),
+            width: 50,
+            height: 50,
+            padding: event.imageUrl.isEmpty ? const EdgeInsets.all(10) : EdgeInsets.zero,
+            decoration: BoxDecoration(
+              color: Colors.white12,
+              borderRadius: BorderRadius.circular(12),
+              image: event.imageUrl.isNotEmpty
+                ? DecorationImage(
+                    image: NetworkImage(event.imageUrl),
+                    fit: BoxFit.cover,
+                  )
+                : null,
+            ),
+            child: event.imageUrl.isEmpty 
+              ? const Icon(Icons.event_note, color: AppColors.codingRimPrimary) 
+              : null,
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -743,10 +759,10 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                  Navigator.pop(context);
 
                  // BACKGROUND SYNC: Process image upload and backend save
-                 (ref.read(adminRepositoryProvider) as dynamic).saveEventOptimistically(
+                 ref.read(adminRepositoryProvider).saveEvent(
                    optimisticEvent,
-                   selectedImage,
                    isNew: event == null,
+                   imageFile: selectedImage,
                  );
 
                  // Remove from optimistic state after a delay (Firestore will take over)
@@ -806,6 +822,9 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
 
 
   // --- 4. SPEAKERS SECTION ---
+  String? _selectedSpeakerEventId; // Event ID state for speakers
+  String? _selectedSponsorEventId; // Event ID state for sponsors
+
   Widget _buildSpeakersSection() {
     final adminRepo = ref.watch(adminRepositoryProvider);
     
@@ -831,21 +850,24 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
           const SizedBox(height: 20),
           Expanded(
             child: StreamBuilder<List<Speaker>>(
-              stream: Stream<List<Speaker>>.empty(), // fallback empty stream; replace with the correct repo method if available (e.g. adminRepo.watchSpeakersForEvent(...))
+              stream: adminRepo.watchAllSpeakers(), // Use global stream
               builder: (context, snapshot) {
-                if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-                if (snapshot.data!.isEmpty) return const Center(child: Text('No speakers yet', style: TextStyle(color: Colors.white38)));
-                
-                // Merge MockData
-                // Merge speakers data (removed mock seed usage)
-                final firestoreSpeakers = snapshot.data ?? [];
-                final allSpeakers = [...firestoreSpeakers];
-                
-                if (allSpeakers.isEmpty) return const Center(child: Text('No speakers yet', style: TextStyle(color: Colors.white38)));
-                return ListView.builder(
-                  itemCount: allSpeakers.length,
-                  itemBuilder: (context, index) => _speakerItem(allSpeakers[index]),
-                );
+                 if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: Color(0xFFFFD700)));
+                 
+                 final allSpeakers = snapshot.data!;
+                 if (allSpeakers.isEmpty) {
+                    return Center(
+                      child: Text('No speakers added yet', style: TextStyle(color: Colors.white.withOpacity(0.3))),
+                    );
+                 }
+                 
+                 return ListView.builder(
+                   itemCount: allSpeakers.length,
+                   itemBuilder: (context, index) {
+                      final speaker = allSpeakers[index];
+                      return _speakerItem(speaker);
+                   },
+                 );
               },
             ),
           ),
@@ -885,19 +907,10 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
             itemBuilder: (context) => [
               PopupMenuItem(child: const Text('Edit'), onTap: () => Future.delayed(Duration.zero, () => _showSpeakerDialog(speaker: speaker))),
               PopupMenuItem(
-                child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                child: const Text('Delete / Unlink', style: TextStyle(color: Colors.red)),
                 onTap: () => Future.delayed(Duration.zero, () {
-                  try {
-                    final repo = ref.read(adminRepositoryProvider) as dynamic;
-                    repo.deleteSpeaker(speaker.id, speaker.photoUrl);
-                  } catch (_) {
-                    try {
-                      final repo = ref.read(adminRepositoryProvider) as dynamic;
-                      repo.deleteSpeakerById?.call(speaker.id);
-                    } catch (_) {
-                      // no-op if deletion method not available
-                    }
-                  }
+                   // For common list, delete also deletes global speaker
+                   ref.read(adminRepositoryProvider).deleteSpeaker('', speaker.id); 
                 }),
               ),
             ],
@@ -907,12 +920,14 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
     );
   }
 
-  void _showSpeakerDialog({Speaker? speaker}) {
+  void _showSpeakerDialog({Speaker? speaker, String? eventId}) {
     final nameController = TextEditingController(text: speaker?.name);
     final topicController = TextEditingController(text: speaker?.topic);
     final companyController = TextEditingController(text: speaker?.company);
     final bioController = TextEditingController(text: speaker?.bio);
     
+    // Use local state for event selection in dialog
+    String? selectedEventId = eventId;
     
     XFile? selectedImage;
     String? currentPhotoUrl = speaker?.photoUrl;
@@ -958,6 +973,26 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                   ),
                 ),
                 const SizedBox(height: 16),
+                
+                // Event Selection inside dialog
+                StreamBuilder<List<CodingEvent>>(
+                  stream: ref.watch(adminRepositoryProvider).watchEvents(),
+                  builder: (context, snapshot) {
+                    final events = snapshot.data ?? [];
+                    return DropdownButtonFormField<String>(
+                      value: selectedEventId,
+                      dropdownColor: const Color(0xFF1E1E1E),
+                      decoration: const InputDecoration(labelText: 'Link to Event (Optional)'),
+                      style: const TextStyle(color: Colors.white),
+                      items: events.map((e) => DropdownMenuItem(
+                        value: e.id,
+                        child: Text(e.name, style: const TextStyle(color: Colors.white)),
+                      )).toList(),
+                      onChanged: (val) => setState(() => selectedEventId = val),
+                    );
+                  }
+                ),
+                
                 TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Name'), style: const TextStyle(color: Colors.white)),
                 TextField(controller: topicController, decoration: const InputDecoration(labelText: 'Topic'), style: const TextStyle(color: Colors.white)),
                 TextField(controller: companyController, decoration: const InputDecoration(labelText: 'Company'), style: const TextStyle(color: Colors.white)),
@@ -969,44 +1004,37 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
             TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
             ElevatedButton(
               onPressed: () {
-                if (nameController.text.isEmpty) return;
-
-                // Create optimistic speaker
+                if (nameController.text.trim().isEmpty) {
+                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter a name')));
+                   return;
+                }
+                
                 final optimisticSpeaker = Speaker(
-                  id: speaker?.id ?? 'temp_${DateTime.now().millisecondsSinceEpoch}',
-                  name: nameController.text,
-                  topic: topicController.text,
-                  company: companyController.text,
+                  id: speaker?.id ?? '', 
+                  name: nameController.text.trim(),
+                  topic: topicController.text.trim(),
+                  company: companyController.text.trim(),
                   imageUrl: currentPhotoUrl ?? '',
-                  bio: bioController.text,
-                  eventId: speaker?.eventId ?? '',
+                  bio: bioController.text.trim(),
                   role: speaker?.role ?? '',
                   linkedinUrl: speaker?.linkedinUrl ?? '',
                 );
 
-                // INSTANT UPDATE: Add to optimistic state
-                if (speaker == null) {
-                  ref.read(optimisticSpeakersProvider.notifier).addSpeaker(optimisticSpeaker);
-                } else {
-                  ref.read(optimisticSpeakersProvider.notifier).updateSpeaker(optimisticSpeaker);
-                }
-
-                // INSTANT CLOSE
                 Navigator.pop(context);
-                // BACKGROUND SYNC
-                // BACKGROUND SYNC
-                // Pass the optimistic/domain Speaker instance to the repository (adjust repository signature if it expects a different type)
-                (ref.read(adminRepositoryProvider) as dynamic).saveSpeakerOptimistically(
+                
+                ref.read(adminRepositoryProvider).saveSpeaker(
                   optimisticSpeaker,
-                  selectedImage,
+                  eventId: selectedEventId,
                   isNew: speaker == null,
+                  imageFile: selectedImage,
                 );
-                // Remove from optimistic state after delay
-                Future.delayed(const Duration(seconds: 3), () {
-                  ref.read(optimisticSpeakersProvider.notifier).removeSpeaker(optimisticSpeaker.id);
-                });
               },
-              child: const Text('Save'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _gold,
+                foregroundColor: Colors.black,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text('Save', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
           ],
         ),
@@ -1040,21 +1068,24 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
           const SizedBox(height: 20),
           Expanded(
             child: StreamBuilder<List<Sponsor>>(
-              stream: Stream<List<Sponsor>>.empty(), // fallback empty stream; replace with adminRepo.watchSponsors(...) if implemented
+              stream: adminRepo.watchAllSponsors(),
               builder: (context, snapshot) {
-                if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-                if (snapshot.data!.isEmpty) return const Center(child: Text('No sponsors yet', style: TextStyle(color: Colors.white38)));
-                
-                // Merge MockData with Firestore data
-                // Merge sponsors data (removed mock seed usage)
-                final firestoreSponsors = snapshot.data ?? [];
-                final allSponsors = [...firestoreSponsors];
+                 if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: Color(0xFFFFD700)));
+                 
+                 final allSponsors = snapshot.data!;
+                 if (allSponsors.isEmpty) {
+                    return Center(
+                      child: Text('No sponsors added yet', style: TextStyle(color: Colors.white.withOpacity(0.3))),
+                    );
+                 }
 
-                if (allSponsors.isEmpty) return const Center(child: Text('No sponsors yet', style: TextStyle(color: Colors.white38)));
-                return ListView.builder(
-                  itemCount: allSponsors.length,
-                  itemBuilder: (context, index) => _sponsorItem(allSponsors[index]),
-                );
+                 return ListView.builder(
+                   itemCount: allSponsors.length,
+                   itemBuilder: (context, index) {
+                     final sponsor = allSponsors[index];
+                     return _sponsorItem(sponsor);
+                   }
+                 );
               },
             ),
           ),
@@ -1099,17 +1130,20 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
             ),
             IconButton(
               icon: const Icon(Icons.delete_outline, color: Colors.red),
-              onPressed: () => _deleteSponsor(sponsor),
+              onPressed: () => ref.read(adminRepositoryProvider).deleteSponsor('', sponsor.id),
             ),
           ],
         ),
       );
     }
 
-  void _showSponsorDialog({Sponsor? sponsor}) {
+  void _showSponsorDialog({Sponsor? sponsor, String? eventId}) {
     final nameController = TextEditingController(text: sponsor?.name);
     final companyController = TextEditingController(text: sponsor?.company);
     final roleController = TextEditingController(text: sponsor?.jobPosition);
+    
+    // Use local state for event selection in dialog
+    String? selectedEventId = eventId;
     
     XFile? selectedImage;
     String? currentLogoUrl = sponsor?.logoUrl;
@@ -1153,6 +1187,26 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                   ),
                 ),
                 const SizedBox(height: 16),
+                
+                // Event Selection inside dialog
+                StreamBuilder<List<CodingEvent>>(
+                  stream: ref.watch(adminRepositoryProvider).watchEvents(),
+                  builder: (context, snapshot) {
+                    final events = snapshot.data ?? [];
+                    return DropdownButtonFormField<String>(
+                      value: selectedEventId,
+                      dropdownColor: const Color(0xFF1E1E1E),
+                      decoration: const InputDecoration(labelText: 'Link to Event (Optional)'),
+                      style: const TextStyle(color: Colors.white),
+                      items: events.map((e) => DropdownMenuItem(
+                        value: e.id,
+                        child: Text(e.name, style: const TextStyle(color: Colors.white)),
+                      )).toList(),
+                      onChanged: (val) => setState(() => selectedEventId = val),
+                    );
+                  }
+                ),
+
                 TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Name'), style: const TextStyle(color: Colors.white)),
                 TextField(controller: companyController, decoration: const InputDecoration(labelText: 'Company'), style: const TextStyle(color: Colors.white)),
                 TextField(controller: roleController, decoration: const InputDecoration(labelText: 'Role / Position'), style: const TextStyle(color: Colors.white)),
@@ -1166,44 +1220,36 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
             ),
             ElevatedButton(
               onPressed: () {
-                 if (nameController.text.isEmpty) return;
+                 if (nameController.text.trim().isEmpty) {
+                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter a name')));
+                   return;
+                }
+                
+                final optimisticSponsor = Sponsor(
+                  id: sponsor?.id ?? '', 
+                  name: nameController.text.trim(),
+                  company: companyController.text.trim(),
+                  jobPosition: roleController.text.trim(),
+                  tier: sponsor?.tier ?? 'Gold',
+                  logoUrl: currentLogoUrl ?? '',
+                  websiteUrl: sponsor?.websiteUrl ?? '',
+                );
 
-                 // Create optimistic sponsor
-                 final optimisticSponsor = Sponsor(
-                   id: sponsor?.id ?? 'temp_${DateTime.now().millisecondsSinceEpoch}',
-                   name: nameController.text,
-                   company: companyController.text,
-                   jobPosition: roleController.text,
-                   logoUrl: currentLogoUrl ?? '',
-                   // Provide required fields from existing sponsor if available, otherwise sensible defaults
-                   eventId: sponsor?.eventId ?? '',
-                   tier: sponsor?.tier ?? '',
-                   websiteUrl: sponsor?.websiteUrl ?? '',
-                 );
-                 
-                 // INSTANT UPDATE: Add to optimistic state
-                 if (sponsor == null) {
-                   ref.read(optimisticSponsorsProvider.notifier).addSponsor(optimisticSponsor);
-                 } else {
-                   ref.read(optimisticSponsorsProvider.notifier).updateSponsor(optimisticSponsor);
-                 }
-
-                 // INSTANT CLOSE
-                 Navigator.pop(context);
-
-                 // BACKGROUND SYNC
-                 (ref.read(adminRepositoryProvider) as dynamic).saveSponsorOptimistically(
-                   optimisticSponsor,
-                   selectedImage,
-                   isNew: sponsor == null,
-                 );
-
-                 // Remove from optimistic state after delay
-                 Future.delayed(const Duration(seconds: 3), () {
-                   ref.read(optimisticSponsorsProvider.notifier).removeSponsor(optimisticSponsor.id);
-                 });
+                Navigator.pop(context);
+                
+                ref.read(adminRepositoryProvider).saveSponsor(
+                  optimisticSponsor,
+                  eventId: selectedEventId,
+                  isNew: sponsor == null,
+                  imageFile: selectedImage,
+                );
               },
-              child: const Text('Save'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _gold,
+                foregroundColor: Colors.black,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text('Save', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
           ],
         ),
@@ -1211,28 +1257,231 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
     );
   }
 
-  // Safe sponsor deletion helper: update optimistic state immediately and attempt backend removal if available
-  void _deleteSponsor(Sponsor sponsor) {
-    // Remove from optimistic UI first
-    try {
-      ref.read(optimisticSponsorsProvider.notifier).removeSponsor(sponsor.id);
-    } catch (_) {
-      // ignore if optimistic provider not available
-    }
+  // --- 6. SCHEDULES SECTION ---
+  Widget _buildSchedulesSection() {
+    final adminRepo = ref.watch(adminRepositoryProvider);
+    
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _sectionTitle('Manage Schedules'),
+              ElevatedButton.icon(
+                onPressed: () => _showScheduleDialog(),
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Add Schedule'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _gold,
+                  foregroundColor: Colors.black,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Expanded(
+            child: StreamBuilder<List<CodingEvent>>(
+              stream: adminRepo.watchEvents(),
+              builder: (context, eventSnapshot) {
+                final eventMap = {
+                   for (var e in eventSnapshot.data ?? []) e.id: e.name
+                };
 
-    // Attempt backend deletion; swallow errors if the repository doesn't expose the method
-    try {
-      final repo = ref.read(adminRepositoryProvider) as dynamic;
-      repo.deleteSponsor(sponsor.id, sponsor.logoUrl);
-    } catch (_) {
-      // fallback: try alternative common method name, ignore if absent
-      try {
-        final repo = ref.read(adminRepositoryProvider) as dynamic;
-        repo.deleteSponsorById?.call(sponsor.id);
-      } catch (_) {
-        // no-op if backend deletion method is not present
-      }
-    }
+                return StreamBuilder<List<new_schedule.Schedule>>(
+                  stream: adminRepo.watchAllSchedules(),
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+                    if (snapshot.data!.isEmpty) return const Center(child: Text('No schedules yet', style: TextStyle(color: Colors.white38)));
+                    
+                    final allSchedules = snapshot.data!;
+
+                    return ListView.builder(
+                      itemCount: allSchedules.length,
+                      itemBuilder: (context, index) {
+                         final schedule = allSchedules[index];
+                         final eventName = eventMap[schedule.eventId] ?? 'Unknown Event';
+                         return _scheduleItem(schedule, eventName);
+                      }
+                    );
+                  },
+                );
+              }
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _scheduleItem(new_schedule.Schedule schedule, String eventName) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: Colors.white12, borderRadius: BorderRadius.circular(12)),
+            child: const Icon(Icons.schedule, color: Color(0xFFFFD700)),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(schedule.title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                Text('${_formatTime(schedule.startTime)} - ${_formatTime(schedule.endTime)}', style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: _gold.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(eventName, style: TextStyle(color: _gold, fontSize: 10, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+          ),
+          PopupMenuButton(
+            icon: const Icon(Icons.more_vert, color: Colors.white38),
+            itemBuilder: (context) => [
+              PopupMenuItem(child: const Text('Edit'), onTap: () => Future.delayed(Duration.zero, () => _showScheduleDialog(schedule: schedule))),
+              PopupMenuItem(
+                child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                onTap: () => Future.delayed(Duration.zero, () {
+                   ref.read(adminRepositoryProvider).deleteSchedule(schedule.eventId, schedule.id);
+                }),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showScheduleDialog({new_schedule.Schedule? schedule}) {
+    final titleController = TextEditingController(text: schedule?.title);
+    final descController = TextEditingController(text: schedule?.description);
+    final locationController = TextEditingController(text: schedule?.location);
+    
+    DateTime startTime = schedule?.startTime ?? DateTime.now();
+    DateTime endTime = schedule?.endTime ?? DateTime.now().add(const Duration(hours: 1));
+    
+    String? selectedEventId = schedule?.eventId;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          backgroundColor: AppColors.surface,
+          title: Text(schedule == null ? 'Add Schedule' : 'Edit Schedule', style: const TextStyle(color: Colors.white)),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                  StreamBuilder<List<CodingEvent>>(
+                    stream: ref.read(adminRepositoryProvider).watchEvents(),
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData) return const SizedBox.shrink();
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.white10,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: selectedEventId,
+                            hint: const Text('Select Event', style: TextStyle(color: Colors.white54)),
+                            dropdownColor: AppColors.surface,
+                            isExpanded: true,
+                            items: snapshot.data!.map((e) => DropdownMenuItem(
+                              value: e.id,
+                              child: Text(e.name, style: const TextStyle(color: Colors.white)),
+                            )).toList(),
+                            onChanged: (val) => setState(() => selectedEventId = val),
+                          ),
+                        ),
+                      );
+                    }
+                  ),
+                TextField(controller: titleController, decoration: const InputDecoration(labelText: 'Title'), style: const TextStyle(color: Colors.white)),
+                TextField(controller: descController, decoration: const InputDecoration(labelText: 'Description'), style: const TextStyle(color: Colors.white), maxLines: 2),
+                TextField(controller: locationController, decoration: const InputDecoration(labelText: 'Location'), style: const TextStyle(color: Colors.white)),
+                const SizedBox(height: 16),
+                
+                // Time Pickers
+                ListTile(
+                  title: const Text('Start Time', style: TextStyle(color: Colors.white)),
+                  trailing: Text(_formatDate(startTime), style: const TextStyle(color: Color(0xFFFFD700))),
+                  onTap: () async {
+                    final date = await showDatePicker(context: context, initialDate: startTime, firstDate: DateTime(2024), lastDate: DateTime(2030));
+                    if (date != null) {
+                      final time = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(startTime));
+                      if (time != null) {
+                        setState(() => startTime = DateTime(date.year, date.month, date.day, time.hour, time.minute));
+                      }
+                    }
+                  },
+                ),
+                ListTile(
+                  title: const Text('End Time', style: TextStyle(color: Colors.white)),
+                  trailing: Text(_formatDate(endTime), style: const TextStyle(color: Color(0xFFFFD700))),
+                  onTap: () async {
+                    final date = await showDatePicker(context: context, initialDate: endTime, firstDate: DateTime(2024), lastDate: DateTime(2030));
+                    if (date != null) {
+                      final time = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(endTime));
+                      if (time != null) {
+                        setState(() => endTime = DateTime(date.year, date.month, date.day, time.hour, time.minute));
+                      }
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () {
+                 if (titleController.text.isEmpty) return;
+                 
+                 final eventId = selectedEventId;
+                 if (eventId == null || eventId.isEmpty) {
+                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select an event')));
+                   return;
+                 }
+
+                 final newSchedule = new_schedule.Schedule(
+                   id: schedule?.id ?? '',
+                   eventId: eventId,
+                   day: 1, // Default to day 1 for now
+                   title: titleController.text,
+                   description: descController.text,
+                   startTime: startTime,
+                   endTime: endTime,
+                   location: locationController.text,
+                   mediaUrls: [],
+                 );
+                 
+                 Navigator.pop(context);
+
+                 ref.read(adminRepositoryProvider).saveSchedule(newSchedule, isNew: schedule == null);
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   // --- 6. CHAT SECTION (Real-time Admin List View) ---

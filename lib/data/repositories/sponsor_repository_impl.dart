@@ -11,6 +11,9 @@ class SponsorRepositoryImpl implements SponsorRepository {
   Stream<List<Sponsor>> watchSponsors(String eventId) => _dataSource.watchSponsors(eventId);
 
   @override
+  Stream<List<Sponsor>> watchAllSponsors() => _dataSource.watchAllSponsors();
+
+  @override
   Future<Sponsor?> getSponsorById(String id) => _dataSource.getSponsorById(id);
 
   @override
@@ -20,5 +23,11 @@ class SponsorRepositoryImpl implements SponsorRepository {
   Future<void> updateSponsor(Sponsor sponsor) => _dataSource.updateSponsor(sponsor);
 
   @override
-  Future<void> deleteSponsor(String eventId, String id) => _dataSource.deleteSponsor(eventId, id);
+  Future<void> deleteSponsor(String id) => _dataSource.deleteSponsor(id);
+
+  @override
+  Future<void> addSponsorToEvent(String eventId, String sponsorId) => _dataSource.addSponsorToEvent(eventId, sponsorId);
+
+  @override
+  Future<void> removeSponsorFromEvent(String eventId, String sponsorId) => _dataSource.removeSponsorFromEvent(eventId, sponsorId);
 }

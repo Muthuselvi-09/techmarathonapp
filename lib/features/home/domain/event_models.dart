@@ -175,14 +175,15 @@ class Sponsor {
   final double? longitude;
   final String tier;
   final String websiteUrl;
-  final String eventId;
   final DateTime? createdAt;
   final DateTime? updatedAt;
   final bool isActive;
 
+  final String eventId;
+
   Sponsor({
-    required this.eventId,
     required this.id,
+    this.eventId = '',
     required this.name,
     required this.company,
     this.jobPosition = '',
@@ -242,6 +243,40 @@ class Sponsor {
   }
 
   Map<String, dynamic> toFirestore() => toMap();
+
+  Sponsor copyWith({
+    String? id,
+    String? eventId,
+    String? name,
+    String? company,
+    String? jobPosition,
+    String? tier,
+    String? logoUrl,
+    String? websiteUrl,
+    String? description,
+    double? latitude,
+    double? longitude,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    bool? isActive,
+  }) {
+    return Sponsor(
+      id: id ?? this.id,
+      eventId: eventId ?? this.eventId,
+      name: name ?? this.name,
+      company: company ?? this.company,
+      jobPosition: jobPosition ?? this.jobPosition,
+      tier: tier ?? this.tier,
+      logoUrl: logoUrl ?? this.logoUrl,
+      websiteUrl: websiteUrl ?? this.websiteUrl,
+      description: description ?? this.description,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      isActive: isActive ?? this.isActive,
+    );
+  }
 }
 
 class Speaker {
@@ -255,16 +290,17 @@ class Speaker {
   final String linkedinUrl;
   final double? latitude;
   final double? longitude;
-  final String eventId;
   final DateTime? createdAt;
   final DateTime? updatedAt;
   final bool isActive;
 
   String get photoUrl => imageUrl;
 
+  final String eventId;
+
   Speaker({
-    required this.eventId,
     required this.id,
+    this.eventId = '',
     required this.name,
     this.topic = '',
     this.company = '',
@@ -324,6 +360,118 @@ class Speaker {
   }
 
   Map<String, dynamic> toFirestore() => toMap();
+
+  Speaker copyWith({
+    String? id,
+    String? eventId,
+    String? name,
+    String? topic,
+    String? company,
+    String? imageUrl,
+    String? bio,
+    String? role,
+    String? linkedinUrl,
+    double? latitude,
+    double? longitude,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    bool? isActive,
+  }) {
+    return Speaker(
+      id: id ?? this.id,
+      eventId: eventId ?? this.eventId,
+      name: name ?? this.name,
+      topic: topic ?? this.topic,
+      company: company ?? this.company,
+      imageUrl: imageUrl ?? this.imageUrl,
+      bio: bio ?? this.bio,
+      role: role ?? this.role,
+      linkedinUrl: linkedinUrl ?? this.linkedinUrl,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      isActive: isActive ?? this.isActive,
+    );
+  }
+}
+
+class EventSpeakerLink {
+  final String id;
+  final String eventId;
+  final String speakerId;
+  final bool isFeatured;
+  final int displayOrder;
+  final DateTime? createdAt;
+
+  EventSpeakerLink({
+    required this.id,
+    required this.eventId,
+    required this.speakerId,
+    this.isFeatured = false,
+    this.displayOrder = 0,
+    this.createdAt,
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'eventId': eventId,
+      'speakerId': speakerId,
+      'isFeatured': isFeatured,
+      'displayOrder': displayOrder,
+      'createdAt': createdAt ?? FieldValue.serverTimestamp(),
+    };
+  }
+
+  factory EventSpeakerLink.fromMap(Map<String, dynamic> data, String id) {
+    return EventSpeakerLink(
+      id: id,
+      eventId: data['eventId'] ?? '',
+      speakerId: data['speakerId'] ?? '',
+      isFeatured: data['isFeatured'] ?? false,
+      displayOrder: data['displayOrder'] ?? 0,
+      createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
+    );
+  }
+}
+
+class EventSponsorLink {
+  final String id;
+  final String eventId;
+  final String sponsorId;
+  final String tier;
+  final int displayOrder;
+  final DateTime? createdAt;
+
+  EventSponsorLink({
+    required this.id,
+    required this.eventId,
+    required this.sponsorId,
+    this.tier = '',
+    this.displayOrder = 0,
+    this.createdAt,
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'eventId': eventId,
+      'sponsorId': sponsorId,
+      'tier': tier,
+      'displayOrder': displayOrder,
+      'createdAt': createdAt ?? FieldValue.serverTimestamp(),
+    };
+  }
+
+  factory EventSponsorLink.fromMap(Map<String, dynamic> data, String id) {
+    return EventSponsorLink(
+      id: id,
+      eventId: data['eventId'] ?? '',
+      sponsorId: data['sponsorId'] ?? '',
+      tier: data['tier'] ?? '',
+      displayOrder: data['displayOrder'] ?? 0,
+      createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
+    );
+  }
 }
 
 class ChatMessage {
