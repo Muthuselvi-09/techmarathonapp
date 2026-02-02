@@ -1,5 +1,56 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+class Category {
+  final String id;
+  final String name;
+  final bool isEnabled;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+
+  Category({
+    required this.id,
+    required this.name,
+    this.isEnabled = true,
+    this.createdAt,
+    this.updatedAt,
+  });
+
+  factory Category.fromMap(Map<String, dynamic> data, String id) {
+    return Category(
+      id: id,
+      name: data['name'] ?? '',
+      isEnabled: data['isEnabled'] ?? true,
+      createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
+      updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'name': name,
+      'isEnabled': isEnabled,
+      'createdAt': createdAt ?? FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+  }
+
+  Category copyWith({
+    String? id,
+    String? name,
+    bool? isEnabled,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return Category(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      isEnabled: isEnabled ?? this.isEnabled,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+}
+
 class CodingEvent {
   final String id;
   final String name;
@@ -10,7 +61,11 @@ class CodingEvent {
   final double? longitude;
   final String imageUrl;
   final List<String> speakerIds;
-  final String category;
+  final String category; // Preserving for backward compatibility
+  final String? categoryId; // New field
+  final bool isFree;
+  final double entryFee;
+  final String currency;
   final List<Speaker> speakers;
   final List<Sponsor> sponsors;
   final int participantCount;
@@ -29,6 +84,10 @@ class CodingEvent {
     required this.imageUrl,
     required this.speakerIds,
     required this.category,
+    this.categoryId,
+    this.isFree = true,
+    this.entryFee = 0.0,
+    this.currency = '₹',
     this.speakers = const [],
     this.sponsors = const [],
     this.participantCount = 0,
@@ -49,6 +108,10 @@ class CodingEvent {
       imageUrl: data['imageUrl'] ?? '',
       speakerIds: List<String>.from(data['speakerIds'] ?? []),
       category: data['category'] ?? '',
+      categoryId: data['categoryId'],
+      isFree: data['isFree'] ?? true,
+      entryFee: (data['entryFee'] ?? 0.0).toDouble(),
+      currency: data['currency'] ?? '₹',
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
       isActive: data['isActive'] ?? true,
@@ -73,6 +136,10 @@ class CodingEvent {
       'imageUrl': imageUrl,
       'speakerIds': speakerIds,
       'category': category,
+      'categoryId': categoryId,
+      'isFree': isFree,
+      'entryFee': entryFee,
+      'currency': currency,
       'createdAt': createdAt ?? FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
       'isActive': isActive,
@@ -80,6 +147,52 @@ class CodingEvent {
   }
 
   Map<String, dynamic> toFirestore() => toMap();
+
+  CodingEvent copyWith({
+    String? id,
+    String? name,
+    String? description,
+    DateTime? date,
+    String? location,
+    double? latitude,
+    double? longitude,
+    String? imageUrl,
+    List<String>? speakerIds,
+    String? category,
+    String? categoryId,
+    bool? isFree,
+    double? entryFee,
+    String? currency,
+    List<Speaker>? speakers,
+    List<Sponsor>? sponsors,
+    int? participantCount,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    bool? isActive,
+  }) {
+    return CodingEvent(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      description: description ?? this.description,
+      date: date ?? this.date,
+      location: location ?? this.location,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+      imageUrl: imageUrl ?? this.imageUrl,
+      speakerIds: speakerIds ?? this.speakerIds,
+      category: category ?? this.category,
+      categoryId: categoryId ?? this.categoryId,
+      isFree: isFree ?? this.isFree,
+      entryFee: entryFee ?? this.entryFee,
+      currency: currency ?? this.currency,
+      speakers: speakers ?? this.speakers,
+      sponsors: sponsors ?? this.sponsors,
+      participantCount: participantCount ?? this.participantCount,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      isActive: isActive ?? this.isActive,
+    );
+  }
 }
 
 class Participant {
@@ -539,15 +652,55 @@ class CourseModel {
   }
 }
 
+class OnboardingPageData {
+  final String title;
+  final String description;
+  final String? imageUrl;
+  final String? iconName; // Fallback if no image
+
+  OnboardingPageData({
+    required this.title,
+    required this.description,
+    this.imageUrl,
+    this.iconName,
+  });
+
+  factory OnboardingPageData.fromMap(Map<String, dynamic> data) {
+    return OnboardingPageData(
+      title: data['title'] ?? '',
+      description: data['description'] ?? '',
+      imageUrl: data['imageUrl'],
+      iconName: data['iconName'],
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'title': title,
+      'description': description,
+      'imageUrl': imageUrl,
+      'iconName': iconName,
+    };
+  }
+}
+
 class BrandingInfo {
   final String companyName;
   final String? companyLogoUrl;
+  final String? splashImageUrl;
+  final String? splashText;
+  final String splashAnimationType; // 'fade', 'scale', 'slide', 'rotate'
+  final List<OnboardingPageData> onboardingPages;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
   BrandingInfo({
     required this.companyName,
     this.companyLogoUrl,
+    this.splashImageUrl,
+    this.splashText,
+    this.splashAnimationType = 'scale',
+    this.onboardingPages = const [],
     this.createdAt,
     this.updatedAt,
   });
@@ -556,6 +709,13 @@ class BrandingInfo {
     return BrandingInfo(
       companyName: data['companyName'] ?? 'Event App',
       companyLogoUrl: data['companyLogoUrl'],
+      splashImageUrl: data['splashImageUrl'],
+      splashText: data['splashText'],
+      splashAnimationType: data['splashAnimationType'] ?? 'scale',
+      onboardingPages: (data['onboardingPages'] as List?)
+              ?.map((p) => OnboardingPageData.fromMap(Map<String, dynamic>.from(p)))
+              .toList() ??
+          [],
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
     );
@@ -565,8 +725,13 @@ class BrandingInfo {
     return {
       'companyName': companyName,
       'companyLogoUrl': companyLogoUrl,
+      'splashImageUrl': splashImageUrl,
+      'splashText': splashText,
+      'splashAnimationType': splashAnimationType,
+      'onboardingPages': onboardingPages.map((p) => p.toMap()).toList(),
       'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     };
   }
 }
+

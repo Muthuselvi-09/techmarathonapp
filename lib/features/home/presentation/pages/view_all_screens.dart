@@ -33,7 +33,7 @@ class ViewAllMembersScreen extends ConsumerWidget {
             return ListView.separated(
               padding: const EdgeInsets.all(24),
               itemCount: members.length,
-              separatorBuilder: (_, __) => Divider(color: Colors.white.withValues(alpha: 0.05)),
+              separatorBuilder: (_, _) => Divider(color: Colors.white.withValues(alpha: 0.05)),
               itemBuilder: (context, index) {
                 final member = members[index];
                 return ListTile(
@@ -81,7 +81,7 @@ class ViewAllSpeakersScreen extends ConsumerWidget {
             return ListView.separated(
               padding: const EdgeInsets.all(24),
               itemCount: speakers.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 16),
+              separatorBuilder: (_, _) => const SizedBox(height: 16),
               itemBuilder: (context, index) {
                 final speaker = speakers[index];
                 return GestureDetector(
@@ -110,7 +110,7 @@ class ViewAllSpeakersScreen extends ConsumerWidget {
                                 width: 60,
                                 height: 60,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => Container(width: 60, height: 60, color: Colors.white12, child: const Icon(Icons.mic, color: Colors.white)),
+                                errorBuilder: (_, _, _) => Container(width: 60, height: 60, color: Colors.white12, child: const Icon(Icons.mic, color: Colors.white)),
                               )
                             : Container(width: 60, height: 60, color: Colors.white12, child: const Icon(Icons.person, color: Colors.white)),
                         ),
@@ -182,7 +182,7 @@ class ViewAllSponsorsScreen extends ConsumerWidget {
                     decoration: BoxDecoration(
                       color: AppColors.surface,
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Colors.white.withOpacity(0.05)),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
                     ),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -230,6 +230,7 @@ class _ViewAllEventsScreenState extends ConsumerState<ViewAllEventsScreen> {
   Widget build(BuildContext context) {
     final eventsAsync = ref.watch(allEventsStreamProvider);
     final userProfile = ref.watch(profileProvider);
+    final categoriesAsync = ref.watch(categoriesStreamProvider); // Using StreamProvider for AsyncValue compatibility
 
     return Scaffold(
       body: Container(
@@ -245,50 +246,68 @@ class _ViewAllEventsScreenState extends ConsumerState<ViewAllEventsScreen> {
               _buildCategoryChips(),
               const SizedBox(height: 24),
               Expanded(
-                child: eventsAsync.when(
-                  data: (events) {
-                    final filteredEvents = selectedCategory == 'All'
-                        ? events
-                        : events.where((e) => e.category == selectedCategory).toList();
-
-                    return SingleChildScrollView(
-                      physics: const BouncingScrollPhysics(),
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (filteredEvents.isNotEmpty)
-                            _buildFeaturedCard(filteredEvents.first),
-                          const SizedBox(height: 32),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'Trending',
-                                style: GoogleFonts.outfit(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              Text(
-                                'See All',
-                                style: GoogleFonts.inter(
-                                  fontSize: 12,
-                                  color: Colors.white70,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          ...filteredEvents.skip(1).map((e) => _buildTrendingItem(e)),
-                          const SizedBox(height: 100),
-                        ],
-                      ),
-                    );
-                  },
+                child: categoriesAsync.when(
                   loading: () => const Center(child: CircularProgressIndicator()),
                   error: (err, _) => Center(child: Text('Error: $err', style: const TextStyle(color: Colors.red))),
+                  data: (categories) {
+                    return eventsAsync.when(
+                      data: (events) {
+                        final filteredEvents = selectedCategory == 'All'
+                            ? events
+                            : events.where((e) {
+                                // Filter by category name (preserving backward compatibility)
+                                // or categoryId if present
+                                return e.category == selectedCategory || e.categoryId == selectedCategory;
+                              }).toList();
+
+                        return SingleChildScrollView(
+                          physics: const BouncingScrollPhysics(),
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (filteredEvents.isNotEmpty)
+                                _buildFeaturedCard(filteredEvents.first),
+                              const SizedBox(height: 32),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Trending',
+                                    style: GoogleFonts.outfit(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  Text(
+                                    'See All',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 12,
+                                      color: Colors.white70,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+                              if (filteredEvents.isEmpty)
+                                const Center(
+                                  child: Padding(
+                                    padding: EdgeInsets.only(top: 40),
+                                    child: Text('No events available', style: TextStyle(color: Colors.white38)),
+                                  ),
+                                )
+                              else
+                                ...filteredEvents.skip(1).map((e) => _buildTrendingItem(e)),
+                              const SizedBox(height: 100),
+                            ],
+                          ),
+                        );
+                      },
+                      loading: () => const Center(child: CircularProgressIndicator()),
+                      error: (err, _) => Center(child: Text('Error: $err', style: const TextStyle(color: Colors.red))),
+                    );
+                  },
                 ),
               ),
             ],
@@ -376,43 +395,54 @@ class _ViewAllEventsScreenState extends ConsumerState<ViewAllEventsScreen> {
   }
 
   Widget _buildCategoryChips() {
-    return SizedBox(
-      height: 40,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: categories.length,
-        itemBuilder: (context, index) {
-          final cat = categories[index];
-          final isSelected = selectedCategory == cat;
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: GestureDetector(
-              onTap: () => setState(() => selectedCategory = cat),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  gradient: isSelected
-                      ? AppColors.mainGradient
-                      : null,
-                  color: isSelected ? null : Colors.white.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(20),
-                  border: isSelected ? null : Border.all(color: Colors.white.withValues(alpha: 0.1)),
-                ),
-                child: Text(
-                  cat,
-                  style: GoogleFonts.inter(
-                    color: Colors.white,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                    fontSize: 14,
+    final categoriesAsync = ref.watch(categoriesStreamProvider);
+
+    return categoriesAsync.when(
+      loading: () => const SizedBox(height: 40),
+      error: (_, _) => const SizedBox(height: 40),
+      data: (categories) {
+        final activeCategories = categories.where((c) => c.isEnabled).map((c) => c.name).toList();
+        final allCats = ['All', ...activeCategories];
+
+        return SizedBox(
+          height: 40,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: allCats.length,
+            itemBuilder: (context, index) {
+              final cat = allCats[index];
+              final isSelected = selectedCategory == cat;
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: GestureDetector(
+                  onTap: () => setState(() => selectedCategory = cat),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      gradient: isSelected
+                          ? AppColors.mainGradient
+                          : null,
+                      color: isSelected ? null : Colors.white.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(20),
+                      border: isSelected ? null : Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                    ),
+                    child: Text(
+                      cat,
+                      style: GoogleFonts.inter(
+                        color: Colors.white,
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        fontSize: 14,
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
-          );
-        },
-      ),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 
@@ -476,11 +506,14 @@ class _ViewAllEventsScreenState extends ConsumerState<ViewAllEventsScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.2),
+                      color: AppColors.primary.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                      border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
                     ),
-                    child: const Text('Free Entry', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+                    child: Text(
+                      event.isFree ? 'Free Entry' : '${event.currency}${event.entryFee} Entry',
+                      style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold),
+                    ),
                   ),
                 ],
               ),
@@ -559,7 +592,10 @@ class _ViewAllEventsScreenState extends ConsumerState<ViewAllEventsScreen> {
                 gradient: AppColors.mainGradient,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Text('FREE', style: TextStyle(color: Colors.black, fontSize: 11, fontWeight: FontWeight.bold)),
+              child: Text(
+                event.isFree ? 'FREE' : '${event.currency}${event.entryFee}',
+                style: const TextStyle(color: Colors.black, fontSize: 11, fontWeight: FontWeight.bold),
+              ),
             ),
           ],
         ),

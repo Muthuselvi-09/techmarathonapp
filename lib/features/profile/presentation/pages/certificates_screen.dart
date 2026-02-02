@@ -126,7 +126,7 @@ class _CertificatesScreenState extends ConsumerState<CertificatesScreen> {
                       Icon(
                         Icons.card_membership_outlined,
                         size: 80,
-                        color: AppColors.textDim.withOpacity(0.5),
+                        color: AppColors.textDim.withValues(alpha: 0.5),
                       ),
                       const SizedBox(height: 16),
                       Text(
@@ -141,7 +141,7 @@ class _CertificatesScreenState extends ConsumerState<CertificatesScreen> {
                         'Complete events or courses to earn certificates',
                         style: GoogleFonts.inter(
                           fontSize: 14,
-                          color: AppColors.textDim.withOpacity(0.7),
+                          color: AppColors.textDim.withValues(alpha: 0.7),
                         ),
                         textAlign: TextAlign.center,
                       ),
@@ -166,14 +166,14 @@ class _CertificatesScreenState extends ConsumerState<CertificatesScreen> {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            AppColors.primary.withOpacity(0.1),
+            AppColors.primary.withValues(alpha: 0.1),
             AppColors.surface,
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -183,7 +183,7 @@ class _CertificatesScreenState extends ConsumerState<CertificatesScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.2),
+                  color: AppColors.primary.withValues(alpha: 0.2),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(

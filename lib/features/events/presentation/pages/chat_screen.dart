@@ -123,7 +123,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         Icon(
                           Icons.chat_bubble_outline,
                           size: 64,
-                          color: AppColors.textDim.withOpacity(0.5),
+                          color: AppColors.textDim.withValues(alpha: 0.5),
                         ),
                         const SizedBox(height: 16),
                         Text(
@@ -138,7 +138,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                           'Start the conversation!',
                           style: GoogleFonts.inter(
                             fontSize: 14,
-                            color: AppColors.textDim.withOpacity(0.7),
+                            color: AppColors.textDim.withValues(alpha: 0.7),
                           ),
                         ),
                       ],
@@ -251,7 +251,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       style: GoogleFonts.inter(
                         fontSize: 10,
                         color: isMe
-                            ? Colors.black.withOpacity(0.6)
+                            ? Colors.black.withValues(alpha: 0.6)
                             : AppColors.textDim,
                       ),
                     ),
@@ -272,7 +272,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       decoration: BoxDecoration(
         color: AppColors.surface,
         border: Border(
-          top: BorderSide(color: Colors.white.withOpacity(0.05)),
+          top: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
         ),
       ),
       child: SafeArea(
@@ -284,7 +284,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 decoration: BoxDecoration(
                   color: AppColors.background,
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: Colors.white.withOpacity(0.1)),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
                 ),
                 child: TextField(
                   controller: _messageController,

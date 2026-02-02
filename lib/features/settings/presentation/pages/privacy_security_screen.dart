@@ -122,7 +122,7 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
       ),
       child: ListTile(
         contentPadding: const EdgeInsets.all(16),
@@ -130,8 +130,8 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
             color: isDestructive
-                ? AppColors.error.withOpacity(0.1)
-                : AppColors.primary.withOpacity(0.1),
+                ? AppColors.error.withValues(alpha: 0.1)
+                : AppColors.primary.withValues(alpha: 0.1),
             shape: BoxShape.circle,
           ),
           child: Icon(

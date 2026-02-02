@@ -17,7 +17,7 @@ import '../../../../data/models/schedule.dart' as new_schedule; // Alias for Sch
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'dart:typed_data';
-import 'package:flutter/foundation.dart'; // for kIsWeb
+import 'package:flutter/foundation.dart' hide Category; // for kIsWeb
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../../home/presentation/providers/branding_provider.dart';
@@ -37,7 +37,22 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
   XFile? _brandingLogo;
   Uint8List? _brandingLogoBytes;
   bool _isSavingBranding = false;
+  bool _isDeletingBranding = false;
   final TextEditingController _brandingNameController = TextEditingController();
+
+  // Splash Screen state
+  final TextEditingController _splashTextController = TextEditingController();
+  String _splashAnimationType = 'scale';
+  XFile? _splashImage;
+  Uint8List? _splashImageBytes;
+
+  // Onboarding Screen state
+  List<TextEditingController> _onboardingTitleControllers = [];
+  List<TextEditingController> _onboardingDescControllers = [];
+  List<XFile?> _onboardingImages = [];
+  List<Uint8List?> _onboardingImageBytes = [];
+  List<String?> _onboardingExistingUrls = [];
+
 
   @override
   void initState() {
@@ -48,6 +63,13 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
   @override
   void dispose() {
     _brandingNameController.dispose();
+    _splashTextController.dispose();
+    for (var controller in _onboardingTitleControllers) {
+      controller.dispose();
+    }
+    for (var controller in _onboardingDescControllers) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -71,7 +93,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                    colors: [
                      Colors.black,
                      const Color(0xFF1A1A1A),
-                     _gold.withOpacity(0.05), // Subtle gold hint
+                     _gold.withValues(alpha: 0.05), // Subtle gold hint
                    ],
                  ),
                ),
@@ -97,8 +119,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.5),
-        border: Border(bottom: BorderSide(color: _gold.withOpacity(0.1))),
+        color: Colors.black.withValues(alpha: 0.5),
+        border: Border(bottom: BorderSide(color: _gold.withValues(alpha: 0.1))),
       ),
       child: Row(
         children: [
@@ -108,7 +130,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
             child: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
+                color: Colors.white.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: Colors.white10),
               ),
@@ -141,14 +163,22 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                         imageUrl: branding.companyLogoUrl!,
                         height: 28, // Slightly larger for Admin Panel
                         fit: BoxFit.contain,
-                        placeholder: (_, __) => const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFFFD700))),
-                        errorWidget: (_, __, ___) => const SizedBox.shrink(),
+                        placeholder: (_, _) => const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFFFD700))),
+                        errorWidget: (_, _, _) => const SizedBox.shrink(),
                       ),
                     ],
                   ],
                 ),
-                loading: () => const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFFFD700))),
-                error: (_, __) => Text(
+                loading: () => Text(
+                  'ADMIN PANEL',
+                  style: GoogleFonts.outfit(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 3,
+                    color: _gold,
+                  ),
+                ),
+                error: (_, _) => Text(
                   'ADMIN PANEL',
                   style: GoogleFonts.outfit(
                     fontSize: 20,
@@ -195,7 +225,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
       child: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.05),
+          color: Colors.white.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Icon(icon, color: Colors.white, size: 20),
@@ -232,13 +262,13 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
         margin: const EdgeInsets.only(right: 12),
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
         decoration: BoxDecoration(
-          color: isSelected ? _gold : Colors.white.withOpacity(0.05),
+          color: isSelected ? _gold : Colors.white.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(30),
           border: Border.all(
-            color: isSelected ? _gold : Colors.white.withOpacity(0.1),
+            color: isSelected ? _gold : Colors.white.withValues(alpha: 0.1),
           ),
           boxShadow: isSelected 
-            ? [BoxShadow(color: _gold.withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 4))] 
+            ? [BoxShadow(color: _gold.withValues(alpha: 0.3), blurRadius: 12, offset: const Offset(0, 4))] 
             : [],
         ),
         child: Text(
@@ -341,7 +371,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                   Text('TICKET SALES ANALYTICS', style: GoogleFonts.outfit(color: Colors.white70, fontSize: 12, letterSpacing: 1.5, fontWeight: FontWeight.bold)),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(color: const Color(0xFF00FF94).withOpacity(0.2), borderRadius: BorderRadius.circular(20)),
+                    decoration: BoxDecoration(color: const Color(0xFF00FF94).withValues(alpha: 0.2), borderRadius: BorderRadius.circular(20)),
                     child: const Text('LIVE +12%', style: TextStyle(color: Color(0xFF00FF94), fontSize: 10, fontWeight: FontWeight.bold)),
                   ),
                 ],
@@ -377,7 +407,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
   Widget _statBadge(IconData icon, String label, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(color: color.withOpacity(0.15), borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(color: color.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)),
       child: Row(
         children: [
           Icon(icon, size: 16, color: color),
@@ -493,7 +523,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                             children: [
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(color: _gold.withOpacity(0.2), borderRadius: BorderRadius.circular(8)),
+                                decoration: BoxDecoration(color: _gold.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(8)),
                                 child: Text(_formatDate(event.date), style: TextStyle(color: _gold, fontSize: 10, fontWeight: FontWeight.bold)),
                               ),
                               const Spacer(),
@@ -532,9 +562,9 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 20),
         decoration: BoxDecoration(
-          color: color.withOpacity(isDarkText ? 1.0 : 0.15),
+          color: color.withValues(alpha: isDarkText ? 1.0 : 0.15),
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: color.withOpacity(isDarkText ? 0.0 : 0.3)),
+          border: Border.all(color: color.withValues(alpha: isDarkText ? 0.0 : 0.3)),
         ),
         child: Column(
           children: [
@@ -573,14 +603,30 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               _sectionTitle('Manage Events'),
-              ElevatedButton.icon(
-                onPressed: () => _showEventDialog(),
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('New Event'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.codingRimPrimary,
-                  foregroundColor: Colors.black,
-                ),
+              Row(
+                children: [
+                   OutlinedButton.icon(
+                    onPressed: () => _showManageCategoriesDialog(),
+                    icon: const Icon(Icons.category_outlined, size: 18),
+                    label: const Text('Categories'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: _gold,
+                      side: BorderSide(color: _gold.withValues(alpha: 0.5)),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton.icon(
+                    onPressed: () => _showEventDialog(),
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('New Event'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.codingRimPrimary,
+                      foregroundColor: Colors.black,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -613,12 +659,63 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
     );
   }
 
+  void _showManageCategoriesDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text('Manage Categories', style: TextStyle(color: Colors.white)),
+            ElevatedButton.icon(
+              onPressed: () => _showCategoryDialog(),
+              icon: const Icon(Icons.add, size: 16),
+              label: const Text('Add', style: TextStyle(fontSize: 12)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _gold,
+                foregroundColor: Colors.black,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+              ),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 400,
+          child: StreamBuilder<List<Category>>(
+            stream: ref.watch(adminRepositoryProvider).watchCategories(),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+              final categories = snapshot.data!;
+              if (categories.isEmpty) return const Center(child: Text('No categories found', style: TextStyle(color: Colors.white38)));
+
+              return ListView.builder(
+                itemCount: categories.length,
+                itemBuilder: (context, index) {
+                  final category = categories[index];
+                  return _categoryItem(category);
+                },
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _eventItem(CodingEvent event) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
@@ -666,114 +763,211 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
   void _showEventDialog({CodingEvent? event}) {
     final titleController = TextEditingController(text: event?.name);
     final locationController = TextEditingController(text: event?.location);
-    final categoryController = TextEditingController(text: event?.category);
     final descController = TextEditingController(text: event?.description);
+    final feeController = TextEditingController(text: event?.entryFee.toString());
+    final currencyController = TextEditingController(text: event?.currency ?? '₹');
     
     XFile? selectedImage;
     String? currentImageUrl = event?.imageUrl;
+    String? selectedCategoryId = event?.categoryId;
+    bool isFree = event?.isFree ?? true;
 
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          backgroundColor: AppColors.surface,
-          title: Text(event == null ? 'New Event' : 'Edit Event', style: const TextStyle(color: Colors.white)),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                GestureDetector(
-                  onTap: () async {
-                    final picker = ImagePicker();
-                    final image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
-                    if (image != null) {
-                      setState(() => selectedImage = image);
-                    }
-                  },
-                  child: Container(
-                    height: 150,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: Colors.white12,
-                      borderRadius: BorderRadius.circular(12),
-                      image: selectedImage != null 
-                        ? DecorationImage(
-                            image: kIsWeb 
-                                ? NetworkImage(selectedImage!.path) 
-                                : FileImage(File(selectedImage!.path)) as ImageProvider,
-                            fit: BoxFit.cover
+        builder: (context, setState) {
+          final categoriesAsync = ref.watch(adminRepositoryProvider).watchCategories();
+
+          return AlertDialog(
+            backgroundColor: AppColors.surface,
+            title: Text(event == null ? 'New Event' : 'Edit Event', style: const TextStyle(color: Colors.white)),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  GestureDetector(
+                    onTap: () async {
+                      final picker = ImagePicker();
+                      final image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
+                      if (image != null) {
+                        setState(() => selectedImage = image);
+                      }
+                    },
+                    child: Container(
+                      height: 150,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: Colors.white12,
+                        borderRadius: BorderRadius.circular(12),
+                        image: selectedImage != null 
+                          ? DecorationImage(
+                              image: kIsWeb 
+                                  ? NetworkImage(selectedImage!.path) 
+                                  : FileImage(File(selectedImage!.path)) as ImageProvider,
+                              fit: BoxFit.cover
+                            )
+                          : (currentImageUrl != null && currentImageUrl!.isNotEmpty)
+                            ? DecorationImage(image: NetworkImage(currentImageUrl!), fit: BoxFit.cover)
+                            : null,
+                      ),
+                      child: selectedImage == null && (currentImageUrl == null || currentImageUrl!.isEmpty)
+                        ? Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.add_photo_alternate_rounded, color: Colors.white54, size: 40),
+                              const SizedBox(height: 8),
+                              const Text('Add Cover Image', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                            ],
                           )
-                        : (currentImageUrl != null && currentImageUrl!.isNotEmpty)
-                          ? DecorationImage(image: NetworkImage(currentImageUrl!), fit: BoxFit.cover)
-                          : null,
+                        : null,
                     ),
-                    child: selectedImage == null && (currentImageUrl == null || currentImageUrl!.isEmpty)
-                      ? Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.add_photo_alternate_rounded, color: Colors.white54, size: 40),
-                            const SizedBox(height: 8),
-                            const Text('Add Cover Image', style: TextStyle(color: Colors.white54, fontSize: 12)),
-                          ],
-                        )
-                      : null,
                   ),
-                ),
-                const SizedBox(height: 16),
-                TextField(controller: titleController, decoration: const InputDecoration(labelText: 'Event Title'), style: const TextStyle(color: Colors.white)),
-                TextField(controller: locationController, decoration: const InputDecoration(labelText: 'Location'), style: const TextStyle(color: Colors.white)),
-                TextField(controller: categoryController, decoration: const InputDecoration(labelText: 'Category'), style: const TextStyle(color: Colors.white)),
-                TextField(controller: descController, decoration: const InputDecoration(labelText: 'Description'), style: const TextStyle(color: Colors.white), maxLines: 3),
-              ],
+                  const SizedBox(height: 16),
+                  TextField(controller: titleController, decoration: const InputDecoration(labelText: 'Event Title'), style: const TextStyle(color: Colors.white)),
+                  TextField(controller: locationController, decoration: const InputDecoration(labelText: 'Location'), style: const TextStyle(color: Colors.white)),
+                  
+                  const SizedBox(height: 16),
+                  const Text('Category', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                  StreamBuilder<List<Category>>(
+                    stream: ref.watch(adminRepositoryProvider).watchCategories(),
+                    builder: (context, snapshot) {
+                      final categoriesList = snapshot.data ?? [];
+                      final categories = categoriesList.where((c) => c.isEnabled).toList();
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              value: selectedCategoryId,
+                              dropdownColor: AppColors.surface,
+                              style: const TextStyle(color: Colors.white),
+                              decoration: const InputDecoration(
+                                hintText: 'Select Category',
+                                hintStyle: TextStyle(color: Colors.white24),
+                              ),
+                              items: categories.map((cat) => DropdownMenuItem<String>(
+                                value: cat.id,
+                                child: Text(cat.name),
+                              )).toList(),
+                              onChanged: (val) => setState(() => selectedCategoryId = val),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          IconButton(
+                            onPressed: () => _showCategoryDialog(),
+                            icon: Icon(Icons.add_circle_outline, color: _gold),
+                            tooltip: 'Add New Category',
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Free Event', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      Switch(
+                        value: isFree,
+                        onChanged: (val) => setState(() => isFree = val),
+                        activeColor: _gold,
+                      ),
+                    ],
+                  ),
+                  if (!isFree) ...[
+                    Row(
+                      children: [
+                        Expanded(
+                          flex: 2,
+                          child: TextField(
+                            controller: currencyController,
+                            decoration: const InputDecoration(labelText: 'Currency'),
+                            style: const TextStyle(color: Colors.white),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          flex: 3,
+                          child: TextField(
+                            controller: feeController,
+                            decoration: const InputDecoration(labelText: 'Entry Fee'),
+                            keyboardType: TextInputType.number,
+                            style: const TextStyle(color: Colors.white),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+
+                  const SizedBox(height: 16),
+                  TextField(controller: descController, decoration: const InputDecoration(labelText: 'Description'), style: const TextStyle(color: Colors.white), maxLines: 3),
+                ],
+              ),
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context), 
-              child: const Text('Cancel')
-            ),
-            ElevatedButton(
-              onPressed: () {
-                 if (titleController.text.isEmpty) return;
-                 
-                 // Create optimistic event with current/placeholder image
-                 final optimisticEvent = CodingEvent(
-                   id: event?.id ?? 'temp_${DateTime.now().millisecondsSinceEpoch}',
-                   name: titleController.text,
-                   location: locationController.text,
-                   category: categoryController.text,
-                   description: descController.text,
-                   date: event?.date ?? DateTime.now(),
-                   speakerIds: event?.speakerIds ?? [],
-                   imageUrl: currentImageUrl ?? 'https://images.unsplash.com/photo-1540575467063-178a50c2df87',
-                 );
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context), 
+                child: const Text('Cancel')
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                   if (titleController.text.isEmpty) return;
+                   
+                   final price = double.tryParse(feeController.text) ?? 0.0;
+                   
+                   // Fetch category name for backward compatibility
+                   String catName = '';
+                   if (selectedCategoryId != null) {
+                     final repo = ref.read(adminRepositoryProvider);
+                     // This is a bit slow for a sync callback, but we need it for 'category' string field
+                     // Alternatively, we just save without it and let it be empty or placeholder.
+                     // The prompt said "Decide which event belongs to which category"
+                   }
 
-                 // INSTANT UPDATE: Add to optimistic state immediately
-                 if (event == null) {
-                   ref.read(optimisticEventsProvider.notifier).addEvent(optimisticEvent);
-                 } else {
-                   ref.read(optimisticEventsProvider.notifier).updateEvent(optimisticEvent);
-                 }
+                   final repo = ref.read(adminRepositoryProvider);
+                   final categories = await repo.watchCategories().first;
+                   catName = categories.firstWhere((c) => c.id == selectedCategoryId, orElse: () => Category(id: '', name: 'All')).name;
 
-                 // INSTANT CLOSE: Dialog closes immediately
-                 Navigator.pop(context);
+                   final optimisticEvent = CodingEvent(
+                     id: event?.id ?? 'temp_${DateTime.now().millisecondsSinceEpoch}',
+                     name: titleController.text,
+                     location: locationController.text,
+                     category: catName, // Preserving name
+                     categoryId: selectedCategoryId,
+                     isFree: isFree,
+                     entryFee: isFree ? 0.0 : price,
+                     currency: currencyController.text,
+                     description: descController.text,
+                     date: event?.date ?? DateTime.now(),
+                     speakerIds: event?.speakerIds ?? [],
+                     imageUrl: currentImageUrl ?? 'https://images.unsplash.com/photo-1540575467063-178a50c2df87',
+                   );
 
-                 // BACKGROUND SYNC: Process image upload and backend save
-                 ref.read(adminRepositoryProvider).saveEvent(
-                   optimisticEvent,
-                   isNew: event == null,
-                   imageFile: selectedImage,
-                 );
+                   if (event == null) {
+                     ref.read(optimisticEventsProvider.notifier).addEvent(optimisticEvent);
+                   } else {
+                     ref.read(optimisticEventsProvider.notifier).updateEvent(optimisticEvent);
+                   }
 
-                 // Remove from optimistic state after a delay (Firestore will take over)
-                 Future.delayed(const Duration(seconds: 3), () {
-                   ref.read(optimisticEventsProvider.notifier).removeEvent(optimisticEvent.id);
-                 });
-              },
-              child: const Text('Save'),
-            ),
-          ],
-        ),
+                   Navigator.pop(context);
+
+                   ref.read(adminRepositoryProvider).saveEvent(
+                     optimisticEvent,
+                     isNew: event == null,
+                     imageFile: selectedImage,
+                   );
+
+                   Future.delayed(const Duration(seconds: 3), () {
+                     ref.read(optimisticEventsProvider.notifier).removeEvent(optimisticEvent.id);
+                   });
+                },
+                child: const Text('Save'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -795,9 +989,9 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     const SizedBox(height: 40),
-                    Icon(Icons.people_outline, size: 48, color: Colors.white.withOpacity(0.1)),
+                    Icon(Icons.people_outline, size: 48, color: Colors.white.withValues(alpha: 0.1)),
                     const SizedBox(height: 16),
-                    Text('No one has joined yet', style: TextStyle(color: Colors.white.withOpacity(0.3))),
+                    Text('No one has joined yet', style: TextStyle(color: Colors.white.withValues(alpha: 0.3))),
                   ],
                 ),
               );
@@ -807,7 +1001,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: snapshot.data!.length,
-              separatorBuilder: (_, __) => Divider(color: Colors.white.withOpacity(0.05)),
+              separatorBuilder: (_, _) => Divider(color: Colors.white.withValues(alpha: 0.05)),
               itemBuilder: (context, index) {
                 final member = snapshot.data![index];
                 return _memberItem(member);
@@ -857,7 +1051,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                  final allSpeakers = snapshot.data!;
                  if (allSpeakers.isEmpty) {
                     return Center(
-                      child: Text('No speakers added yet', style: TextStyle(color: Colors.white.withOpacity(0.3))),
+                      child: Text('No speakers added yet', style: TextStyle(color: Colors.white.withValues(alpha: 0.3))),
                     );
                  }
                  
@@ -881,7 +1075,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
@@ -1075,7 +1269,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                  final allSponsors = snapshot.data!;
                  if (allSponsors.isEmpty) {
                     return Center(
-                      child: Text('No sponsors added yet', style: TextStyle(color: Colors.white.withOpacity(0.3))),
+                      child: Text('No sponsors added yet', style: TextStyle(color: Colors.white.withValues(alpha: 0.3))),
                     );
                  }
 
@@ -1099,7 +1293,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
         margin: const EdgeInsets.only(bottom: 16),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.05),
+          color: Colors.white.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
@@ -1136,15 +1330,11 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
         ),
       );
     }
-
   void _showSponsorDialog({Sponsor? sponsor, String? eventId}) {
     final nameController = TextEditingController(text: sponsor?.name);
     final companyController = TextEditingController(text: sponsor?.company);
     final roleController = TextEditingController(text: sponsor?.jobPosition);
-    
-    // Use local state for event selection in dialog
     String? selectedEventId = eventId;
-    
     XFile? selectedImage;
     String? currentLogoUrl = sponsor?.logoUrl;
 
@@ -1170,25 +1360,19 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                     decoration: BoxDecoration(
                       color: Colors.white12,
                       borderRadius: BorderRadius.circular(12),
-                      image: selectedImage != null 
-                        ? DecorationImage(
-                            image: kIsWeb 
-                                ? NetworkImage(selectedImage!.path) 
-                                : FileImage(File(selectedImage!.path)) as ImageProvider,
-                            fit: BoxFit.contain
-                          )
-                        : (currentLogoUrl != null && currentLogoUrl!.isNotEmpty)
-                          ? DecorationImage(image: NetworkImage(currentLogoUrl!), fit: BoxFit.contain)
-                          : null,
+                      image: selectedImage != null
+                          ? DecorationImage(
+                              image: kIsWeb ? NetworkImage(selectedImage!.path) : FileImage(File(selectedImage!.path)) as ImageProvider,
+                              fit: BoxFit.contain,
+                            )
+                          : (currentLogoUrl != null && currentLogoUrl!.isNotEmpty)
+                              ? DecorationImage(image: NetworkImage(currentLogoUrl!), fit: BoxFit.contain)
+                              : null,
                     ),
-                    child: selectedImage == null && (currentLogoUrl == null || currentLogoUrl!.isEmpty)
-                      ? const Icon(Icons.add_photo_alternate, color: Colors.white54, size: 30)
-                      : null,
+                    child: selectedImage == null && (currentLogoUrl == null || currentLogoUrl!.isEmpty) ? const Icon(Icons.add_photo_alternate, color: Colors.white54, size: 30) : null,
                   ),
                 ),
                 const SizedBox(height: 16),
-                
-                // Event Selection inside dialog
                 StreamBuilder<List<CodingEvent>>(
                   stream: ref.watch(adminRepositoryProvider).watchEvents(),
                   builder: (context, snapshot) {
@@ -1198,15 +1382,16 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                       dropdownColor: const Color(0xFF1E1E1E),
                       decoration: const InputDecoration(labelText: 'Link to Event (Optional)'),
                       style: const TextStyle(color: Colors.white),
-                      items: events.map((e) => DropdownMenuItem(
-                        value: e.id,
-                        child: Text(e.name, style: const TextStyle(color: Colors.white)),
-                      )).toList(),
+                      items: events
+                          .map((e) => DropdownMenuItem(
+                                value: e.id,
+                                child: Text(e.name, style: const TextStyle(color: Colors.white)),
+                              ))
+                          .toList(),
                       onChanged: (val) => setState(() => selectedEventId = val),
                     );
-                  }
+                  },
                 ),
-
                 TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Name'), style: const TextStyle(color: Colors.white)),
                 TextField(controller: companyController, decoration: const InputDecoration(labelText: 'Company'), style: const TextStyle(color: Colors.white)),
                 TextField(controller: roleController, decoration: const InputDecoration(labelText: 'Role / Position'), style: const TextStyle(color: Colors.white)),
@@ -1215,18 +1400,17 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context), 
-              child: const Text('Cancel')
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
             ),
             ElevatedButton(
               onPressed: () {
-                 if (nameController.text.trim().isEmpty) {
-                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter a name')));
-                   return;
+                if (nameController.text.trim().isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter a name')));
+                  return;
                 }
-                
                 final optimisticSponsor = Sponsor(
-                  id: sponsor?.id ?? '', 
+                  id: sponsor?.id ?? '',
                   name: nameController.text.trim(),
                   company: companyController.text.trim(),
                   jobPosition: roleController.text.trim(),
@@ -1234,15 +1418,13 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                   logoUrl: currentLogoUrl ?? '',
                   websiteUrl: sponsor?.websiteUrl ?? '',
                 );
-
                 Navigator.pop(context);
-                
                 ref.read(adminRepositoryProvider).saveSponsor(
-                  optimisticSponsor,
-                  eventId: selectedEventId,
-                  isNew: sponsor == null,
-                  imageFile: selectedImage,
-                );
+                      optimisticSponsor,
+                      eventId: selectedEventId,
+                      isNew: sponsor == null,
+                      imageFile: selectedImage,
+                    );
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: _gold,
@@ -1320,7 +1502,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
@@ -1341,7 +1523,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                    color: _gold.withOpacity(0.2),
+                    color: _gold.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(eventName, style: TextStyle(color: _gold, fontSize: 10, fontWeight: FontWeight.bold)),
@@ -1523,9 +1705,9 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(hasUnread ? 0.08 : 0.03),
+        color: Colors.white.withValues(alpha: hasUnread ? 0.08 : 0.03),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: hasUnread ? _gold.withOpacity(0.3) : Colors.transparent),
+        border: Border.all(color: hasUnread ? _gold.withValues(alpha: 0.3) : Colors.transparent),
       ),
       child: ListTile(
         onTap: () => _openAdminChatRoom(chat['userId'], chat['userName'] ?? 'User'),
@@ -1570,7 +1752,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.05))),
+        border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05))),
       ),
       child: Row(
         children: [
@@ -1647,11 +1829,11 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
             padding: const EdgeInsets.all(2),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(color: _gold.withOpacity(0.3)),
+              border: Border.all(color: _gold.withValues(alpha: 0.3)),
             ),
             child: CircleAvatar(
               radius: 20,
-              backgroundColor: Colors.white.withOpacity(0.1),
+              backgroundColor: Colors.white.withValues(alpha: 0.1),
               backgroundImage: member.profileImage != null && member.profileImage!.isNotEmpty 
                 ? NetworkImage(member.profileImage!) 
                 : null,
@@ -1733,7 +1915,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
       children: [
         Container(
           padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(8)),
+          decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(8)),
           child: Icon(icon, color: _gold, size: 20),
         ),
         const SizedBox(width: 16),
@@ -1779,8 +1961,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
     return Container(
       padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + MediaQuery.of(context).viewInsets.bottom),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
-        border: Border(top: BorderSide(color: Colors.white.withOpacity(0.1))),
+        color: Colors.white.withValues(alpha: 0.05),
+        border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.1))),
       ),
       child: Row(
         children: [
@@ -1791,7 +1973,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                 hintText: 'Type a reply...',
                 hintStyle: const TextStyle(color: Colors.white38),
                 border: InputBorder.none,
-                fillColor: Colors.white.withOpacity(0.05),
+                fillColor: Colors.white.withValues(alpha: 0.05),
                 filled: true,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
@@ -1825,7 +2007,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
         decoration: BoxDecoration(
-          color: isMe ? _gold : Colors.white.withOpacity(0.1),
+          color: isMe ? _gold : Colors.white.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(18).copyWith(
             bottomRight: isMe ? const Radius.circular(0) : const Radius.circular(18),
             bottomLeft: isMe ? const Radius.circular(18) : const Radius.circular(0),
@@ -1850,259 +2032,397 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
     final brandingAsync = ref.watch(brandingProvider);
 
     return brandingAsync.when(
-      loading: () => Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const CircularProgressIndicator(color: Color(0xFFFFD700)),
-            const SizedBox(height: 16),
-            Text(
-              'Connecting to branding service...',
-              style: GoogleFonts.outfit(color: Colors.white38, fontSize: 14),
-            ),
-          ],
-        ),
-      ),
-      error: (error, _) => Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error_outline, color: Colors.red, size: 48),
-            const SizedBox(height: 16),
-            Text('Error: $error', style: const TextStyle(color: Colors.white70)),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: () => ref.invalidate(brandingProvider),
-              child: const Text('Retry'),
-            ),
-          ],
-        ),
-      ),
-      data: (branding) {
-        // Update controller only if it was empty to avoid overwriting user input while editing
-        if (_brandingNameController.text.isEmpty && branding.companyName != 'Event App') {
-          _brandingNameController.text = branding.companyName;
-        }
+      loading: () => _buildBrandingForm(BrandingInfo(companyName: 'Event App')),
+      error: (error, _) {
+        debugPrint('⚠️ Branding UI Error: $error');
+        return _buildBrandingForm(BrandingInfo(companyName: 'Event App'));
+      },
+      data: (branding) => _buildBrandingForm(branding),
+    );
+  }
 
-        return Padding(
-          padding: const EdgeInsets.all(24),
-          child: SingleChildScrollView(
+  Widget _buildBrandingForm(BrandingInfo branding) {
+    if (_brandingNameController.text.isEmpty && branding.companyName != 'Event App') {
+      _brandingNameController.text = branding.companyName;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _sectionTitle('Branding Settings'),
+            const SizedBox(height: 24),
+            
+            _GlassCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _moduleHeader('General Branding', Icons.branding_watermark_outlined, _gold),
+                  const SizedBox(height: 24),
+                  const Text('Company Name', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _brandingNameController,
+                    style: const TextStyle(color: Colors.white, fontSize: 16),
+                    decoration: InputDecoration(
+                      hintText: 'Enter company name',
+                      hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.2)),
+                      filled: true,
+                      fillColor: Colors.white.withValues(alpha: 0.05),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  const Text('Company Logo', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                  const SizedBox(height: 12),
+                  Center(
+                    child: GestureDetector(
+                      onTap: _isSavingBranding ? null : () async {
+                        final picker = ImagePicker();
+                        final image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
+                        if (image != null) {
+                          final bytes = await image.readAsBytes();
+                          setState(() {
+                            _brandingLogo = image;
+                            _brandingLogoBytes = bytes;
+                          });
+                        }
+                      },
+                      child: Container(
+                        width: 120,
+                        height: 120,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.05),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(20),
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              if (_brandingLogoBytes != null)
+                                Image.memory(_brandingLogoBytes!, fit: BoxFit.contain)
+                              else if (branding.companyLogoUrl != null)
+                                CachedNetworkImage(imageUrl: branding.companyLogoUrl!, fit: BoxFit.contain)
+                              else
+                                const Icon(Icons.add_photo_alternate_outlined, color: Colors.white24, size: 40),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 48),
+
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _isSavingBranding ? null : () async {
+                  setState(() => _isSavingBranding = true);
+                  try {
+                    String finalLogoUrl = branding.companyLogoUrl ?? '';
+                    final adminRepo = ref.read(adminRepositoryProvider);
+
+                    if (_brandingLogoBytes != null) {
+                      finalLogoUrl = await adminRepo.uploadToCloudinary(_brandingLogoBytes!, folder: 'branding');
+                    }
+
+                    final updatedBranding = BrandingInfo(
+                      companyName: _brandingNameController.text.trim(),
+                      companyLogoUrl: finalLogoUrl.isEmpty ? null : finalLogoUrl,
+                      splashImageUrl: branding.splashImageUrl, // Preserve existing
+                      splashText: branding.splashText,
+                      splashAnimationType: branding.splashAnimationType,
+                      onboardingPages: branding.onboardingPages,
+                    );
+
+                    await adminRepo.saveBranding(updatedBranding);
+
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Settings updated successfully!'), backgroundColor: Colors.green));
+                      setState(() => _brandingLogoBytes = null);
+                      ref.invalidate(brandingProvider); // Force refresh
+                    }
+                  } catch (e) {
+                    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+                  } finally {
+                    if (mounted) setState(() => _isSavingBranding = false);
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _gold,
+                  foregroundColor: Colors.black,
+                  padding: const EdgeInsets.symmetric(vertical: 20),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
+                child: _isSavingBranding
+                    ? const SizedBox(height: 22, width: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.black))
+                    : const Text('SAVE BRANDING', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.5)),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Center(
+              child: TextButton.icon(
+                onPressed: _isDeletingBranding ? null : () async {
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      backgroundColor: AppColors.surface,
+                      title: const Text('Reset Branding?', style: TextStyle(color: Colors.white)),
+                      content: const Text(
+                        'This will reset the Company Name and Logo to the default "EVENT APP". This action cannot be undone.',
+                        style: TextStyle(color: Colors.white70),
+                      ),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, true), 
+                          style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+                          child: const Text('Reset'),
+                        ),
+                      ],
+                    ),
+                  );
+
+                  if (confirm == true) {
+                    setState(() => _isDeletingBranding = true);
+                    try {
+                      await ref.read(adminRepositoryProvider).deleteBranding();
+                      
+                      if (mounted) {
+                        _brandingNameController.clear();
+                        setState(() {
+                          _brandingLogo = null;
+                          _brandingLogoBytes = null;
+                        });
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Branding reset to default!'), backgroundColor: Colors.green));
+                        ref.invalidate(brandingProvider); // Force refresh
+                      }
+                    } catch (e) {
+                      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+                    } finally {
+                      if (mounted) setState(() => _isDeletingBranding = false);
+                    }
+                  }
+                },
+                icon: _isDeletingBranding 
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.redAccent))
+                  : const Icon(Icons.delete_outline_rounded, size: 18),
+                label: Text(_isDeletingBranding ? 'RESETTING...' : 'RESET TO DEFAULT', style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.redAccent.withValues(alpha: 0.8),
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                ),
+              ),
+            ),
+            const SizedBox(height: 60),
+          ],
+        ),
+      ),
+    );
+  }
+
+
+
+
+  // --- CATEGORIES SECTION (Refactored to Dialog) ---
+  // The Categories section is now managed via _showManageCategoriesDialog() 
+  // accessed from the Manage Events header.
+
+
+  Widget _categoryItem(Category category) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.category_outlined, color: category.isEnabled ? _gold : Colors.white24, size: 24),
+          const SizedBox(width: 16),
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _sectionTitle('Branding Settings'),
-                const SizedBox(height: 24),
-                _GlassCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Company Name', style: TextStyle(color: Colors.white70, fontSize: 14)),
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: _brandingNameController,
-                        style: const TextStyle(color: Colors.white, fontSize: 16),
-                        decoration: InputDecoration(
-                          hintText: 'Enter company name',
-                          hintStyle: TextStyle(color: Colors.white.withOpacity(0.2)),
-                          filled: true,
-                          fillColor: Colors.white.withOpacity(0.05),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      const Text('Company Logo', style: TextStyle(color: Colors.white70, fontSize: 14)),
-                      const SizedBox(height: 12),
-                      Center(
-                        child: GestureDetector(
-                          onTap: _isSavingBranding ? null : () async {
-                            final picker = ImagePicker();
-                            final image = await picker.pickImage(
-                              source: ImageSource.gallery,
-                              maxWidth: 1024,
-                              maxHeight: 1024,
-                              imageQuality: 70,
-                            );
-                            if (image != null) {
-                              final bytes = await image.readAsBytes();
-                              setState(() {
-                                _brandingLogo = image;
-                                _brandingLogoBytes = bytes;
-                              });
-                            }
-                          },
-                          child: Container(
-                            width: 120,
-                            height: 120,
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.05),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: Colors.white.withOpacity(0.1)),
-                            ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(20),
-                              child: Stack(
-                                fit: StackFit.expand,
-                                children: [
-                                  if (_brandingLogoBytes != null)
-                                    Image.memory(_brandingLogoBytes!, fit: BoxFit.contain)
-                                  else if (branding.companyLogoUrl != null)
-                                    CachedNetworkImage(
-                                      imageUrl: branding.companyLogoUrl!,
-                                      fit: BoxFit.contain,
-                                      placeholder: (_, __) => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-                                      errorWidget: (_, __, ___) => const Icon(Icons.business, color: Colors.white24, size: 40),
-                                    )
-                                  else
-                                    const Icon(Icons.add_photo_alternate_outlined, color: Colors.white24, size: 40),
-                                  
-                                  if (_isSavingBranding)
-                                    Container(
-                                      color: Colors.black45,
-                                      child: const Center(child: CircularProgressIndicator(color: Color(0xFFFFD700))),
-                                    ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      const Center(
-                        child: Text('Tap to change logo', style: TextStyle(color: Colors.white38, fontSize: 12)),
-                      ),
-                      const SizedBox(height: 32),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: _isSavingBranding ? null : () async {
-                            if (_brandingNameController.text.trim().isEmpty) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Company name cannot be empty'))
-                              );
-                              return;
-                            }
-  
-                            setState(() => _isSavingBranding = true);
-                            try {
-                              String finalUrl = branding.companyLogoUrl ?? '';
-                              if (_brandingLogoBytes != null) {
-                                finalUrl = await ref.read(adminRepositoryProvider).uploadToCloudinary(
-                                  _brandingLogoBytes!, 
-                                  folder: 'branding'
-                                );
-                              }
-  
-                              final updatedBranding = BrandingInfo(
-                                companyName: _brandingNameController.text.trim(),
-                                companyLogoUrl: finalUrl.isEmpty ? null : finalUrl,
-                              );
-  
-                              await ref.read(adminRepositoryProvider).saveBranding(updatedBranding);
-  
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Branding updated successfully!'), backgroundColor: Colors.green)
-                                );
-                                setState(() {
-                                  _brandingLogo = null;
-                                  _brandingLogoBytes = null;
-                                });
-                              }
-                            } catch (e) {
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Failed to update branding: $e'), backgroundColor: Colors.red)
-                                );
-                              }
-                            } finally {
-                              if (mounted) {
-                                setState(() => _isSavingBranding = false);
-                              }
-                            }
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: _gold,
-                            foregroundColor: Colors.black,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          ),
-                          child: _isSavingBranding
-                              ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
-                              : const Text('Save Branding', style: TextStyle(fontWeight: FontWeight.bold)),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      if (branding.companyName != 'Event App' || branding.companyLogoUrl != null)
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton(
-                            onPressed: _isSavingBranding ? null : () async {
-                              final confirm = await showDialog<bool>(
-                                context: context,
-                                builder: (context) => AlertDialog(
-                                  backgroundColor: Colors.grey[900],
-                                  title: const Text('Delete Branding?', style: TextStyle(color: Colors.white)),
-                                  content: const Text(
-                                    'This will reset the header to default. The logo will be removed from the header but NOT from Cloudinary storage.',
-                                    style: TextStyle(color: Colors.white70),
-                                  ),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () => Navigator.pop(context, false),
-                                      child: const Text('Cancel'),
-                                    ),
-                                    TextButton(
-                                      onPressed: () => Navigator.pop(context, true),
-                                      child: const Text('Delete', style: TextStyle(color: Colors.red)),
-                                    ),
-                                  ],
-                                ),
-                              );
-
-                              if (confirm == true) {
-                                setState(() => _isSavingBranding = true);
-                                try {
-                                  await ref.read(adminRepositoryProvider).deleteBranding();
-                                  if (mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Branding reset to default'), backgroundColor: Colors.orange)
-                                    );
-                                    setState(() {
-                                      _brandingLogo = null;
-                                      _brandingLogoBytes = null;
-                                      _brandingNameController.text = 'Event App'; // Reset locally
-                                    });
-                                  }
-                                } catch (e) {
-                                  if (mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text('Failed to delete branding: $e'), backgroundColor: Colors.red)
-                                    );
-                                  }
-                                } finally {
-                                  if (mounted) {
-                                    setState(() => _isSavingBranding = false);
-                                  }
-                                }
-                              }
-                            },
-                            style: OutlinedButton.styleFrom(
-                              side: const BorderSide(color: Colors.redAccent),
-                              foregroundColor: Colors.redAccent,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            ),
-                            child: const Text('Delete Branding / Reset to Default'),
-                          ),
-                        ),
-                    ],
+                Text(
+                  category.name,
+                  style: TextStyle(
+                    color: category.isEnabled ? Colors.white : Colors.white38,
+                    fontWeight: FontWeight.bold,
+                    decoration: category.isEnabled ? null : TextDecoration.lineThrough,
                   ),
+                ),
+                Text(
+                  category.isEnabled ? 'Active' : 'Disabled',
+                  style: TextStyle(color: category.isEnabled ? Colors.greenAccent : Colors.white24, fontSize: 10),
                 ),
               ],
             ),
           ),
-        );
-      },
+          Switch(
+            value: category.isEnabled,
+            onChanged: (val) {
+              ref.read(adminRepositoryProvider).saveCategory(category.copyWith(isEnabled: val));
+            },
+            activeColor: _gold,
+          ),
+          PopupMenuButton(
+            icon: const Icon(Icons.more_vert, color: Colors.white38),
+            itemBuilder: (context) => [
+              PopupMenuItem(child: const Text('Edit'), onTap: () => Future.delayed(Duration.zero, () => _showCategoryDialog(category: category))),
+              PopupMenuItem(
+                child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                onTap: () => ref.read(adminRepositoryProvider).deleteCategory(category.id),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showCategoryDialog({Category? category}) {
+    final nameController = TextEditingController(text: category?.name);
+    bool isEnabled = category?.isEnabled ?? true;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          backgroundColor: AppColors.surface,
+          title: Text(category == null ? 'New Category' : 'Edit Category', style: const TextStyle(color: Colors.white)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                style: const TextStyle(color: Colors.white),
+                decoration: const InputDecoration(labelText: 'Category Name'),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Enable Category', style: TextStyle(color: Colors.white70)),
+                  Switch(
+                    value: isEnabled,
+                    onChanged: (val) => setState(() => isEnabled = val),
+                    activeColor: _gold,
+                  ),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () {
+                if (nameController.text.isEmpty) return;
+                final newCategory = Category(
+                  id: category?.id ?? '',
+                  name: nameController.text.trim(),
+                  isEnabled: isEnabled,
+                );
+                ref.read(adminRepositoryProvider).saveCategory(newCategory);
+                Navigator.pop(context);
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOnboardingPageEditor(int index) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Page ${index + 1}', style: TextStyle(color: _gold, fontWeight: FontWeight.bold)),
+              IconButton(
+                icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+                onPressed: () {
+                  setState(() {
+                    _onboardingTitleControllers.removeAt(index);
+                    _onboardingDescControllers.removeAt(index);
+                    _onboardingImages.removeAt(index);
+                    _onboardingImageBytes.removeAt(index);
+                    _onboardingExistingUrls.removeAt(index);
+                  });
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _onboardingTitleControllers[index],
+            decoration: const InputDecoration(labelText: 'Title', hintText: 'Enter title'),
+            style: const TextStyle(color: Colors.white),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _onboardingDescControllers[index],
+            decoration: const InputDecoration(labelText: 'Description', hintText: 'Enter description'),
+            style: const TextStyle(color: Colors.white),
+            maxLines: 2,
+          ),
+          const SizedBox(height: 16),
+          const Text('Page Image', style: TextStyle(color: Colors.white70, fontSize: 12)),
+          const SizedBox(height: 8),
+          Center(
+            child: GestureDetector(
+              onTap: () async {
+                final picker = ImagePicker();
+                final image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
+                if (image != null) {
+                  final bytes = await image.readAsBytes();
+                  setState(() {
+                    _onboardingImages[index] = image;
+                    _onboardingImageBytes[index] = bytes;
+                  });
+                }
+              },
+              child: Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  color: Colors.black26,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.white10),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: _onboardingImageBytes[index] != null
+                      ? Image.memory(_onboardingImageBytes[index]!, fit: BoxFit.cover)
+                      : (_onboardingExistingUrls[index] != null
+                          ? CachedNetworkImage(imageUrl: _onboardingExistingUrls[index]!, fit: BoxFit.cover)
+                          : const Icon(Icons.add_photo_alternate_outlined, color: Colors.white24)),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -2111,19 +2431,19 @@ class _GlassCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry? padding;
 
-  const _GlassCard({required this.child, this.padding});
+  _GlassCard({required this.child, this.padding});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: padding ?? const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(28), // Premium rounded corners matching Event Home
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),

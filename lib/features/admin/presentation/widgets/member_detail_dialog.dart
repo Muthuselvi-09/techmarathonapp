@@ -48,7 +48,7 @@ class MemberDetailDialog extends StatelessWidget {
                   backgroundImage: member.profileImage != null && member.profileImage!.isNotEmpty
                       ? NetworkImage(member.profileImage!)
                       : null,
-                  backgroundColor: AppColors.codingRimPrimary.withOpacity(0.2),
+                  backgroundColor: AppColors.codingRimPrimary.withValues(alpha: 0.2),
                   child: member.profileImage == null || member.profileImage!.isEmpty
                       ? const Icon(Icons.person, size: 50, color: AppColors.codingRimPrimary)
                       : null,
@@ -88,8 +88,8 @@ class MemberDetailDialog extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
                 color: member.isOnline 
-                    ? const Color(0xFF00FF94).withOpacity(0.2) 
-                    : Colors.grey.withOpacity(0.2),
+                    ? const Color(0xFF00FF94).withValues(alpha: 0.2) 
+                    : Colors.grey.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
@@ -201,7 +201,7 @@ class MemberDetailDialog extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -209,7 +209,7 @@ class MemberDetailDialog extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: AppColors.codingRimPrimary.withOpacity(0.1),
+              color: AppColors.codingRimPrimary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(icon, color: AppColors.codingRimPrimary, size: 18),

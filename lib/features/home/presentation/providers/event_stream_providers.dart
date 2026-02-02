@@ -3,6 +3,7 @@ import '../../domain/event_models.dart';
 import 'package:tech_marathon_app/core/providers.dart';
 import 'package:tech_marathon_app/features/home/domain/event_models.dart' as new_speaker;
 import 'package:tech_marathon_app/features/home/domain/event_models.dart' as new_sponsor;
+import 'package:tech_marathon_app/features/admin/data/admin_repository.dart';
 import 'package:tech_marathon_app/data/models/schedule.dart' as new_schedule;
 
 final currentEventStreamProvider = StreamProvider<CodingEvent?>((ref) {
@@ -29,11 +30,15 @@ final schedulesStreamProvider = StreamProvider<List<new_schedule.Schedule>>((ref
       return ref.watch(scheduleRepositoryProvider).watchSchedules(event.id);
     },
     loading: () => const Stream.empty(),
-    error: (_, __) => Stream.value([]),
+    error: (_, _) => Stream.value([]),
   );
 });
 
 final allEventsStreamProvider = StreamProvider<List<CodingEvent>>((ref) {
   final eventRepo = ref.watch(eventRepositoryProvider);
   return eventRepo.watchEvents();
+});
+
+final categoriesStreamProvider = StreamProvider<List<Category>>((ref) {
+  return ref.watch(adminRepositoryProvider).watchCategories();
 });

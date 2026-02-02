@@ -49,7 +49,7 @@ class SpeakersScreen extends ConsumerWidget {
               totalCount.when(
                 data: (count) => count.toString(),
                 loading: () => '...',
-                error: (_, __) => '0',
+                error: (_, _) => '0',
               ),
               Icons.people_alt_rounded,
               AppColors.primary,
@@ -61,7 +61,7 @@ class SpeakersScreen extends ConsumerWidget {
               completedCount.when(
                 data: (count) => count.toString(),
                 loading: () => '...',
-                error: (_, __) => '0',
+                error: (_, _) => '0',
               ),
               Icons.check_circle_rounded,
               Colors.greenAccent,
@@ -90,7 +90,7 @@ class SpeakersScreen extends ConsumerWidget {
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   itemCount: speakers.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 20),
+                  separatorBuilder: (_, _) => const SizedBox(height: 20),
                   itemBuilder: (context, index) {
                     final speaker = speakers[index];
                     return _buildSpeakerCard(
@@ -123,10 +123,10 @@ class SpeakersScreen extends ConsumerWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: color.withOpacity(0.2)),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
         boxShadow: [
           BoxShadow(
-            color: color.withOpacity(0.05),
+            color: color.withValues(alpha: 0.05),
             blurRadius: 20,
             spreadRadius: 0,
           ),
@@ -137,7 +137,7 @@ class SpeakersScreen extends ConsumerWidget {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: color.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(icon, color: color, size: 30),

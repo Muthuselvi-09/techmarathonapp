@@ -58,8 +58,8 @@ class SpeakerDetailsScreen extends StatelessWidget {
                         gradient: LinearGradient(
                           colors: [
                             AppColors.background,
-                            AppColors.background.withOpacity(0.0),
-                            AppColors.background.withOpacity(0.2),
+                            AppColors.background.withValues(alpha: 0.0),
+                            AppColors.background.withValues(alpha: 0.2),
                           ],
                           begin: Alignment.bottomCenter,
                           end: Alignment.topCenter,

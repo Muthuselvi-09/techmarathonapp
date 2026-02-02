@@ -95,7 +95,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
       ),
       child: Row(
         children: [
@@ -126,7 +126,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
             value: value,
             onChanged: onChanged,
             activeColor: AppColors.primary,
-            activeTrackColor: AppColors.primary.withOpacity(0.2),
+            activeTrackColor: AppColors.primary.withValues(alpha: 0.2),
             inactiveThumbColor: AppColors.textDim,
             inactiveTrackColor: AppColors.surface,
           ),

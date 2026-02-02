@@ -70,7 +70,7 @@ class _MainScaffoldState extends State<MainScaffold> {
     return Container(
       height: 70,
       decoration: BoxDecoration(
-        color: AppColors.surface.withOpacity(0.9),
+        color: AppColors.surface.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(30),
         border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
         boxShadow: [

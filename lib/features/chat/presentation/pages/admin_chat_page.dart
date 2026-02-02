@@ -82,7 +82,7 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.chat_bubble_outline_rounded, size: 64, color: AppColors.primary.withOpacity(0.2)),
+                          Icon(Icons.chat_bubble_outline_rounded, size: 64, color: AppColors.primary.withValues(alpha: 0.2)),
                           const SizedBox(height: 16),
                           Text(
                             'Need help? Start a conversation with us!',

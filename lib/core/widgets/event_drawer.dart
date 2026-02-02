@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../theme/app_colors.dart';
 import '../../features/auth/presentation/providers/auth_provider.dart';
-import '../../features/profile/presentation/providers/profile_provider.dart';
+// import '../../features/profile/presentation/providers/profile_provider.dart';
 import 'event_widgets.dart';
 import '../../features/chat/presentation/pages/admin_chat_page.dart';
 
@@ -29,7 +29,7 @@ class EventDrawer extends ConsumerWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 decoration: BoxDecoration(
-                  border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.05))),
+                  border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05))),
                 ),
                 child: const Center(
                   child: BrandHeader(),
@@ -62,7 +62,7 @@ class EventDrawer extends ConsumerWidget {
             const Spacer(),
             Container(
               decoration: BoxDecoration(
-                border: Border(top: BorderSide(color: Colors.white.withOpacity(0.05))),
+                border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.05))),
               ),
               child: ListTile(
                 leading: const Icon(Icons.logout, color: AppColors.error),

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:tech_marathon_app/features/profile/presentation/providers/profile_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
@@ -46,13 +48,13 @@ class EventOverviewScreen extends ConsumerWidget {
                       sponsorsAsync.when(
                         data: (sponsors) => _buildSponsorsSlider(sponsors),
                         loading: () => const CircularProgressIndicator(),
-                        error: (_, __) => const SizedBox.shrink(),
+                        error: (_, _) => const SizedBox.shrink(),
                       ),
                       const SizedBox(height: 48),
                       speakersAsync.when(
                         data: (speakers) => _buildSpeakersList(speakers),
                         loading: () => const CircularProgressIndicator(),
-                        error: (_, __) => const SizedBox.shrink(),
+                        error: (_, _) => const SizedBox.shrink(),
                       ),
                       const SizedBox(height: 120),
                     ],
@@ -80,7 +82,7 @@ class EventOverviewScreen extends ConsumerWidget {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                AppColors.primary.withOpacity(0.1),
+                AppColors.primary.withValues(alpha: 0.1),
                 AppColors.background,
               ],
             ),
@@ -116,7 +118,7 @@ class EventOverviewScreen extends ConsumerWidget {
             const Icon(Icons.calendar_today_rounded, color: AppColors.primary, size: 16),
             const SizedBox(width: 8),
             Text(
-              'JAN 12-14, 2024',
+              _formatDate(event.date),
               style: GoogleFonts.inter(color: AppColors.textSecondary, fontSize: 14),
             ),
           ],
@@ -125,7 +127,17 @@ class EventOverviewScreen extends ConsumerWidget {
     );
   }
 
+  String _formatDate(DateTime date) {
+    final months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+    return '${months[date.month - 1]} ${date.day}, ${date.year}';
+  }
+
   Widget _buildEntryPass(BuildContext context) {
+    // Attempt to get real user data if possible, otherwise fallback
+    final user = FirebaseAuth.instance.currentUser;
+    final userName = user?.displayName ?? 'Valued Member';
+    final userId = user?.uid.substring(0, 8).toUpperCase() ?? 'CR-EVT-USER';
+
     return GlassCard(
       padding: EdgeInsets.zero,
       child: Column(
@@ -147,7 +159,7 @@ class EventOverviewScreen extends ConsumerWidget {
                       style: GoogleFonts.inter(
                         fontSize: 10,
                         fontWeight: FontWeight.w900,
-                        color: Colors.black.withOpacity(0.6),
+                        color: Colors.black.withValues(alpha: 0.6),
                         letterSpacing: 1.5,
                       ),
                     ),
@@ -174,9 +186,9 @@ class EventOverviewScreen extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildPassInfo('HOLDER', 'Alex Johnson'),
+                      _buildPassInfo('HOLDER', userName),
                       const SizedBox(height: 16),
-                      _buildPassInfo('ID', 'CR-EVT-2024-99'),
+                      _buildPassInfo('ID', 'CR-EVT-$userId'),
                     ],
                   ),
                 ),
@@ -187,7 +199,7 @@ class EventOverviewScreen extends ConsumerWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: QrImageView(
-                    data: 'CR-EVT-2024-99-ALEX',
+                    data: 'CR-EVT-$userId-$userName',
                     version: QrVersions.auto,
                     size: 80.0,
                     backgroundColor: Colors.white,
@@ -218,44 +230,53 @@ class EventOverviewScreen extends ConsumerWidget {
   }
 
   Widget _buildParticipantsBanner(BuildContext context) {
-    return GestureDetector(
-      onTap: () => context.push('/participants'),
-      child: GlassCard(
-        color: AppColors.primary.withOpacity(0.05),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: const BoxDecoration(
-                color: AppColors.primary,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.people_alt_rounded, color: Colors.black),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '42 MEMBERS JOINED',
-                    style: GoogleFonts.inter(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w900,
-                      color: AppColors.primary,
-                    ),
+    return Consumer(
+      builder: (context, ref, _) {
+        final countAsync = ref.watch(totalParticipantsProvider);
+        return GestureDetector(
+          onTap: () => context.push('/participants'),
+          child: GlassCard(
+            color: AppColors.primary.withValues(alpha: 0.05),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: const BoxDecoration(
+                    color: AppColors.primary,
+                    shape: BoxShape.circle,
                   ),
-                  Text(
-                    'Network with the community now',
-                    style: GoogleFonts.inter(color: AppColors.textDim, fontSize: 12),
+                  child: const Icon(Icons.people_alt_rounded, color: Colors.black),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        countAsync.when(
+                          data: (count) => '${count.toString().toUpperCase()} MEMBERS JOINED',
+                          loading: () => '... MEMBERS JOINED',
+                          error: (_, _) => 'MEMBERS JOINED',
+                        ),
+                        style: GoogleFonts.outfit(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                      Text(
+                        'Network with the community now',
+                        style: GoogleFonts.inter(color: AppColors.textDim, fontSize: 12),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+                const Icon(Icons.arrow_forward_ios_rounded, color: AppColors.textDim, size: 16),
+              ],
             ),
-            const Icon(Icons.arrow_forward_ios_rounded, color: AppColors.textDim, size: 16),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -279,7 +300,7 @@ class EventOverviewScreen extends ConsumerWidget {
                 decoration: BoxDecoration(
                   color: AppColors.surface,
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.white.withOpacity(0.05)),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
                 ),
                 child: Center(
                   child: Hero(
@@ -332,7 +353,7 @@ class EventOverviewScreen extends ConsumerWidget {
                                 width: 70,
                                 height: 70,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => const Icon(Icons.person, color: Colors.white),
+                                errorBuilder: (_, _, _) => const Icon(Icons.person, color: Colors.white),
                               )
                             : const Icon(Icons.person, color: Colors.white),
                       ),

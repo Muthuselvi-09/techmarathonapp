@@ -94,7 +94,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     },
                   ),
                   loading: () => const Center(child: CircularProgressIndicator()),
-                  error: (_, __) => const Center(child: Text('Error loading messages', style: TextStyle(color: Colors.white))),
+                  error: (_, _) => const Center(child: Text('Error loading messages', style: TextStyle(color: Colors.white))),
                 );
               },
             ),

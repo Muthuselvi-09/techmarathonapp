@@ -7,7 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tech_marathon_app/features/home/domain/event_models.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' hide Category;
 import 'package:tech_marathon_app/data/models/schedule.dart' as new_schedule;
 import 'package:tech_marathon_app/core/providers.dart';
 
@@ -83,6 +83,36 @@ class AdminRepository {
     await _firestore.collection('branding').doc('current').delete();
   }
 
+  // --- CATEGORY METHODS ---
+
+  Stream<List<Category>> watchCategories() {
+    return _firestore
+        .collection('categories')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs
+          .map((doc) => Category.fromMap(doc.data(), doc.id))
+          .toList();
+    });
+  }
+
+  Future<void> saveCategory(Category category) async {
+    final docId = category.id.isEmpty ? _firestore.collection('categories').doc().id : category.id;
+    final data = category.toMap();
+    
+    if (category.id.isEmpty) {
+      data['createdAt'] = FieldValue.serverTimestamp();
+      await _firestore.collection('categories').doc(docId).set(data);
+    } else {
+      await _firestore.collection('categories').doc(docId).update(data);
+    }
+  }
+
+  Future<void> deleteCategory(String categoryId) async {
+    // Optionally: check if any events are using this category before deleting
+    await _firestore.collection('categories').doc(categoryId).delete();
+  }
 
   Stream<List<CodingEvent>> watchEvents() {
     return _firestore

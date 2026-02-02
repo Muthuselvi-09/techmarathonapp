@@ -47,12 +47,12 @@ class HelpSupportScreen extends StatelessWidget {
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [AppColors.codingRimPrimary.withOpacity(0.2), AppColors.surface],
+                colors: [AppColors.codingRimPrimary.withValues(alpha: 0.2), AppColors.surface],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: AppColors.codingRimPrimary.withOpacity(0.3)),
+              border: Border.all(color: AppColors.codingRimPrimary.withValues(alpha: 0.3)),
             ),
             child: Column(
               children: [
@@ -115,7 +115,7 @@ class HelpSupportScreen extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
       ),
       child: ExpansionTile(
         iconColor: AppColors.primary,

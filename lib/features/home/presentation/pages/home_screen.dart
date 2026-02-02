@@ -114,7 +114,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     locationAsync.when(
                       data: (loc) => loc != null ? '${loc.area}, ${loc.city}' : (currentEventAsync.value?.location ?? 'Unknown Location'),
                       loading: () => 'Detecting location...',
-                      error: (_, __) => currentEventAsync.value?.location ?? 'Unknown Location',
+                      error: (_, _) => currentEventAsync.value?.location ?? 'Unknown Location',
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -159,12 +159,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.5),
+              color: Colors.black.withValues(alpha: 0.5),
               blurRadius: 10,
               offset: const Offset(0, 5),
             ),
           ],
-          border: Border.all(color: Colors.white.withOpacity(0.1)),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
         ),
         child: searchResultsAsync.when(
           data: (results) {
@@ -178,7 +178,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               shrinkWrap: true,
               padding: const EdgeInsets.symmetric(vertical: 8),
               itemCount: results.length,
-              separatorBuilder: (_, __) => Divider(color: Colors.white.withOpacity(0.05)),
+              separatorBuilder: (_, _) => Divider(color: Colors.white.withValues(alpha: 0.05)),
               itemBuilder: (context, index) {
                 final result = results[index];
                 return ListTile(
@@ -259,19 +259,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [AppColors.primary.withOpacity(0.2), AppColors.surface],
+          colors: [AppColors.primary.withValues(alpha: 0.2), AppColors.surface],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.1),
+              color: AppColors.primary.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: const Icon(Icons.person_outline_rounded, color: AppColors.primary, size: 24),
@@ -348,8 +348,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         child: CachedNetworkImage(
                           imageUrl: branding.companyLogoUrl!,
                           fit: BoxFit.contain,
-                          placeholder: (_, __) => const SizedBox(width: 20, height: 20),
-                          errorWidget: (_, __, ___) => const SizedBox.shrink(),
+                          placeholder: (_, _) => const SizedBox(width: 20, height: 20),
+                          errorWidget: (_, _, _) => const SizedBox.shrink(),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -387,12 +387,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   IconButton(
                     icon: const Icon(Icons.admin_panel_settings_outlined, color: AppColors.textPrimary),
                     onPressed: () {
-                      final user = FirebaseAuth.instance.currentUser;
-                      if (user != null) {
-                        context.push('/admin');
-                      } else {
-                        context.push('/admin-login');
-                      }
+                      // Bypass login for now as requested
+                      context.push('/admin');
                     },
                   ),
                   IconButton(
@@ -404,10 +400,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           ],
         ),
-        loading: () => const Center(
-          child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
-        ),
-        error: (_, __) => Stack(
+        loading: () => Stack(
           alignment: Alignment.center,
           children: [
             Align(
@@ -430,9 +423,57 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
             Align(
               alignment: Alignment.centerRight,
-              child: IconButton(
-                icon: const Icon(Icons.admin_panel_settings_outlined, color: AppColors.textPrimary),
-                onPressed: () => context.push('/admin-login'),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.admin_panel_settings_outlined, color: AppColors.textPrimary),
+                    onPressed: () => context.push('/admin-login'),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.notifications_outlined, color: AppColors.textPrimary),
+                    onPressed: () => context.push('/notifications'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        error: (_, _) => Stack(
+          alignment: Alignment.center,
+          children: [
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Builder(
+                builder: (context) => IconButton(
+                  icon: const Icon(Icons.menu_rounded, color: AppColors.textPrimary),
+                  onPressed: () => Scaffold.of(context).openDrawer(),
+                ),
+              ),
+            ),
+            Text(
+              'EVENT APP',
+              style: GoogleFonts.outfit(
+                fontWeight: FontWeight.w900,
+                letterSpacing: 2,
+                fontSize: 16,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.admin_panel_settings_outlined, color: AppColors.textPrimary),
+                    onPressed: () => context.push('/admin-login'),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.notifications_outlined, color: AppColors.textPrimary),
+                    onPressed: () => context.push('/notifications'),
+                  ),
+                ],
               ),
             ),
           ],
@@ -467,7 +508,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             decoration: BoxDecoration(
               color: AppColors.surface,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.white.withOpacity(0.05)),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
             ),
             child: TextField(
               controller: _searchController,
@@ -542,7 +583,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     decoration: BoxDecoration(
                       color: AppColors.surface,
                       borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: Colors.white.withOpacity(0.05)),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(24),
@@ -553,7 +594,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               child: Image.network(
                                 event.imageUrl,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => Container(
+                                errorBuilder: (_, _, _) => Container(
                                   color: Colors.white12,
                                   child: const Center(child: Icon(Icons.event_note, color: Colors.white10, size: 40)),
                                 ),
@@ -573,8 +614,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   begin: Alignment.bottomCenter,
                                   end: Alignment.topCenter,
                                   colors: [
-                                    Colors.black.withOpacity(0.8),
-                                    Colors.black.withOpacity(0.2),
+                                    Colors.black.withValues(alpha: 0.8),
+                                    Colors.black.withValues(alpha: 0.2),
                                     Colors.transparent,
                                   ],
                                 ),
@@ -619,6 +660,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                               fontSize: 10,
                                               color: Colors.white70,
                                             ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: AppColors.primary.withValues(alpha: 0.2),
+                                            borderRadius: BorderRadius.circular(8),
+                                            border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                                          ),
+                                          child: Text(
+                                            event.isFree ? 'Free' : '${event.currency}${event.entryFee}',
+                                            style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 10),
                                           ),
                                         ),
                                       ],
@@ -683,14 +737,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 margin: const EdgeInsets.symmetric(horizontal: 8),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [card['color'], (card['color'] as Color).withOpacity(0.5)],
+                    colors: [card['color'], (card['color'] as Color).withValues(alpha: 0.5)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(24),
                   boxShadow: [
                     BoxShadow(
-                      color: (card['color'] as Color).withOpacity(0.2),
+                      color: (card['color'] as Color).withValues(alpha: 0.2),
                       blurRadius: 15,
                       offset: const Offset(0, 8),
                     ),
@@ -704,7 +758,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       child: Icon(
                         card['icon'],
                         size: 120,
-                        color: Colors.white.withOpacity(0.1),
+                        color: Colors.white.withValues(alpha: 0.1),
                       ),
                     ),
                     Padding(
@@ -757,14 +811,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           decoration: BoxDecoration(
             color: AppColors.surface,
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: AppColors.primary.withOpacity(0.1)),
+            border: Border.all(color: AppColors.primary.withValues(alpha: 0.1)),
           ),
           child: Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.1),
+                  color: AppColors.primary.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(Icons.people_alt_rounded, color: AppColors.primary),
@@ -874,7 +928,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             padding: const EdgeInsets.all(2),
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              border: Border.all(color: AppColors.primary.withOpacity(0.5)),
+                              border: Border.all(color: AppColors.primary.withValues(alpha: 0.5)),
                             ),
                             child: Builder(
                               builder: (context) {
@@ -973,7 +1027,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       decoration: BoxDecoration(
                         color: AppColors.surface,
                         borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: Colors.white.withOpacity(0.05)),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
                       ),
                       child: Material(
                         color: Colors.transparent,
@@ -1158,7 +1212,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           Container(
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
-                                colors: [Colors.black.withOpacity(0.8), Colors.transparent],
+                                colors: [Colors.black.withValues(alpha: 0.8), Colors.transparent],
                                 begin: Alignment.bottomCenter,
                                 end: Alignment.topCenter,
                               ),

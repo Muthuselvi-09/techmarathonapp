@@ -19,7 +19,7 @@ import '../widgets/main_scaffold.dart';
 import '../../features/events/presentation/pages/event_login_screen.dart';
 import '../../features/events/presentation/pages/event_overview_screen.dart';
 import '../../features/events/presentation/pages/participants_screen.dart';
-import '../../features/events/presentation/pages/event_chat_screen.dart';
+// import '../../features/events/presentation/pages/event_chat_screen.dart';
 import '../../features/events/presentation/pages/chat_screen.dart' as realtime_chat;
 import '../../features/events/presentation/pages/event_profile_screen.dart';
 import '../../features/events/presentation/pages/speakers_screen.dart';
@@ -29,7 +29,7 @@ import '../../features/settings/presentation/pages/settings_screen.dart';
 
 import '../../features/profile/presentation/pages/profile_screen.dart';
 import '../../features/profile/presentation/pages/profile_completion_screen.dart';
-import '../../features/profile/presentation/providers/profile_provider.dart';
+// import '../../features/profile/presentation/providers/profile_provider.dart';
 import '../../features/admin/presentation/pages/admin_dashboard_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {

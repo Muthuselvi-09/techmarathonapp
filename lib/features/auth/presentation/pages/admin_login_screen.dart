@@ -125,8 +125,8 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
                           colors: [
-                            Colors.black.withOpacity(0.2),
-                            Colors.black.withOpacity(0.8),
+                            Colors.black.withValues(alpha: 0.2),
+                            Colors.black.withValues(alpha: 0.8),
                           ],
                         ),
                         borderRadius: const BorderRadius.vertical(bottom: Radius.circular(60)),
@@ -143,9 +143,9 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                           decoration: BoxDecoration(
-                            color: AppColors.codingRimPrimary.withOpacity(0.2),
+                            color: AppColors.codingRimPrimary.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: AppColors.codingRimPrimary.withOpacity(0.3)),
+                            border: Border.all(color: AppColors.codingRimPrimary.withValues(alpha: 0.3)),
                           ),
                           child: Text(
                             'ADMINISTRATOR',
