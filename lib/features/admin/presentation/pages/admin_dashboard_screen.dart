@@ -247,6 +247,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
           _tabItem(5, 'Schedules'),
           _tabItem(6, 'Chat'),
           _tabItem(7, 'Branding'),
+          _tabItem(8, 'Profile'),
         ],
       ),
     );
@@ -294,6 +295,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
       case 5: return _buildSchedulesSection();
       case 6: return _buildChatSection();
       case 7: return _buildBrandingSection();
+      case 8: return _buildProfileSection();
       default: return _buildOverview();
     }
   }
@@ -766,6 +768,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
     final descController = TextEditingController(text: event?.description);
     final feeController = TextEditingController(text: event?.entryFee.toString());
     final currencyController = TextEditingController(text: event?.currency ?? '₹');
+    final entryTimingController = TextEditingController(text: event?.entryTiming);
+    List<String> rules = List<String>.from(event?.rules ?? []);
     
     XFile? selectedImage;
     String? currentImageUrl = event?.imageUrl;
@@ -903,6 +907,43 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
 
                   const SizedBox(height: 16),
                   TextField(controller: descController, decoration: const InputDecoration(labelText: 'Description'), style: const TextStyle(color: Colors.white), maxLines: 3),
+                  
+                  const SizedBox(height: 16),
+                  TextField(controller: entryTimingController, decoration: const InputDecoration(labelText: 'Entry Timing (e.g. Registration opens at 8:00 AM)'), style: const TextStyle(color: Colors.white)),
+                  
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Rules & Instructions', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold)),
+                      IconButton(
+                        onPressed: () => setState(() => rules.add('')),
+                        icon: Icon(Icons.add_circle_outline, color: _gold),
+                      ),
+                    ],
+                  ),
+                  ...rules.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              initialValue: entry.value,
+                              decoration: InputDecoration(hintText: 'Rule ${index + 1}', hintStyle: const TextStyle(color: Colors.white24)),
+                              style: const TextStyle(color: Colors.white, fontSize: 13),
+                              onChanged: (val) => rules[index] = val,
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => setState(() => rules.removeAt(index)),
+                            icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent, size: 20),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
                 ],
               ),
             ),
@@ -943,6 +984,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                      date: event?.date ?? DateTime.now(),
                      speakerIds: event?.speakerIds ?? [],
                      imageUrl: currentImageUrl ?? 'https://images.unsplash.com/photo-1540575467063-178a50c2df87',
+                     entryTiming: entryTimingController.text,
+                     rules: rules.where((r) => r.trim().isNotEmpty).toList(),
                    );
 
                    if (event == null) {
@@ -1318,13 +1361,18 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                 ],
               ),
             ),
-            IconButton(
-              icon: const Icon(Icons.edit, color: Colors.blueAccent),
-              onPressed: () => _showSponsorDialog(sponsor: sponsor),
-            ),
-            IconButton(
-              icon: const Icon(Icons.delete_outline, color: Colors.red),
-              onPressed: () => ref.read(adminRepositoryProvider).deleteSponsor('', sponsor.id),
+            PopupMenuButton(
+              icon: const Icon(Icons.more_vert, color: Colors.white38),
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  child: const Text('Edit'),
+                  onTap: () => Future.delayed(Duration.zero, () => _showSponsorDialog(sponsor: sponsor)),
+                ),
+                PopupMenuItem(
+                  child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                  onTap: () => ref.read(adminRepositoryProvider).deleteSponsor('', sponsor.id),
+                ),
+              ],
             ),
           ],
         ),
@@ -1581,7 +1629,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                         ),
                         child: DropdownButtonHideUnderline(
                           child: DropdownButton<String>(
-                            value: selectedEventId,
+                            value: (snapshot.data!.any((e) => e.id == selectedEventId)) ? selectedEventId : null,
                             hint: const Text('Select Event', style: TextStyle(color: Colors.white54)),
                             dropdownColor: AppColors.surface,
                             isExpanded: true,
@@ -2423,6 +2471,328 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
           ),
         ],
       ),
+    );
+  }
+
+  // --- 8. PROFILE APP SECTION ---
+  Widget _buildProfileSection() {
+    final adminRepo = ref.watch(adminRepositoryProvider);
+
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(child: _sectionTitle('Manage Profile Layout')),
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: () => _seedInitialProfileTiles(),
+                    icon: const Icon(Icons.auto_awesome, size: 18),
+                    label: const Text('Seed Initial'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: _gold,
+                      side: BorderSide(color: _gold.withValues(alpha: 0.5)),
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                    ),
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: () => _showProfileItemDialog(),
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('New Tile'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _gold,
+                      foregroundColor: Colors.black,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Control which options appear on the user profile screen.',
+            style: GoogleFonts.inter(color: Colors.white54, fontSize: 13),
+          ),
+          const SizedBox(height: 24),
+          Expanded(
+            child: StreamBuilder<List<ProfileItem>>(
+              stream: adminRepo.watchProfileItems(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+                final items = snapshot.data!;
+                if (items.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.dashboard_customize_outlined, color: Colors.white24, size: 64),
+                        const SizedBox(height: 16),
+                        const Text('No profile tiles configured', style: TextStyle(color: Colors.white38)),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: () => _seedInitialProfileTiles(),
+                          child: const Text('Seed Default Tiles'),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                return ListView.builder(
+                  itemCount: items.length,
+                  itemBuilder: (context, index) {
+                    final item = items[index];
+                    return _profileItemCard(item);
+                  },
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _profileItemCard(ProfileItem item) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: item.isEnabled ? _gold.withValues(alpha: 0.2) : Colors.white10),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: item.isEnabled ? _gold.withValues(alpha: 0.1) : Colors.white10,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              IconData(item.iconCodePoint, fontFamily: 'MaterialIcons'),
+              color: item.isEnabled ? _gold : Colors.white38,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.title,
+                  style: GoogleFonts.outfit(
+                    color: item.isEnabled ? Colors.white : Colors.white38,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+                Text(
+                  'Route: ${item.route}',
+                  style: GoogleFonts.inter(color: Colors.white38, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          Column(
+            children: [
+              Switch(
+                value: item.isEnabled,
+                activeColor: _gold,
+                onChanged: (val) {
+                  ref.read(adminRepositoryProvider).saveProfileItem(item.copyWith(isEnabled: val));
+                },
+              ),
+              PopupMenuButton(
+                icon: const Icon(Icons.more_vert, color: Colors.white38),
+                itemBuilder: (context) => [
+                  PopupMenuItem(
+                    child: const Text('Edit'),
+                    onTap: () => Future.delayed(Duration.zero, () => _showProfileItemDialog(item: item)),
+                  ),
+                  PopupMenuItem(
+                    child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                    onTap: () => _confirmDeleteProfileItem(item),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showProfileItemDialog({ProfileItem? item}) {
+    final titleController = TextEditingController(text: item?.title);
+    final routeController = TextEditingController(text: item?.route);
+    final orderController = TextEditingController(text: (item?.order ?? 0).toString());
+    int selectedIconCode = item?.iconCodePoint ?? 0xe1b0;
+
+    final List<Map<String, dynamic>> availableIcons = [
+      {'name': 'Event', 'code': 0xe22e},
+      {'name': 'School', 'code': 0xe559},
+      {'name': 'Certificate', 'code': 0xe13d},
+      {'name': 'Calendar', 'code': 0xe112},
+      {'name': 'QR Code', 'code': 0xe507},
+      {'name': 'History', 'code': 0xe314},
+      {'name': 'Settings', 'code': 0xe57f},
+      {'name': 'Person', 'code': 0xe491},
+      {'name': 'Notifications', 'code': 0xe44f},
+      {'name': 'Email', 'code': 0xe22a},
+      {'name': 'Security', 'code': 0xe54c},
+      {'name': 'Star', 'code': 0xe5f9},
+    ];
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: AppColors.surface,
+          title: Text(item == null ? 'New Profile Tile' : 'Edit Profile Tile', style: const TextStyle(color: Colors.white)),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: titleController,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: _adminInputDecoration('Title', Icons.title),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: routeController,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: _adminInputDecoration('Route (e.g. /my-schedule)', Icons.link),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: orderController,
+                  keyboardType: TextInputType.number,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: _adminInputDecoration('Display Order', Icons.sort),
+                ),
+                const SizedBox(height: 24),
+                const Text('Select Icon', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: availableIcons.map((ic) {
+                    bool isSelected = selectedIconCode == ic['code'];
+                    return GestureDetector(
+                      onTap: () => setDialogState(() => selectedIconCode = ic['code']),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: isSelected ? _gold.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.05),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: isSelected ? _gold : Colors.transparent),
+                        ),
+                        child: Icon(
+                          IconData(ic['code'], fontFamily: 'MaterialIcons'),
+                          color: isSelected ? _gold : Colors.white54,
+                          size: 24,
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () async {
+                if (titleController.text.isEmpty || routeController.text.isEmpty) return;
+                
+                final newItem = (item ?? ProfileItem(
+                  id: '',
+                  title: '',
+                  iconCodePoint: 0,
+                  route: '',
+                )).copyWith(
+                  title: titleController.text,
+                  route: routeController.text,
+                  order: int.tryParse(orderController.text) ?? 0,
+                  iconCodePoint: selectedIconCode,
+                  isEnabled: item?.isEnabled ?? true,
+                );
+
+                await ref.read(adminRepositoryProvider).saveProfileItem(newItem);
+                if (context.mounted) Navigator.pop(context);
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: _gold, foregroundColor: Colors.black),
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _confirmDeleteProfileItem(ProfileItem item) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text('Delete Tile', style: TextStyle(color: Colors.white)),
+        content: Text('Are you sure you want to delete "${item.title}" from the profile?', style: const TextStyle(color: Colors.white70)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () async {
+              await ref.read(adminRepositoryProvider).deleteProfileItem(item.id);
+              if (context.mounted) Navigator.pop(context);
+            },
+            child: const Text('Delete', style: TextStyle(color: Colors.redAccent)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _seedInitialProfileTiles() async {
+    final adminRepo = ref.read(adminRepositoryProvider);
+    final List<ProfileItem> initialTiles = [
+      ProfileItem(id: '', title: 'Registered Events', iconCodePoint: 0xe22e, route: '/my-events', order: 1),
+      ProfileItem(id: '', title: 'My Courses', iconCodePoint: 0xe559, route: '/my-courses', order: 2),
+      ProfileItem(id: '', title: 'Certificates', iconCodePoint: 0xe13d, route: '/certificates', order: 3),
+      ProfileItem(id: '', title: 'My Schedule', iconCodePoint: 0xe112, route: '/my-schedule', order: 4),
+      ProfileItem(id: '', title: 'My QR Pass', iconCodePoint: 0xe507, route: '/qr-pass', order: 5),
+      ProfileItem(id: '', title: 'Past Events', iconCodePoint: 0xe314, route: '/past-events', order: 6),
+      ProfileItem(id: '', title: 'Settings', iconCodePoint: 0xe57f, route: '/profile-settings', order: 10),
+    ];
+
+    for (var tile in initialTiles) {
+      await adminRepo.saveProfileItem(tile);
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Initial profile tiles seeded successfully!'), backgroundColor: Colors.green),
+      );
+    }
+  }
+
+  InputDecoration _adminInputDecoration(String label, IconData icon) {
+    return InputDecoration(
+      labelText: label,
+      prefixIcon: Icon(icon, color: _gold, size: 20),
+      labelStyle: const TextStyle(color: Colors.white70),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Colors.white10)),
+      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: _gold)),
+      filled: true,
+      fillColor: Colors.white.withValues(alpha: 0.05),
     );
   }
 }

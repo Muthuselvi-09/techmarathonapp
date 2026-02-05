@@ -19,6 +19,7 @@ import '../widgets/main_scaffold.dart';
 import '../../features/events/presentation/pages/event_login_screen.dart';
 import '../../features/events/presentation/pages/event_overview_screen.dart';
 import '../../features/events/presentation/pages/participants_screen.dart';
+import '../../features/events/presentation/pages/payment_screen.dart';
 // import '../../features/events/presentation/pages/event_chat_screen.dart';
 import '../../features/events/presentation/pages/chat_screen.dart' as realtime_chat;
 import '../../features/events/presentation/pages/event_profile_screen.dart';
@@ -29,7 +30,13 @@ import '../../features/settings/presentation/pages/settings_screen.dart';
 
 import '../../features/profile/presentation/pages/profile_screen.dart';
 import '../../features/profile/presentation/pages/profile_completion_screen.dart';
-// import '../../features/profile/presentation/providers/profile_provider.dart';
+import '../../features/profile/presentation/pages/my_schedule_screen.dart';
+import '../../features/profile/presentation/pages/qr_pass_screen.dart';
+import '../../features/profile/presentation/pages/past_events_screen.dart';
+import '../../features/profile/presentation/pages/my_events_screen.dart';
+import '../../features/profile/presentation/pages/my_courses_screen.dart';
+import '../../features/profile/presentation/pages/certificates_screen.dart';
+import '../../features/profile/presentation/pages/profile_settings_screen.dart';
 import '../../features/admin/presentation/pages/admin_dashboard_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -150,6 +157,41 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/admin',
         builder: (context, state) => const AdminDashboardScreen(),
+      ),
+      GoRoute(
+        path: '/my-schedule',
+        builder: (context, state) => const MyScheduleScreen(),
+      ),
+      GoRoute(
+        path: '/qr-pass',
+        builder: (context, state) => const QrPassScreen(),
+      ),
+      GoRoute(
+        path: '/past-events',
+        builder: (context, state) => const PastEventsScreen(),
+      ),
+      GoRoute(
+        path: '/my-events',
+        builder: (context, state) => const MyEventsScreen(),
+      ),
+      GoRoute(
+        path: '/my-courses',
+        builder: (context, state) => const MyCoursesScreen(),
+      ),
+      GoRoute(
+        path: '/certificates',
+        builder: (context, state) => const CertificatesScreen(),
+      ),
+      GoRoute(
+        path: '/payment',
+        builder: (context, state) {
+          final event = state.extra as CodingEvent;
+          return PaymentScreen(event: event);
+        },
+      ),
+      GoRoute(
+        path: '/profile-settings',
+        builder: (context, state) => const ProfileSettingsScreen(),
       ),
     ],
   );

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../providers/event_stream_providers.dart';
+import '../../../profile/presentation/providers/starred_sessions_provider.dart';
 
 class ScheduleDetailsScreen extends ConsumerWidget {
   const ScheduleDetailsScreen({super.key});
@@ -89,10 +90,16 @@ class ScheduleDetailsScreen extends ConsumerWidget {
                       return a.startTime.compareTo(b.startTime);
                     });
 
+                    final starredIds = ref.watch(starredSessionsProvider);
+
                     return Column(
                       children: sortedSchedules.map((slot) => _buildAgendaItem(
+                        context,
+                        ref,
+                        slot.id,
                         '${slot.startTime.hour}:${slot.startTime.minute.toString().padLeft(2, '0')}',
                         '${slot.title} - Day ${slot.day}',
+                        starredIds.contains(slot.id),
                       )).toList(),
                     );
                   },
@@ -208,7 +215,14 @@ class ScheduleDetailsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildAgendaItem(String time, String title) {
+  Widget _buildAgendaItem(
+    BuildContext context,
+    WidgetRef ref,
+    String sessionId,
+    String time,
+    String title,
+    bool isStarred,
+  ) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -237,6 +251,19 @@ class ScheduleDetailsScreen extends ConsumerWidget {
                 color: AppColors.textPrimary,
               ),
             ),
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            icon: Icon(
+              isStarred ? Icons.star_rounded : Icons.star_border_rounded,
+              color: AppColors.primary,
+              size: 20,
+            ),
+            constraints: const BoxConstraints(),
+            padding: EdgeInsets.zero,
+            onPressed: () {
+              ref.read(starredSessionsProvider.notifier).toggleStar(sessionId);
+            },
           ),
         ],
       ),

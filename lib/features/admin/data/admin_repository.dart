@@ -393,4 +393,39 @@ class AdminRepository {
       rethrow;
     }
   }
+
+  // --- PROFILE TILE METHODS ---
+
+  Stream<List<ProfileItem>> watchProfileItems() {
+    return _firestore
+        .collection('profileLayout')
+        .orderBy('order')
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs
+          .map((doc) => ProfileItem.fromMap(doc.data(), doc.id))
+          .toList();
+    });
+  }
+
+  Future<void> saveProfileItem(ProfileItem item) async {
+    final docId = item.id.isEmpty ? _firestore.collection('profileLayout').doc().id : item.id;
+    final data = item.toMap();
+    await _firestore.collection('profileLayout').doc(docId).set(data);
+  }
+
+  Future<void> deleteProfileItem(String id) async {
+    await _firestore.collection('profileLayout').doc(id).delete();
+  }
+
+  Future<List<new_schedule.Schedule>> getSchedulesForEvent(String eventId) async {
+    final snapshot = await _firestore
+        .collection('events')
+        .doc(eventId)
+        .collection('schedules')
+        .get();
+    return snapshot.docs
+        .map((doc) => new_schedule.Schedule.fromMap(doc.data(), doc.id))
+        .toList();
+  }
 }

@@ -3,7 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../../../../core/theme/app_colors.dart';
+import 'package:intl/intl.dart';
+import 'package:tech_marathon_app/core/theme/app_colors.dart';
+import 'package:tech_marathon_app/features/home/presentation/providers/event_stream_providers.dart';
+import 'package:tech_marathon_app/features/profile/data/profile_repository.dart';
+import 'package:tech_marathon_app/features/home/domain/event_models.dart';
 
 class CertificatesScreen extends ConsumerStatefulWidget {
   const CertificatesScreen({super.key});
@@ -34,23 +38,33 @@ class _CertificatesScreenState extends ConsumerState<CertificatesScreen> {
       final doc = await _firestore.collection('users').doc(userId).get();
       final data = doc.data();
       
-      List<Map<String, String>> certs = [];
+      final List<Map<String, String>> certs = [];
+      final now = DateTime.now();
       
-      // Add certificates for registered events
+      // Add certificates for registered events that have ended
       if (data != null && data['registeredEvents'] != null) {
-        final events = List<String>.from(data['registeredEvents']);
-        for (var eventId in events) {
-          certs.add({
-            'id': 'cert_event_$eventId',
-            'type': 'Event Participation',
-            'name': 'Tech Marathon 2025',
-            'userName': userName,
-            'date': 'January 15, 2025',
-          });
+        final List<String> registeredIds = List<String>.from(data['registeredEvents']);
+        
+        for (var eventId in registeredIds) {
+          final eventDoc = await _firestore.collection('codingEvents').doc(eventId).get();
+          if (eventDoc.exists) {
+            final eventData = eventDoc.data()!;
+            final endDate = (eventData['date'] as Timestamp).toDate(); // Assuming date is end date or using date
+            
+            if (endDate.isBefore(now)) {
+              certs.add({
+                'id': 'cert_event_$eventId',
+                'type': 'Event Participation',
+                'name': eventData['name'] ?? 'Tech Marathon Event',
+                'userName': userName,
+                'date': '${endDate.day}/${endDate.month}/${endDate.year}',
+              });
+            }
+          }
         }
       }
       
-      // Add certificates for joined courses
+      // Add certificates for joined courses (Assuming they are completed)
       if (data != null && data['joinedCourses'] != null) {
         final courses = List<String>.from(data['joinedCourses']);
         final courseNames = {
@@ -70,12 +84,14 @@ class _CertificatesScreenState extends ConsumerState<CertificatesScreen> {
         }
       }
       
-      setState(() {
-        _certificates = certs;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _certificates = certs;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -96,6 +112,12 @@ class _CertificatesScreenState extends ConsumerState<CertificatesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final allEventsAsync = ref.watch(allEventsStreamProvider);
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    final userName = FirebaseAuth.instance.currentUser?.displayName ?? 'User';
+
+    if (userId == null) return const Center(child: Text('Please login to view certificates'));
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -111,15 +133,38 @@ class _CertificatesScreenState extends ConsumerState<CertificatesScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
-          onPressed: () => Navigator.pop(context),
-        ),
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
-          : _certificates.isEmpty
-              ? Center(
+      body: StreamBuilder<List<String>>(
+        stream: ref.watch(profileRepositoryProvider).getRegisteredEventIds(userId),
+        builder: (context, registeredSnapshot) {
+          if (!registeredSnapshot.hasData) return const Center(child: CircularProgressIndicator());
+          final registeredIds = registeredSnapshot.data!;
+
+          return allEventsAsync.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (err, _) => Center(child: Text('Error: $err', style: const TextStyle(color: Colors.red))),
+            data: (events) {
+              final now = DateTime.now();
+              final certs = <Map<String, String>>[];
+
+              // Event Participation Certificates
+              for (final event in events) {
+                if (registeredIds.contains(event.id) && event.date.isBefore(now)) {
+                  certs.add({
+                    'id': 'cert_event_${event.id}',
+                    'type': 'Event Participation',
+                    'name': event.name,
+                    'userName': userName,
+                    'date': DateFormat('dd/MM/yyyy').format(event.date),
+                  });
+                }
+              }
+
+              // Placeholder for course completion if they exist in user data
+              // In real app, we would use a separate courses stream
+
+              if (certs.isEmpty) {
+                return Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -138,7 +183,7 @@ class _CertificatesScreenState extends ConsumerState<CertificatesScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Complete events or courses to earn certificates',
+                        'Complete events to earn certificates',
                         style: GoogleFonts.inter(
                           fontSize: 14,
                           color: AppColors.textDim.withValues(alpha: 0.7),
@@ -147,15 +192,20 @@ class _CertificatesScreenState extends ConsumerState<CertificatesScreen> {
                       ),
                     ],
                   ),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(24),
-                  itemCount: _certificates.length,
-                  itemBuilder: (context, index) {
-                    final cert = _certificates[index];
-                    return _buildCertificateCard(cert);
-                  },
-                ),
+                );
+              }
+
+              return ListView.builder(
+                padding: const EdgeInsets.all(24),
+                itemCount: certs.length,
+                itemBuilder: (context, index) {
+                  return _buildCertificateCard(certs[index]);
+                },
+              );
+            },
+          );
+        },
+      ),
     );
   }
 

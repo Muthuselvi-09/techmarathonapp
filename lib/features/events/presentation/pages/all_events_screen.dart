@@ -29,20 +29,10 @@ class AllEventsScreen extends ConsumerWidget {
             color: AppColors.textPrimary,
           ),
         ),
-        leading: IconButton(
+        leading: context.canPop() ? IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppColors.textPrimary),
-          onPressed: () {
-            if (context.canPop()) {
-              context.pop();
-            } else {
-              // If we're on the dashboard but it's not a push (part of IndexedStack)
-              // We should navigate to home. However, AllEventsScreen is often used
-              // inside MainScaffold where its index is managed.
-              // If it's part of the IndexedStack, we shouldn't show the back button or it should switch index.
-              context.go('/home');
-            }
-          },
-        ),
+          onPressed: () => context.pop(),
+        ) : null,
       ),
       body: allEventsAsync.when(
         data: (events) {

@@ -521,13 +521,25 @@ class _ViewAllEventsScreenState extends ConsumerState<ViewAllEventsScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                    decoration: BoxDecoration(
-                      gradient: AppColors.mainGradient,
-                      borderRadius: BorderRadius.circular(20),
+                  GestureDetector(
+                    onTap: () {
+                      if (event.isFree) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => EventInfoScreen(eventId: event.id)),
+                        );
+                      } else {
+                        context.push('/payment', extra: event);
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      decoration: BoxDecoration(
+                        gradient: AppColors.mainGradient,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Text('Book Now', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                     ),
-                    child: const Text('Book Now', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                   ),
                 ],
               ),
@@ -586,15 +598,27 @@ class _ViewAllEventsScreenState extends ConsumerState<ViewAllEventsScreen> {
                 ],
               ),
             ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                gradient: AppColors.mainGradient,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                event.isFree ? 'FREE' : '${event.currency}${event.entryFee}',
-                style: const TextStyle(color: Colors.black, fontSize: 11, fontWeight: FontWeight.bold),
+            GestureDetector(
+              onTap: () {
+                if (event.isFree) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => EventInfoScreen(eventId: event.id)),
+                  );
+                } else {
+                  context.push('/payment', extra: event);
+                }
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  gradient: AppColors.mainGradient,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  event.isFree ? 'FREE' : '${event.currency}${event.entryFee}',
+                  style: const TextStyle(color: Colors.black, fontSize: 11, fontWeight: FontWeight.bold),
+                ),
               ),
             ),
           ],

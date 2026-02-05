@@ -72,6 +72,8 @@ class CodingEvent {
   final DateTime? createdAt;
   final DateTime? updatedAt;
   final bool isActive;
+  final String? entryTiming;
+  final List<String> rules;
 
   CodingEvent({
     required this.id,
@@ -94,6 +96,8 @@ class CodingEvent {
     this.createdAt,
     this.updatedAt,
     this.isActive = true,
+    this.entryTiming,
+    this.rules = const [],
   });
 
   factory CodingEvent.fromMap(Map<String, dynamic> data, String id) {
@@ -115,6 +119,8 @@ class CodingEvent {
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
       isActive: data['isActive'] ?? true,
+      entryTiming: data['entryTiming'],
+      rules: List<String>.from(data['rules'] ?? []),
     );
   }
 
@@ -143,6 +149,8 @@ class CodingEvent {
       'createdAt': createdAt ?? FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
       'isActive': isActive,
+      'entryTiming': entryTiming,
+      'rules': rules,
     };
   }
 
@@ -169,6 +177,8 @@ class CodingEvent {
     DateTime? createdAt,
     DateTime? updatedAt,
     bool? isActive,
+    String? entryTiming,
+    List<String>? rules,
   }) {
     return CodingEvent(
       id: id ?? this.id,
@@ -191,6 +201,8 @@ class CodingEvent {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       isActive: isActive ?? this.isActive,
+      entryTiming: entryTiming ?? this.entryTiming,
+      rules: rules ?? this.rules,
     );
   }
 }
@@ -732,6 +744,63 @@ class BrandingInfo {
       'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     };
+  }
+}
+
+class ProfileItem {
+  final String id;
+  final String title;
+  final int iconCodePoint;
+  final String route;
+  final int order;
+  final bool isEnabled;
+
+  ProfileItem({
+    required this.id,
+    required this.title,
+    required this.iconCodePoint,
+    required this.route,
+    this.order = 0,
+    this.isEnabled = true,
+  });
+
+  factory ProfileItem.fromMap(Map<String, dynamic> data, String id) {
+    return ProfileItem(
+      id: id,
+      title: data['title'] ?? '',
+      iconCodePoint: data['iconCodePoint'] ?? 0xe1b0, // Default icon
+      route: data['route'] ?? '',
+      order: data['order'] ?? 0,
+      isEnabled: data['isEnabled'] ?? true,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'title': title,
+      'iconCodePoint': iconCodePoint,
+      'route': route,
+      'order': order,
+      'isEnabled': isEnabled,
+    };
+  }
+
+  ProfileItem copyWith({
+    String? id,
+    String? title,
+    int? iconCodePoint,
+    String? route,
+    int? order,
+    bool? isEnabled,
+  }) {
+    return ProfileItem(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      iconCodePoint: iconCodePoint ?? this.iconCodePoint,
+      route: route ?? this.route,
+      order: order ?? this.order,
+      isEnabled: isEnabled ?? this.isEnabled,
+    );
   }
 }
 

@@ -134,4 +134,96 @@ class ProfileRepository {
       'timestamp': FieldValue.serverTimestamp(),
     });
   }
+
+  // --- 1. Ticket Tracking & 2. Personal Agenda ---
+  
+  Future<void> registerEvent(String userId, String eventId) async {
+    await _usersCollection.doc(userId).collection('registered_events').doc(eventId).set({
+      'eventId': eventId,
+      'registeredAt': FieldValue.serverTimestamp(),
+      'hasCertificate': false,
+    });
+
+    // Also increment participant count for the event (optional but good for UI)
+    await _firestore.collection('events').doc(eventId).update({
+      'participantCount': FieldValue.increment(1),
+    });
+  }
+
+  Stream<bool> isUserRegistered(String userId, String eventId) {
+    return _usersCollection
+        .doc(userId)
+        .collection('registered_events')
+        .doc(eventId)
+        .snapshots()
+        .map((doc) => doc.exists);
+  }
+
+  Stream<List<String>> getRegisteredEventIds(String userId) {
+    return _usersCollection
+        .doc(userId)
+        .collection('registered_events')
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map((doc) => doc.id).toList());
+  }
+
+  Future<void> toggleStarSession(String userId, String sessionId) async {
+    final docRef = _usersCollection.doc(userId).collection('starred_sessions').doc(sessionId);
+    final doc = await docRef.get();
+    
+    if (doc.exists) {
+      await docRef.delete();
+    } else {
+      await docRef.set({
+        'sessionId': sessionId,
+        'starredAt': FieldValue.serverTimestamp(),
+      });
+    }
+  }
+
+  Stream<List<String>> getStarredSessionIds(String userId) {
+    return _usersCollection
+        .doc(userId)
+        .collection('starred_sessions')
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map((doc) => doc.id).toList());
+  }
+
+  // --- 4. Sponsor Interaction Tracking ---
+  
+  Future<void> trackSponsorInteraction(String userId, String sponsorId, String type) async {
+    await _firestore.collection('sponsor_interactions').add({
+      'userId': userId,
+      'sponsorId': sponsorId,
+      'type': type, // e.g., 'claim_offer', 'visit_booth'
+      'timestamp': FieldValue.serverTimestamp(),
+    });
+  }
+
+  // --- 5. Session Feedback ---
+
+  Future<void> submitSessionFeedback({
+    required String userId,
+    required String sessionId,
+    required int rating,
+    required String comment,
+  }) async {
+    await _firestore.collection('session_feedback').add({
+      'userId': userId,
+      'sessionId': sessionId,
+      'rating': rating,
+      'comment': comment,
+      'timestamp': FieldValue.serverTimestamp(),
+    });
+  }
+
+  // --- 7. Certificates ---
+
+  Future<void> issueCertificate(String userId, String eventId) async {
+    await _usersCollection
+        .doc(userId)
+        .collection('registered_events')
+        .doc(eventId)
+        .update({'hasCertificate': true});
+  }
 }

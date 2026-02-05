@@ -4,11 +4,10 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../providers/profile_provider.dart';
 import 'package:go_router/go_router.dart';
+import '../../../admin/data/admin_repository.dart';
+import '../../../home/domain/event_models.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
-import 'my_events_screen.dart';
-import 'my_courses_screen.dart';
-import 'certificates_screen.dart';
-import 'profile_settings_screen.dart';
+// Removed unused imports
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -26,7 +25,7 @@ class ProfileScreen extends ConsumerWidget {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
           onPressed: () {
-            Navigator.pop(context);
+            context.pop();
           },
         ),
         centerTitle: true,
@@ -62,37 +61,38 @@ class ProfileScreen extends ConsumerWidget {
               style: const TextStyle(color: AppColors.textDim),
             ),
             const SizedBox(height: 40),
-            _buildProfileTile(
-              Icons.event_available_rounded,
-              'Registered Events',
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const MyEventsScreen()),
-              ),
-            ),
-            _buildProfileTile(
-              Icons.school_rounded,
-              'My Courses',
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const MyCoursesScreen()),
-              ),
-            ),
-            _buildProfileTile(
-              Icons.card_membership_rounded,
-              'Certificates',
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const CertificatesScreen()),
-              ),
-            ),
-            _buildProfileTile(
-              Icons.settings_outlined,
-              'Settings',
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const ProfileSettingsScreen()),
-              ),
+            StreamBuilder<List<ProfileItem>>(
+              stream: ref.watch(adminRepositoryProvider).watchProfileItems(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return const Center(child: Padding(
+                    padding: EdgeInsets.all(20),
+                    child: CircularProgressIndicator(),
+                  ));
+                }
+                
+                final items = snapshot.data!.where((i) => i.isEnabled).toList();
+                
+                if (items.isEmpty) {
+                   return const Center(child: Text('No options available', style: TextStyle(color: Colors.white38)));
+                }
+
+                return Column(
+                  children: items.map((item) => _buildProfileTile(
+                    IconData(item.iconCodePoint, fontFamily: 'MaterialIcons'),
+                    item.title,
+                    onTap: () {
+                      if (item.route == 'settings_action' || item.route == '/profile-settings') {
+                        context.push('/profile-settings');
+                      } else if (item.route.startsWith('/')) {
+                        context.push(item.route);
+                      } else if (item.route == 'events') {
+                        context.push('/my-events');
+                      }
+                    },
+                  )).toList(),
+                );
+              },
             ),
             const SizedBox(height: 40),
             TextButton(
