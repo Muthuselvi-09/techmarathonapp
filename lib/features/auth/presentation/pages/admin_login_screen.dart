@@ -212,6 +212,21 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
                       onPressed: _handleLogin,
                     ).animate().fadeIn(delay: 1.1.seconds).scale(begin: const Offset(0.9, 0.9), end: const Offset(1, 1)),
 
+                    const SizedBox(height: 16),
+                    
+                    TextButton(
+                      onPressed: () => context.push('/admin'),
+                      child: Text(
+                        'DEVELOPMENT BYPASS',
+                        style: GoogleFonts.outfit(
+                          color: AppColors.codingRimPrimary.withValues(alpha: 0.6),
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.5,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ).animate().fadeIn(delay: 1.2.seconds),
+
                     const SizedBox(height: 32),
 
                   ],

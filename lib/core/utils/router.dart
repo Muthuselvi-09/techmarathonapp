@@ -37,6 +37,8 @@ import '../../features/profile/presentation/pages/my_events_screen.dart';
 import '../../features/profile/presentation/pages/my_courses_screen.dart';
 import '../../features/profile/presentation/pages/certificates_screen.dart';
 import '../../features/profile/presentation/pages/profile_settings_screen.dart';
+import '../../features/profile/presentation/pages/my_offers_screen.dart';
+import '../../features/profile/presentation/pages/saved_sponsors_screen.dart';
 import '../../features/admin/presentation/pages/admin_dashboard_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -192,6 +194,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/profile-settings',
         builder: (context, state) => const ProfileSettingsScreen(),
+      ),
+      GoRoute(
+        path: '/my-offers',
+        builder: (context, state) => const MyOffersScreen(),
+      ),
+      GoRoute(
+        path: '/saved-sponsors',
+        builder: (context, state) => const SavedSponsorsScreen(),
       ),
     ],
   );

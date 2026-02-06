@@ -277,20 +277,29 @@ class AdminRepository {
     }
   }
 
-  /// Save sponsor with image upload support
-  Future<void> saveSponsor(Sponsor sponsor, {String? eventId, bool isNew = true, XFile? imageFile}) async {
+  /// Save sponsor with image upload support (logo and banner)
+  Future<void> saveSponsor(Sponsor sponsor, {String? eventId, bool isNew = true, XFile? logoFile, XFile? bannerFile}) async {
     try {
       final repo = ref.read(sponsorRepositoryProvider);
       String finalLogoUrl = sponsor.logoUrl;
+      String finalBannerUrl = sponsor.bannerUrl;
 
-      if (imageFile != null) {
-        final bytes = await imageFile.readAsBytes();
-        finalLogoUrl = await uploadToCloudinary(bytes, folder: 'sponsors');
+      // Upload logo if provided
+      if (logoFile != null) {
+        final bytes = await logoFile.readAsBytes();
+        finalLogoUrl = await uploadToCloudinary(bytes, folder: 'sponsors/logos');
+      }
+
+      // Upload banner if provided
+      if (bannerFile != null) {
+        final bytes = await bannerFile.readAsBytes();
+        finalBannerUrl = await uploadToCloudinary(bytes, folder: 'sponsors/banners');
       }
 
       // Sync the selected eventId into the sponsor model
       final sponsorToSave = sponsor.copyWith(
         logoUrl: finalLogoUrl,
+        bannerUrl: finalBannerUrl,
         eventId: eventId ?? sponsor.eventId,
       );
 

@@ -1382,9 +1382,27 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
     final nameController = TextEditingController(text: sponsor?.name);
     final companyController = TextEditingController(text: sponsor?.company);
     final roleController = TextEditingController(text: sponsor?.jobPosition);
-    String? selectedEventId = eventId;
-    XFile? selectedImage;
+    final taglineController = TextEditingController(text: sponsor?.tagline);
+    final websiteController = TextEditingController(text: sponsor?.websiteUrl);
+    final descriptionController = TextEditingController(text: sponsor?.detailedDescription ?? sponsor?.description);
+    final boothLocationController = TextEditingController(text: sponsor?.boothLocation);
+    final instagramController = TextEditingController(text: sponsor?.instagramUrl);
+    final linkedinController = TextEditingController(text: sponsor?.linkedinUrl);
+    final youtubeController = TextEditingController(text: sponsor?.youtubeUrl);
+    
+    String tier = sponsor?.tier ?? 'Gold';
+    String? selectedEventId = eventId ?? sponsor?.eventId;
+    
+    XFile? logoImage;
+    XFile? bannerImage;
     String? currentLogoUrl = sponsor?.logoUrl;
+    String? currentBannerUrl = sponsor?.bannerUrl;
+    bool isUploadingMedia = false;
+    
+    // Local mutable state for lists
+    final List<Map<String, dynamic>> tempOffers = List.from(sponsor?.offers ?? []);
+    final List<Map<String, dynamic>> tempProducts = List.from(sponsor?.products ?? []);
+    final List<String> tempMedia = List.from(sponsor?.media ?? []);
 
     showDialog(
       context: context,
@@ -1396,29 +1414,83 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                GestureDetector(
-                  onTap: () async {
-                    final picker = ImagePicker();
-                    final image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
-                    if (image != null) setState(() => selectedImage = image);
-                  },
-                  child: Container(
-                    height: 100,
-                    width: 100,
-                    decoration: BoxDecoration(
-                      color: Colors.white12,
-                      borderRadius: BorderRadius.circular(12),
-                      image: selectedImage != null
-                          ? DecorationImage(
-                              image: kIsWeb ? NetworkImage(selectedImage!.path) : FileImage(File(selectedImage!.path)) as ImageProvider,
-                              fit: BoxFit.contain,
-                            )
-                          : (currentLogoUrl != null && currentLogoUrl!.isNotEmpty)
-                              ? DecorationImage(image: NetworkImage(currentLogoUrl!), fit: BoxFit.contain)
-                              : null,
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        children: [
+                          const Text('Logo', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                          const SizedBox(height: 8),
+                          GestureDetector(
+                            onTap: () async {
+                              final picker = ImagePicker();
+                              final image = await picker.pickImage(
+                                source: ImageSource.gallery,
+                                imageQuality: 70,
+                                maxWidth: 1080,
+                                maxHeight: 1080,
+                              );
+                              if (image != null) setState(() => logoImage = image);
+                            },
+                            child: Container(
+                              height: 80,
+                              decoration: BoxDecoration(
+                                color: Colors.white12,
+                                borderRadius: BorderRadius.circular(12),
+                                image: logoImage != null
+                                    ? DecorationImage(
+                                        image: kIsWeb ? NetworkImage(logoImage!.path) : FileImage(File(logoImage!.path)) as ImageProvider,
+                                        fit: BoxFit.contain,
+                                      )
+                                    : (currentLogoUrl != null && currentLogoUrl!.isNotEmpty)
+                                        ? DecorationImage(image: NetworkImage(currentLogoUrl!), fit: BoxFit.contain)
+                                        : null,
+                              ),
+                              child: logoImage == null && (currentLogoUrl == null || currentLogoUrl!.isEmpty) ? const Icon(Icons.add_photo_alternate, color: Colors.white54) : null,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    child: selectedImage == null && (currentLogoUrl == null || currentLogoUrl!.isEmpty) ? const Icon(Icons.add_photo_alternate, color: Colors.white54, size: 30) : null,
-                  ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      flex: 2,
+                      child: Column(
+                        children: [
+                          const Text('Banner', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                          const SizedBox(height: 8),
+                          GestureDetector(
+                            onTap: () async {
+                              final picker = ImagePicker();
+                              final image = await picker.pickImage(
+                                source: ImageSource.gallery,
+                                imageQuality: 75,
+                                maxWidth: 1080,
+                                maxHeight: 1080,
+                              );
+                              if (image != null) setState(() => bannerImage = image);
+                            },
+                            child: Container(
+                              height: 80,
+                              decoration: BoxDecoration(
+                                color: Colors.white12,
+                                borderRadius: BorderRadius.circular(12),
+                                image: bannerImage != null
+                                    ? DecorationImage(
+                                        image: kIsWeb ? NetworkImage(bannerImage!.path) : FileImage(File(bannerImage!.path)) as ImageProvider,
+                                        fit: BoxFit.cover,
+                                      )
+                                    : (currentBannerUrl != null && currentBannerUrl!.isNotEmpty)
+                                        ? DecorationImage(image: NetworkImage(currentBannerUrl!), fit: BoxFit.cover)
+                                        : null,
+                              ),
+                              child: bannerImage == null && (currentBannerUrl == null || currentBannerUrl!.isEmpty) ? const Icon(Icons.image, color: Colors.white54) : null,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 16),
                 StreamBuilder<List<CodingEvent>>(
@@ -1426,7 +1498,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                   builder: (context, snapshot) {
                     final events = snapshot.data ?? [];
                     return DropdownButtonFormField<String>(
-                      value: selectedEventId,
+                      value: (events.any((e) => e.id == selectedEventId)) ? selectedEventId : null,
                       dropdownColor: const Color(0xFF1E1E1E),
                       decoration: const InputDecoration(labelText: 'Link to Event (Optional)'),
                       style: const TextStyle(color: Colors.white),
@@ -1440,9 +1512,156 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                     );
                   },
                 ),
-                TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Name'), style: const TextStyle(color: Colors.white)),
+                DropdownButtonFormField<String>(
+                  value: tier,
+                  dropdownColor: const Color(0xFF1E1E1E),
+                  decoration: const InputDecoration(labelText: 'Sponsorship Tier'),
+                  style: const TextStyle(color: Colors.white),
+                  items: ['Platinum', 'Gold', 'Silver', 'Bronze']
+                      .map((t) => DropdownMenuItem(value: t, child: Text(t, style: const TextStyle(color: Colors.white))))
+                      .toList(),
+                  onChanged: (val) => setState(() => tier = val!),
+                ),
+                TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Sponsor Name'), style: const TextStyle(color: Colors.white)),
+                TextField(controller: taglineController, decoration: const InputDecoration(labelText: 'Tagline'), style: const TextStyle(color: Colors.white)),
                 TextField(controller: companyController, decoration: const InputDecoration(labelText: 'Company'), style: const TextStyle(color: Colors.white)),
                 TextField(controller: roleController, decoration: const InputDecoration(labelText: 'Role / Position'), style: const TextStyle(color: Colors.white)),
+                TextField(controller: descriptionController, decoration: const InputDecoration(labelText: 'Detailed Description'), style: const TextStyle(color: Colors.white), maxLines: 3),
+                TextField(controller: boothLocationController, decoration: const InputDecoration(labelText: 'Booth/Stall Location (e.g. B12)'), style: const TextStyle(color: Colors.white)),
+                TextField(controller: websiteController, decoration: const InputDecoration(labelText: 'Website URL'), style: const TextStyle(color: Colors.white)),
+                const SizedBox(height: 24),
+                
+                // Offers Management
+                _dialogSectionHeader('Offers & Deals'),
+                const SizedBox(height: 8),
+                ...List.generate(tempOffers.length, (i) {
+                  final offer = tempOffers[i];
+                  return Container(
+                    padding: const EdgeInsets.all(8),
+                    margin: const EdgeInsets.only(bottom: 8),
+                    decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(8)),
+                    child: Row(
+                      children: [
+                        Expanded(child: Text(offer['title'] ?? 'Offer', style: const TextStyle(color: Colors.white70, fontSize: 12))),
+                        IconButton(
+                          icon: const Icon(Icons.delete, color: Colors.red, size: 16),
+                          onPressed: () => setState(() => tempOffers.removeAt(i)),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+                TextButton.icon(
+                  onPressed: () => _showAddOfferDialog(context, (newOffer) => setState(() => tempOffers.add(newOffer))),
+                  icon: const Icon(Icons.add_circle_outline, size: 16),
+                  label: const Text('Add New Offer', style: TextStyle(fontSize: 12)),
+                  style: TextButton.styleFrom(iconColor: _gold, foregroundColor: _gold),
+                ),
+                
+                const SizedBox(height: 16),
+                const SizedBox(height: 16),
+                _dialogSectionHeader('Products & Services'),
+                const SizedBox(height: 8),
+                ...List.generate(tempProducts.length, (i) {
+                  final p = tempProducts[i];
+                  return Container(
+                    padding: const EdgeInsets.all(8),
+                    margin: const EdgeInsets.only(bottom: 8),
+                    decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(8)),
+                    child: Row(
+                      children: [
+                        Expanded(child: Text(p['name'] ?? 'Product', style: const TextStyle(color: Colors.white70, fontSize: 12))),
+                        IconButton(
+                          icon: const Icon(Icons.delete, color: Colors.red, size: 16),
+                          onPressed: () => setState(() => tempProducts.removeAt(i)),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+                TextButton.icon(
+                  onPressed: () => _showAddProductDialog(context, (newProduct) => setState(() => tempProducts.add(newProduct))),
+                  icon: const Icon(Icons.add_circle_outline, size: 16),
+                  label: const Text('Add New Product', style: TextStyle(fontSize: 12)),
+                  style: TextButton.styleFrom(iconColor: _gold, foregroundColor: _gold),
+                ),
+
+                const SizedBox(height: 16),
+                _dialogSectionHeader('Media Gallery'),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    ...List.generate(tempMedia.length, (i) {
+                      return Stack(
+                        children: [
+                          Container(
+                            width: 60,
+                            height: 60,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(8),
+                              image: DecorationImage(image: NetworkImage(tempMedia[i]), fit: BoxFit.cover),
+                            ),
+                          ),
+                          Positioned(
+                            right: -8,
+                            top: -8,
+                            child: IconButton(
+                              icon: const Icon(Icons.cancel, color: Colors.red, size: 18),
+                              onPressed: () => setState(() => tempMedia.removeAt(i)),
+                            ),
+                          ),
+                        ],
+                      );
+                    }),
+                    GestureDetector(
+                      onTap: isUploadingMedia ? null : () async {
+                        final picker = ImagePicker();
+                        final image = await picker.pickImage(
+                          source: ImageSource.gallery, 
+                          imageQuality: 70,
+                          maxWidth: 1080,
+                          maxHeight: 1080,
+                        );
+                        if (image != null) {
+                          setState(() => isUploadingMedia = true);
+                          try {
+                            // Show loading feedback
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Uploading media...'), duration: Duration(seconds: 1)),
+                            );
+                            
+                            final bytes = await image.readAsBytes();
+                            final url = await ref.read(adminRepositoryProvider).uploadToCloudinary(bytes, folder: 'sponsors/media');
+                            
+                            setState(() {
+                              tempMedia.add(url);
+                              isUploadingMedia = false;
+                            });
+                          } catch (e) {
+                            setState(() => isUploadingMedia = false);
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Upload failed: $e')));
+                          }
+                        }
+                      },
+                      child: Container(
+                        width: 60,
+                        height: 60,
+                        decoration: BoxDecoration(
+                          color: Colors.white10, 
+                          borderRadius: BorderRadius.circular(8), 
+                          border: Border.all(color: Colors.white24, style: BorderStyle.solid),
+                        ),
+                        child: isUploadingMedia 
+                            ? const Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFFFD700))))
+                            : const Icon(Icons.add_a_photo, color: Colors.white38, size: 20),
+                      ),
+                    ),
+                  ],
+                ),
+                
+                const SizedBox(height: 24),
               ],
             ),
           ),
@@ -1452,26 +1671,41 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
               child: const Text('Cancel'),
             ),
             ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
                 if (nameController.text.trim().isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter a name')));
                   return;
                 }
+                
                 final optimisticSponsor = Sponsor(
                   id: sponsor?.id ?? '',
                   name: nameController.text.trim(),
                   company: companyController.text.trim(),
                   jobPosition: roleController.text.trim(),
-                  tier: sponsor?.tier ?? 'Gold',
+                  tier: tier,
                   logoUrl: currentLogoUrl ?? '',
-                  websiteUrl: sponsor?.websiteUrl ?? '',
+                  bannerUrl: currentBannerUrl ?? '',
+                  tagline: taglineController.text.trim(),
+                  websiteUrl: websiteController.text.trim(),
+                  detailedDescription: descriptionController.text.trim(),
+                  boothLocation: boothLocationController.text.trim(),
+                  instagramUrl: instagramController.text.trim(),
+                  linkedinUrl: linkedinController.text.trim(),
+                  youtubeUrl: youtubeController.text.trim(),
+                  eventId: selectedEventId ?? '',
+                  offers: tempOffers,
+                  products: tempProducts,
+                  media: tempMedia,
                 );
+
                 Navigator.pop(context);
-                ref.read(adminRepositoryProvider).saveSponsor(
+                
+                await ref.read(adminRepositoryProvider).saveSponsor(
                       optimisticSponsor,
                       eventId: selectedEventId,
                       isNew: sponsor == null,
-                      imageFile: selectedImage,
+                      logoFile: logoImage,
+                      bannerFile: bannerImage,
                     );
               },
               style: ElevatedButton.styleFrom(
@@ -1479,10 +1713,175 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                 foregroundColor: Colors.black,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              child: const Text('Save', style: TextStyle(fontWeight: FontWeight.bold)),
+              child: const Text('Save Sponsor', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _dialogSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, bottom: 4),
+      child: Row(
+        children: [
+          Container(width: 4, height: 16, color: _gold),
+          const SizedBox(width: 8),
+          Text(title, style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 0.5)),
+        ],
+      ),
+    );
+  }
+
+  void _showAddOfferDialog(BuildContext context, Function(Map<String, dynamic>) onAdd) {
+    final titleC = TextEditingController();
+    final descC = TextEditingController();
+    final codeC = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E1E),
+        title: const Text('Add Offer', style: TextStyle(color: Colors.white)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(controller: titleC, decoration: const InputDecoration(labelText: 'Title'), style: const TextStyle(color: Colors.white)),
+            TextField(controller: descC, decoration: const InputDecoration(labelText: 'Description'), style: const TextStyle(color: Colors.white)),
+            TextField(controller: codeC, decoration: const InputDecoration(labelText: 'Promo Code'), style: const TextStyle(color: Colors.white)),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () {
+              onAdd({'title': titleC.text, 'description': descC.text, 'code': codeC.text});
+              Navigator.pop(ctx);
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: _gold, foregroundColor: Colors.black),
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAddProductDialog(BuildContext context, Function(Map<String, dynamic>) onAdd) {
+    final nameC = TextEditingController();
+    final descC = TextEditingController();
+    XFile? selectedImage;
+    bool isUploading = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          backgroundColor: const Color(0xFF1E1E1E),
+          title: const Text('Add Product/Service', style: TextStyle(color: Colors.white)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              GestureDetector(
+                onTap: () async {
+                  final picker = ImagePicker();
+                  final image = await picker.pickImage(
+                    source: ImageSource.gallery, 
+                    imageQuality: 70,
+                    maxWidth: 1080,
+                    maxHeight: 1080,
+                  );
+                  if (image != null) setState(() => selectedImage = image);
+                },
+                child: Container(
+                  height: 100,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: Colors.white12,
+                    borderRadius: BorderRadius.circular(12),
+                    image: selectedImage != null
+                        ? DecorationImage(
+                            image: kIsWeb ? NetworkImage(selectedImage!.path) : FileImage(File(selectedImage!.path)) as ImageProvider,
+                            fit: BoxFit.cover,
+                          )
+                        : null,
+                  ),
+                  child: selectedImage == null
+                      ? const Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.add_photo_alternate, color: Colors.white54, size: 32),
+                            SizedBox(height: 8),
+                            Text('Tap to upload image', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                          ],
+                        )
+                      : null,
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(controller: nameC, decoration: const InputDecoration(labelText: 'Name'), style: const TextStyle(color: Colors.white)),
+              TextField(controller: descC, decoration: const InputDecoration(labelText: 'Short Description'), style: const TextStyle(color: Colors.white)),
+              if (isUploading) ...[
+                const SizedBox(height: 16),
+                const LinearProgressIndicator(color: Color(0xFFFFD700)),
+                const SizedBox(height: 8),
+                const Text('Uploading image...', style: TextStyle(color: Colors.white54, fontSize: 12)),
+              ],
+            ],
+          ),
+          actions: [
+            if (!isUploading) TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: isUploading ? null : () async {
+                if (nameC.text.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter a name')));
+                  return;
+                }
+                
+                String imageUrl = '';
+                if (selectedImage != null) {
+                  setState(() => isUploading = true);
+                  try {
+                    final bytes = await selectedImage!.readAsBytes();
+                    imageUrl = await ref.read(adminRepositoryProvider).uploadToCloudinary(bytes, folder: 'sponsors/products');
+                  } catch (e) {
+                    setState(() => isUploading = false);
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Upload failed: $e')));
+                    return;
+                  }
+                }
+
+                onAdd({'name': nameC.text, 'desc': descC.text, 'image': imageUrl});
+                if (context.mounted) Navigator.pop(ctx);
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFFD700), foregroundColor: Colors.black),
+              child: const Text('Add'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showAddMediaUrlDialog(BuildContext context, Function(String) onAdd) {
+    final urlC = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E1E),
+        title: const Text('Add Gallery Image URL', style: TextStyle(color: Colors.white)),
+        content: TextField(controller: urlC, decoration: const InputDecoration(hintText: 'https://...', labelText: 'Image URL'), style: const TextStyle(color: Colors.white)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () {
+              onAdd(urlC.text);
+              Navigator.pop(ctx);
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: _gold, foregroundColor: Colors.black),
+            child: const Text('Add'),
+          ),
+        ],
       ),
     );
   }
@@ -2770,6 +3169,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
       ProfileItem(id: '', title: 'My Schedule', iconCodePoint: 0xe112, route: '/my-schedule', order: 4),
       ProfileItem(id: '', title: 'My QR Pass', iconCodePoint: 0xe507, route: '/qr-pass', order: 5),
       ProfileItem(id: '', title: 'Past Events', iconCodePoint: 0xe314, route: '/past-events', order: 6),
+      ProfileItem(id: '', title: 'My Offers', iconCodePoint: 0xe3e0, route: '/my-offers', order: 7),
+      ProfileItem(id: '', title: 'Saved Sponsors', iconCodePoint: 0xe098, route: '/saved-sponsors', order: 8),
       ProfileItem(id: '', title: 'Settings', iconCodePoint: 0xe57f, route: '/profile-settings', order: 10),
     ];
 

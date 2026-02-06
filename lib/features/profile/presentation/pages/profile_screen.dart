@@ -88,6 +88,10 @@ class ProfileScreen extends ConsumerWidget {
                         context.push(item.route);
                       } else if (item.route == 'events') {
                         context.push('/my-events');
+                      } else if (item.route == '/my-offers') {
+                        context.push('/my-offers');
+                      } else if (item.route == '/saved-sponsors') {
+                        context.push('/saved-sponsors');
                       }
                     },
                   )).toList(),

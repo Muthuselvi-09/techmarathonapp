@@ -200,6 +200,44 @@ class ProfileRepository {
     });
   }
 
+  Future<void> claimOffer(String userId, String sponsorId, Map<String, dynamic> offer) async {
+    await _usersCollection
+        .doc(userId)
+        .collection('claimed_offers')
+        .add({
+      'sponsorId': sponsorId,
+      'offer': offer,
+      'claimedAt': FieldValue.serverTimestamp(),
+    });
+    
+    // Also track as interaction
+    await trackSponsorInteraction(userId, sponsorId, 'claim_offer');
+  }
+
+  Future<void> toggleFavoriteSponsor(String userId, String sponsorId) async {
+    final docRef = _usersCollection.doc(userId).collection('favorite_sponsors').doc(sponsorId);
+    final doc = await docRef.get();
+    
+    if (doc.exists) {
+      await docRef.delete();
+      await trackSponsorInteraction(userId, sponsorId, 'unfavorite');
+    } else {
+      await docRef.set({
+        'sponsorId': sponsorId,
+        'favoritedAt': FieldValue.serverTimestamp(),
+      });
+      await trackSponsorInteraction(userId, sponsorId, 'favorite');
+    }
+  }
+
+  Stream<List<String>> getFavoriteSponsorIds(String userId) {
+    return _usersCollection
+        .doc(userId)
+        .collection('favorite_sponsors')
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map((doc) => doc.id).toList());
+  }
+
   // --- 5. Session Feedback ---
 
   Future<void> submitSessionFeedback({

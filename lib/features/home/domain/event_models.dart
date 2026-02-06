@@ -303,8 +303,19 @@ class Sponsor {
   final DateTime? createdAt;
   final DateTime? updatedAt;
   final bool isActive;
-
   final String eventId;
+
+  // New Digital Booth Fields
+  final String bannerUrl;
+  final String tagline;
+  final String? detailedDescription;
+  final List<Map<String, dynamic>> offers;
+  final List<Map<String, dynamic>> products;
+  final List<String> media;
+  final String? instagramUrl;
+  final String? linkedinUrl;
+  final String? youtubeUrl;
+  final String? boothLocation;
 
   Sponsor({
     required this.id,
@@ -321,6 +332,16 @@ class Sponsor {
     this.createdAt,
     this.updatedAt,
     this.isActive = true,
+    this.bannerUrl = '',
+    this.tagline = '',
+    this.detailedDescription,
+    this.offers = const [],
+    this.products = const [],
+    this.media = const [],
+    this.instagramUrl,
+    this.linkedinUrl,
+    this.youtubeUrl,
+    this.boothLocation,
   });
 
   factory Sponsor.fromMap(Map<String, dynamic> data, String id) {
@@ -339,6 +360,16 @@ class Sponsor {
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
       isActive: data['isActive'] ?? true,
+      bannerUrl: data['bannerUrl'] ?? '',
+      tagline: data['tagline'] ?? '',
+      detailedDescription: data['detailedDescription'],
+      offers: List<Map<String, dynamic>>.from(data['offers'] ?? []),
+      products: List<Map<String, dynamic>>.from(data['products'] ?? []),
+      media: List<String>.from(data['media'] ?? []),
+      instagramUrl: data['instagramUrl'],
+      linkedinUrl: data['linkedinUrl'],
+      youtubeUrl: data['youtubeUrl'],
+      boothLocation: data['boothLocation'],
     );
   }
 
@@ -364,6 +395,16 @@ class Sponsor {
       'createdAt': createdAt ?? FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
       'isActive': isActive,
+      'bannerUrl': bannerUrl,
+      'tagline': tagline,
+      'detailedDescription': detailedDescription,
+      'offers': offers,
+      'products': products,
+      'media': media,
+      'instagramUrl': instagramUrl,
+      'linkedinUrl': linkedinUrl,
+      'youtubeUrl': youtubeUrl,
+      'boothLocation': boothLocation,
     };
   }
 
@@ -384,6 +425,16 @@ class Sponsor {
     DateTime? createdAt,
     DateTime? updatedAt,
     bool? isActive,
+    String? bannerUrl,
+    String? tagline,
+    String? detailedDescription,
+    List<Map<String, dynamic>>? offers,
+    List<Map<String, dynamic>>? products,
+    List<String>? media,
+    String? instagramUrl,
+    String? linkedinUrl,
+    String? youtubeUrl,
+    String? boothLocation,
   }) {
     return Sponsor(
       id: id ?? this.id,
@@ -400,6 +451,16 @@ class Sponsor {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       isActive: isActive ?? this.isActive,
+      bannerUrl: bannerUrl ?? this.bannerUrl,
+      tagline: tagline ?? this.tagline,
+      detailedDescription: detailedDescription ?? this.detailedDescription,
+      offers: offers ?? this.offers,
+      products: products ?? this.products,
+      media: media ?? this.media,
+      instagramUrl: instagramUrl ?? this.instagramUrl,
+      linkedinUrl: linkedinUrl ?? this.linkedinUrl,
+      youtubeUrl: youtubeUrl ?? this.youtubeUrl,
+      boothLocation: boothLocation ?? this.boothLocation,
     );
   }
 }
