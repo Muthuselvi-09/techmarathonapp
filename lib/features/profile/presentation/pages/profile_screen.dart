@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/common_widgets.dart';
+import '../../../../core/utils/app_icons.dart';
 import '../providers/profile_provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../../admin/data/admin_repository.dart';
@@ -79,7 +80,7 @@ class ProfileScreen extends ConsumerWidget {
 
                 return Column(
                   children: items.map((item) => _buildProfileTile(
-                    IconData(item.iconCodePoint, fontFamily: 'MaterialIcons'),
+                    AppIcons.getIcon(item.iconCodePoint),
                     item.title,
                     onTap: () {
                       if (item.route == 'settings_action' || item.route == '/profile-settings') {

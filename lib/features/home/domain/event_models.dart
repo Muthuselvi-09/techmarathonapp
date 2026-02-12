@@ -74,6 +74,7 @@ class CodingEvent {
   final bool isActive;
   final String? entryTiming;
   final List<String> rules;
+  final bool isEntryScanEnabled;
 
   CodingEvent({
     required this.id,
@@ -98,6 +99,7 @@ class CodingEvent {
     this.isActive = true,
     this.entryTiming,
     this.rules = const [],
+    this.isEntryScanEnabled = false,
   });
 
   factory CodingEvent.fromMap(Map<String, dynamic> data, String id) {
@@ -121,6 +123,7 @@ class CodingEvent {
       isActive: data['isActive'] ?? true,
       entryTiming: data['entryTiming'],
       rules: List<String>.from(data['rules'] ?? []),
+      isEntryScanEnabled: data['isEntryScanEnabled'] ?? false,
     );
   }
 
@@ -151,6 +154,7 @@ class CodingEvent {
       'isActive': isActive,
       'entryTiming': entryTiming,
       'rules': rules,
+      'isEntryScanEnabled': isEntryScanEnabled,
     };
   }
 
@@ -806,6 +810,28 @@ class BrandingInfo {
       'updatedAt': FieldValue.serverTimestamp(),
     };
   }
+
+  BrandingInfo copyWith({
+    String? companyName,
+    String? companyLogoUrl,
+    String? splashImageUrl,
+    String? splashText,
+    String? splashAnimationType,
+    List<OnboardingPageData>? onboardingPages,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return BrandingInfo(
+      companyName: companyName ?? this.companyName,
+      companyLogoUrl: companyLogoUrl ?? this.companyLogoUrl,
+      splashImageUrl: splashImageUrl ?? this.splashImageUrl,
+      splashText: splashText ?? this.splashText,
+      splashAnimationType: splashAnimationType ?? this.splashAnimationType,
+      onboardingPages: onboardingPages ?? this.onboardingPages,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
 }
 
 class ProfileItem {
@@ -861,6 +887,75 @@ class ProfileItem {
       route: route ?? this.route,
       order: order ?? this.order,
       isEnabled: isEnabled ?? this.isEnabled,
+    );
+  }
+}
+
+class EntryPass {
+  final String id;
+  final String eventId;
+  final String userId;
+  final String userName;
+  final String status; // 'ACTIVE', 'USED'
+  final DateTime? entryTime;
+  final String? scannedByAdminId;
+  final DateTime createdAt;
+
+  EntryPass({
+    required this.id,
+    required this.eventId,
+    required this.userId,
+    required this.userName,
+    this.status = 'ACTIVE',
+    this.entryTime,
+    this.scannedByAdminId,
+    required this.createdAt,
+  });
+
+  factory EntryPass.fromMap(Map<String, dynamic> data, String id) {
+    return EntryPass(
+      id: id,
+      eventId: data['eventId'] ?? '',
+      userId: data['userId'] ?? '',
+      userName: data['userName'] ?? '',
+      status: data['status'] ?? 'ACTIVE',
+      entryTime: (data['entryTime'] as Timestamp?)?.toDate(),
+      scannedByAdminId: data['scannedByAdminId'],
+      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'eventId': eventId,
+      'userId': userId,
+      'userName': userName,
+      'status': status,
+      'entryTime': entryTime != null ? Timestamp.fromDate(entryTime!) : null,
+      'scannedByAdminId': scannedByAdminId,
+      'createdAt': Timestamp.fromDate(createdAt),
+    };
+  }
+
+  EntryPass copyWith({
+    String? id,
+    String? eventId,
+    String? userId,
+    String? userName,
+    String? status,
+    DateTime? entryTime,
+    String? scannedByAdminId,
+    DateTime? createdAt,
+  }) {
+    return EntryPass(
+      id: id ?? this.id,
+      eventId: eventId ?? this.eventId,
+      userId: userId ?? this.userId,
+      userName: userName ?? this.userName,
+      status: status ?? this.status,
+      entryTime: entryTime ?? this.entryTime,
+      scannedByAdminId: scannedByAdminId ?? this.scannedByAdminId,
+      createdAt: createdAt ?? this.createdAt,
     );
   }
 }

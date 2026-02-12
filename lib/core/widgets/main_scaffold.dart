@@ -4,6 +4,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../features/home/presentation/pages/home_screen.dart';
 import '../../features/events/presentation/pages/event_timeline_screen.dart';
 import '../../features/events/presentation/pages/all_events_screen.dart';
+import '../../features/events/presentation/pages/schedule_screen.dart';
 import '../../features/profile/presentation/pages/profile_screen.dart';
 import '../../features/home/presentation/widgets/session_feedback_watcher.dart';
 
@@ -18,7 +19,7 @@ class _MainScaffoldState extends State<MainScaffold> {
   int _selectedIndex = 0;
   final List<Widget> _pages = [
     const HomeScreen(),
-    const Scaffold(body: Center(child: Text('Network View', style: TextStyle(color: Colors.white)))), // Placeholder
+    const ScheduleScreen(), // Replaces Network View
     const Scaffold(body: Center(child: Text('QR Pass Placeholder'))), // QR index 2
     const AllEventsScreen(),
     const Scaffold(body: Center(child: Text('Calendar View'))), // Placeholder for index 4
@@ -100,7 +101,7 @@ class _MainScaffoldState extends State<MainScaffold> {
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
             _buildNavItem(0, Icons.home_rounded, 'Home'),
-            _buildNavItem(1, Icons.people_outline_rounded, 'Network'),
+            _buildNavItem(1, Icons.calendar_today_rounded, 'Schedule'),
             _buildCenterQRButton(),
             _buildNavItem(3, Icons.event_note_rounded, 'Event'),
             _buildNavItem(4, Icons.calendar_month_rounded, 'Calendar'),

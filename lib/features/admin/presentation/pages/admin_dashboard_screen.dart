@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
+
+import '../../../../core/utils/app_icons.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -21,6 +23,8 @@ import 'package:flutter/foundation.dart' hide Category; // for kIsWeb
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../../home/presentation/providers/branding_provider.dart';
+import '../widgets/admin_sidebar.dart';
+import 'admin_entry_management_screen.dart';
  
 class AdminDashboardScreen extends ConsumerStatefulWidget {
   final int initialTab;
@@ -31,6 +35,7 @@ class AdminDashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> with SingleTickerProviderStateMixin {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   late int _currentTab; // 0: Overview, 1: Events, 2: Members, 3: Speakers, 4: Sponsors, 5: Schedules, 6: Chat, 7: Branding
 
   // Branding state
@@ -47,11 +52,12 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
   Uint8List? _splashImageBytes;
 
   // Onboarding Screen state
-  List<TextEditingController> _onboardingTitleControllers = [];
-  List<TextEditingController> _onboardingDescControllers = [];
-  List<XFile?> _onboardingImages = [];
-  List<Uint8List?> _onboardingImageBytes = [];
-  List<String?> _onboardingExistingUrls = [];
+  // Profile Actions state
+  List<TextEditingController> _profileActionTitles = [];
+  List<IconData> _profileActionIcons = [];
+  List<String> _profileActionTypes = [];
+  List<String> _profileActionValues = [];
+  bool _isSavingProfile = false;
 
 
   @override
@@ -64,12 +70,6 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
   void dispose() {
     _brandingNameController.dispose();
     _splashTextController.dispose();
-    for (var controller in _onboardingTitleControllers) {
-      controller.dispose();
-    }
-    for (var controller in _onboardingDescControllers) {
-      controller.dispose();
-    }
     super.dispose();
   }
 
@@ -79,35 +79,117 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black, // Pure Black background
-      body: Stack(
-        children: [
-          // Background subtle gradient
-          Positioned.fill(
-             child: Container(
-               decoration: BoxDecoration(
-                 gradient: LinearGradient(
-                   begin: Alignment.topLeft,
-                   end: Alignment.bottomRight,
-                   colors: [
-                     Colors.black,
-                     const Color(0xFF1A1A1A),
-                     _gold.withValues(alpha: 0.05), // Subtle gold hint
-                   ],
-                 ),
-               ),
-             ),
-          ),
-          SafeArea(
-            child: Column(
-              children: [
-                _buildTopBar(),
-                _buildTabSwitcher(),
-                Expanded(
-                  child: _buildCurrentSection(),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool isNarrow = constraints.maxWidth < 1100;
+        
+        return Scaffold(
+          key: _scaffoldKey,
+          backgroundColor: Colors.black,
+          drawer: isNarrow ? Drawer(
+            width: 280,
+            backgroundColor: Colors.black,
+            child: AdminSidebar(
+              currentIndex: _currentTab,
+              onTabSelected: (index) {
+                setState(() => _currentTab = index);
+                _scaffoldKey.currentState?.closeDrawer();
+              },
+              onBack: () => context.pop(),
+            ),
+          ) : null,
+          body: Row(
+            children: [
+              if (!isNarrow)
+                AdminSidebar(
+                  currentIndex: _currentTab,
+                  onTabSelected: (index) => setState(() => _currentTab = index),
+                  onBack: () => context.pop(),
                 ),
+              Expanded(
+                child: Column(
+                  children: [
+                    _buildTopBar(isNarrow),
+                    Expanded(
+                      child: AnimatedSwitcher(
+                        duration: 400.ms,
+                        switchInCurve: Curves.easeOutCubic,
+                        switchOutCurve: Curves.easeInCubic,
+                        child: KeyedSubtree(
+                          key: ValueKey(_currentTab),
+                          child: _buildCurrentSection(isNarrow),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildTopBar(bool isNarrow) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: isNarrow ? 20 : 32, vertical: isNarrow ? 16 : 24),
+      decoration: BoxDecoration(
+        color: Colors.black,
+        border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05))),
+      ),
+      child: Row(
+        children: [
+          if (isNarrow) ...[
+            if (_currentTab == 0)
+              _iconButton(Icons.menu_rounded, () => _scaffoldKey.currentState?.openDrawer())
+            else
+              _iconButton(Icons.arrow_back_rounded, () => setState(() => _currentTab = 0)),
+            const SizedBox(width: 16),
+          ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _getTabTitle(_currentTab),
+                  style: GoogleFonts.outfit(
+                    fontSize: isNarrow ? 20 : 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (!isNarrow) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    'Manage your tech marathon platform',
+                    style: GoogleFonts.outfit(
+                      fontSize: 13,
+                      color: Colors.white38,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ],
+            ),
+          ),
+          const SizedBox(width: 16),
+          _iconButton(Icons.notifications_none_rounded, () {}),
+          const SizedBox(width: 16),
+          GestureDetector(
+            onTap: () => _showAdminProfile(),
+            child: Container(
+              padding: const EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: _gold, width: 1.5),
+              ),
+              child: CircleAvatar(
+                radius: isNarrow ? 16 : 18,
+                backgroundColor: AppColors.surface,
+                child: Icon(Icons.person, size: isNarrow ? 18 : 20, color: Colors.white),
+              ),
             ),
           ),
         ],
@@ -115,107 +197,19 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
     );
   }
 
-  Widget _buildTopBar() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.5),
-        border: Border(bottom: BorderSide(color: _gold.withValues(alpha: 0.1))),
-      ),
-      child: Row(
-        children: [
-          InkWell(
-            onTap: () => context.pop(),
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.white10),
-              ),
-              child: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 18),
-            ),
-          ),
-          
-          Expanded(
-            child: Center(
-              child: ref.watch(brandingProvider).when(
-                data: (branding) => Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Flexible(
-                      child: Text(
-                        branding.companyName.toUpperCase(),
-                        textAlign: TextAlign.center,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.outfit(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 3,
-                          color: _gold,
-                        ),
-                      ),
-                    ),
-                    if (branding.companyLogoUrl != null && branding.companyLogoUrl!.isNotEmpty) ...[
-                      const SizedBox(width: 8),
-                      CachedNetworkImage(
-                        imageUrl: branding.companyLogoUrl!,
-                        height: 28, // Slightly larger for Admin Panel
-                        fit: BoxFit.contain,
-                        placeholder: (_, _) => const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFFFD700))),
-                        errorWidget: (_, _, _) => const SizedBox.shrink(),
-                      ),
-                    ],
-                  ],
-                ),
-                loading: () => Text(
-                  'ADMIN PANEL',
-                  style: GoogleFonts.outfit(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 3,
-                    color: _gold,
-                  ),
-                ),
-                error: (_, _) => Text(
-                  'ADMIN PANEL',
-                  style: GoogleFonts.outfit(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 3,
-                    color: _gold,
-                  ),
-                ),
-              ).animate().fadeIn(duration: 600.ms),
-            ),
-          ),
-          
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _iconButton(Icons.notifications_none_rounded, () {}),
-              const SizedBox(width: 4), // Reduced spacing
-              GestureDetector(
-                onTap: () => _showAdminProfile(),
-                child: Container(
-                  padding: const EdgeInsets.all(2),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: _gold, width: 1.5),
-                  ),
-                  child: const CircleAvatar(
-                    radius: 16,
-                    backgroundColor: Colors.black,
-                    child: Icon(Icons.person, size: 18, color: Colors.white),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
+  String _getTabTitle(int index) {
+    switch (index) {
+      case 0: return 'Overview';
+      case 1: return 'Events';
+      case 2: return 'Members';
+      case 3: return 'Speakers';
+      case 4: return 'Sponsors';
+      case 5: return 'Schedules';
+      case 6: return 'Chat';
+      case 7: return 'Branding';
+      case 8: return 'Profile';
+      default: return 'Admin Panel';
+    }
   }
 
   Widget _iconButton(IconData icon, VoidCallback onTap) {
@@ -233,70 +227,19 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
     );
   }
 
-  Widget _buildTabSwitcher() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
-      child: Row(
-        children: [
-          _tabItem(0, 'Overview'),
-          _tabItem(1, 'Events'),
-          _tabItem(2, 'Members'),
-          _tabItem(3, 'Speakers'),
-          _tabItem(4, 'Sponsors'),
-          _tabItem(5, 'Schedules'),
-          _tabItem(6, 'Chat'),
-          _tabItem(7, 'Branding'),
-          _tabItem(8, 'Profile'),
-        ],
-      ),
-    );
-  }
 
-  Widget _tabItem(int index, String label) {
-    bool isSelected = _currentTab == index;
-    return GestureDetector(
-      onTap: () => setState(() => _currentTab = index),
-      child: AnimatedContainer(
-        duration: 300.ms,
-        curve: Curves.easeOut,
-        margin: const EdgeInsets.only(right: 12),
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-        decoration: BoxDecoration(
-          color: isSelected ? _gold : Colors.white.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(30),
-          border: Border.all(
-            color: isSelected ? _gold : Colors.white.withValues(alpha: 0.1),
-          ),
-          boxShadow: isSelected 
-            ? [BoxShadow(color: _gold.withValues(alpha: 0.3), blurRadius: 12, offset: const Offset(0, 4))] 
-            : [],
-        ),
-        child: Text(
-          label,
-          style: GoogleFonts.outfit(
-            color: isSelected ? Colors.black : Colors.white,
-            fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
-            fontSize: 13,
-            letterSpacing: 0.5,
-          ),
-        ),
-      ),
-    ).animate().fadeIn(delay: (index * 50).ms).slideX(begin: 0.2, end: 0);
-  }
-
-  Widget _buildCurrentSection() {
+  Widget _buildCurrentSection(bool isNarrow) {
     switch (_currentTab) {
-      case 0: return _buildOverview();
-      case 1: return _buildEventsSection();
-      case 2: return _buildMembersSection();
-      case 3: return _buildSpeakersSection();
-      case 4: return _buildSponsorsSection();
-      case 5: return _buildSchedulesSection();
-      case 6: return _buildChatSection();
-      case 7: return _buildBrandingSection();
-      case 8: return _buildProfileSection();
-      default: return _buildOverview();
+      case 0: return _buildOverview(isNarrow);
+      case 1: return _buildEventsSection(isNarrow);
+      case 2: return _buildMembersSection(isNarrow);
+      case 3: return _buildSpeakersSection(isNarrow);
+      case 4: return _buildSponsorsSection(isNarrow);
+      case 5: return _buildSchedulesSection(isNarrow);
+      case 6: return _buildChatSection(isNarrow);
+      case 7: return _buildBrandingSection(isNarrow);
+      case 8: return _buildProfileSection(isNarrow);
+      default: return _buildOverview(isNarrow);
     }
   }
 
@@ -332,214 +275,268 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
   }
 
   // --- 1. OVERVIEW: CONTROL CENTER MODULES ---
-  Widget _buildOverview() {
+  Widget _buildOverview(bool isNarrow) {
     return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+      padding: EdgeInsets.symmetric(horizontal: isNarrow ? 20 : 32, vertical: 24),
       children: [
-         // Module 1: Ticket Sales Analytics (Revenue Hero Card)
-        _buildHeroModule(),
-        const SizedBox(height: 24),
-        
-        // Module 2: Live Attendance Tracker
-        _buildLiveAttendanceModule(),
-        const SizedBox(height: 24),
-
-        // Module 3: Event Timeline Manager
-        _buildTimelineModule(),
-        const SizedBox(height: 24),
-
-        // Module 4: System Actions Grid
-        _buildSystemActionsModule(),
+        if (isNarrow) ...[
+          _buildHeroModule(isNarrow),
+          const SizedBox(height: 24),
+          _buildLiveAttendanceModule(isNarrow),
+        ] else
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(flex: 2, child: _buildHeroModule(isNarrow)),
+              const SizedBox(width: 24),
+              Expanded(flex: 1, child: _buildLiveAttendanceModule(isNarrow)),
+            ],
+          ),
+        const SizedBox(height: 32),
+        _buildTimelineModule(isNarrow),
+        const SizedBox(height: 32),
+        _buildSystemActionsModule(isNarrow),
         const SizedBox(height: 40),
       ],
     );
   }
 
-  Widget _buildHeroModule() {
+  Widget _buildHeroModule(bool isNarrow) {
     final adminRepo = ref.watch(adminRepositoryProvider);
     return StreamBuilder<List<CodingEvent>>(
       stream: adminRepo.watchEvents(),
       builder: (context, snapshot) {
         final totalEvents = snapshot.data?.length ?? 0;
-        final revenue = totalEvents * 1500; // Mock revenue
+        final revenue = totalEvents * 1500;
 
         return _GlassCard(
+          padding: EdgeInsets.all(isNarrow ? 20 : 32),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('TICKET SALES ANALYTICS', style: GoogleFonts.outfit(color: Colors.white70, fontSize: 12, letterSpacing: 1.5, fontWeight: FontWeight.bold)),
+                  Text(
+                    'REVENUE ANALYTICS',
+                    style: GoogleFonts.outfit(
+                      color: Colors.white30,
+                      fontSize: 12,
+                      letterSpacing: 2,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(color: const Color(0xFF00FF94).withValues(alpha: 0.2), borderRadius: BorderRadius.circular(20)),
-                    child: const Text('LIVE +12%', style: TextStyle(color: Color(0xFF00FF94), fontSize: 10, fontWeight: FontWeight.bold)),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF00FF94).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: const Color(0xFF00FF94).withValues(alpha: 0.2)),
+                    ),
+                    child: Text(
+                      'LIVE +12.5%',
+                      style: GoogleFonts.outfit(
+                        color: const Color(0xFF00FF94),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
                   ),
                 ],
               ),
-              
-              const SizedBox(height: 20),
+              const SizedBox(height: 32),
               Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
                 children: [
-                  Text('₹$revenue', style: GoogleFonts.outfit(fontSize: 32, fontWeight: FontWeight.bold, color: _gold)),
-                  const SizedBox(width: 8),
-                  const Padding(
-                    padding: EdgeInsets.only(bottom: 6),
-                    child: Text('Total Revenue', style: TextStyle(color: Colors.white38, fontSize: 12)),
+                  Text(
+                    '₹$revenue',
+                    style: GoogleFonts.outfit(
+                      fontSize: 48,
+                      fontWeight: FontWeight.w800,
+                      color: _gold,
+                    ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  _statBadge(Icons.confirmation_number_outlined, '$totalEvents Events', Colors.blueAccent),
                   const SizedBox(width: 12),
-                  _statBadge(Icons.airplane_ticket_outlined, 'Sold Out', const Color(0xFF00FF94)),
+                  Text(
+                    'total earnings',
+                    style: GoogleFonts.outfit(
+                      color: Colors.white24,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 32),
+              Row(
+                children: [
+                  _statBadge(Icons.confirmation_number_outlined, '$totalEvents Active Events', Colors.blueAccent),
+                  const SizedBox(width: 16),
+                  _statBadge(Icons.analytics_outlined, '4.2k Attendees', Colors.purpleAccent),
                 ],
               ),
             ],
           ),
         );
-      }
+      },
     );
   }
 
-  Widget _statBadge(IconData icon, String label, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(color: color.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)),
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: color),
-          const SizedBox(width: 6),
-          Text(label, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLiveAttendanceModule() {
-    final userRepo = ref.watch(userRepositoryProvider); // Use UserRepository for presence
+  Widget _buildLiveAttendanceModule(bool isNarrow) {
+    final userRepo = ref.watch(userRepositoryProvider);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _moduleHeader('Live Attendance', Icons.sensors, const Color(0xFF00FF94)), // Green for active
-        const SizedBox(height: 12),
+        _moduleHeader('Live Presence', Icons.sensors_rounded, const Color(0xFF00FF94)),
+        const SizedBox(height: 16),
         StreamBuilder<int>(
           stream: userRepo.watchOnlineUsersCount(),
           initialData: 0,
           builder: (context, snapshot) {
-             final onlineCount = snapshot.data ?? 0;
-             return _GlassCard(
-               child: Column(
-                 children: [
-                   Row(
-                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                     children: [
-                       Column(
-                         crossAxisAlignment: CrossAxisAlignment.start,
-                         children: [
-                           Text('$onlineCount', style: GoogleFonts.outfit(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white)),
-                           const Text('Online Now', style: TextStyle(color: Colors.white54, fontSize: 12)),
-                         ],
-                       ),
-                       SizedBox(
-                         height: 40,
-                         width: 120,
-                         child: Stack(
-                           children: List.generate(3, (index) {
-                             return Positioned(
-                               left: index * 24.0,
-                               child: CircleAvatar(
-                                 radius: 18,
-                                 backgroundColor: Colors.black,
-                                 child: CircleAvatar(
-                                   radius: 16,
-                                   backgroundColor: Colors.white10,
-                                   child: const Icon(Icons.person, color: Colors.white54, size: 16),
-                                 ),
-                               ),
-                             );
-                           }),
-                         ),
-                       ),
-                     ],
-                   ),
-                   const SizedBox(height: 16),
-                   ClipRRect(
-                     borderRadius: BorderRadius.circular(4),
-                     child: LinearProgressIndicator(
-                       value: (onlineCount / 100).clamp(0.0, 1.0), 
-                       backgroundColor: Colors.white10,
-                       valueColor: AlwaysStoppedAnimation(_gold),
-                       minHeight: 4,
-                     ),
-                   ),
-                   const SizedBox(height: 8),
-                   const Row(
-                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                     children: [
-                       Text('Traffic', style: TextStyle(color: Colors.white38, fontSize: 10)),
-                       Text('Target: 100', style: TextStyle(color: Colors.white38, fontSize: 10)),
-                     ],
-                   ),
-                 ],
-               ),
-             );
-          }
+            final onlineCount = snapshot.data ?? 0;
+            return _GlassCard(
+              padding: EdgeInsets.all(isNarrow ? 20 : 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '$onlineCount',
+                            style: GoogleFonts.outfit(
+                              fontSize: 32,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                            ),
+                          ),
+                          Text(
+                            'Active Users',
+                            style: GoogleFonts.outfit(
+                              color: Colors.white38,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const Icon(Icons.trending_up_rounded, color: Color(0xFF00FF94), size: 24),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: LinearProgressIndicator(
+                      value: (onlineCount / 100).clamp(0.0, 1.0),
+                      backgroundColor: Colors.white.withValues(alpha: 0.05),
+                      valueColor: AlwaysStoppedAnimation(_gold),
+                      minHeight: 6,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Peak today: 84 users',
+                    style: GoogleFonts.outfit(
+                      color: Colors.white24,
+                      fontSize: 10,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
         ),
       ],
     );
   }
 
-  Widget _buildTimelineModule() {
+  Widget _buildTimelineModule(bool isNarrow) {
     final adminRepo = ref.watch(adminRepositoryProvider);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _moduleHeader('Timeline Manager', Icons.schedule, _gold),
-        const SizedBox(height: 12),
+        _moduleHeader('Event Timeline', Icons.calendar_today_rounded, _gold),
+        const SizedBox(height: 16),
         StreamBuilder<List<CodingEvent>>(
           stream: adminRepo.watchEvents(),
           builder: (context, snapshot) {
             final events = snapshot.data ?? [];
-            if (events.isEmpty) return const Text('No active events', style: TextStyle(color: Colors.white38));
+            if (events.isEmpty) {
+              return _GlassCard(
+                child: Center(
+                  child: Text(
+                    'No active events scheduled',
+                    style: GoogleFonts.outfit(color: Colors.white24),
+                  ),
+                ),
+              );
+            }
             
             return SizedBox(
-              height: 140, // Height for horizontal cards
+              height: 180,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 itemCount: events.length,
                 itemBuilder: (context, index) {
                   final event = events[index];
                   return Container(
-                    width: 240,
-                    margin: const EdgeInsets.only(right: 16),
+                    width: 320,
+                    margin: const EdgeInsets.only(right: 20),
                     child: _GlassCard(
+                      padding: const EdgeInsets.all(24),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
                             children: [
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(color: _gold.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(8)),
-                                child: Text(_formatDate(event.date), style: TextStyle(color: _gold, fontSize: 10, fontWeight: FontWeight.bold)),
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                decoration: BoxDecoration(
+                                  color: _gold.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  _formatDate(event.date).toUpperCase(),
+                                  style: GoogleFonts.outfit(
+                                    color: _gold,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
                               ),
                               const Spacer(),
-                              const Icon(Icons.more_horiz, color: Colors.white38, size: 16),
+                              const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white24, size: 14),
                             ],
                           ),
                           const Spacer(),
-                          Text(event.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-                          const SizedBox(height: 4),
+                          Text(
+                            event.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.outfit(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 18,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
                           Row(
                             children: [
-                              const Icon(Icons.location_on_outlined, color: Colors.white54, size: 12),
-                              const SizedBox(width: 4),
-                              Expanded(child: Text(event.location, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white54, fontSize: 12))),
+                              const Icon(Icons.location_on_rounded, color: Colors.white24, size: 14),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  event.location,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.outfit(
+                                    color: Colors.white38,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
                             ],
                           ),
                         ],
@@ -549,7 +546,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                 },
               ),
             );
-          }
+          },
         ),
       ],
     );
@@ -572,7 +569,16 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
           children: [
             Icon(icon, color: isDarkText ? Colors.black : color, size: 24),
             const SizedBox(height: 8),
-            Text(label, style: TextStyle(color: isDarkText ? Colors.black : color, fontWeight: FontWeight.bold, fontSize: 13)),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Text(
+                label,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: isDarkText ? Colors.black : color, fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+            ),
           ],
         ),
       ),
@@ -594,45 +600,108 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
   }
 
   // --- 2. EVENTS SECTION (Real-time CRUD UI) ---
-  Widget _buildEventsSection() {
+  Widget _buildEventsSection(bool isNarrow) {
     final adminRepo = ref.watch(adminRepositoryProvider);
     
     return Padding(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.symmetric(horizontal: isNarrow ? 20 : 40, vertical: 32),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _sectionTitle('Manage Events'),
-              Row(
-                children: [
-                   OutlinedButton.icon(
-                    onPressed: () => _showManageCategoriesDialog(),
-                    icon: const Icon(Icons.category_outlined, size: 18),
-                    label: const Text('Categories'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: _gold,
-                      side: BorderSide(color: _gold.withValues(alpha: 0.5)),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          if (isNarrow)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _sectionHeader('EVENT MANAGEMENT', 'Create and organize your events'),
+                const SizedBox(height: 20),
+                Wrap(
+                  spacing: 16,
+                  runSpacing: 16,
+                  children: [
+                     OutlinedButton.icon(
+                      onPressed: () => _showManageCategoriesDialog(),
+                      icon: const Icon(Icons.category_outlined, size: 18),
+                      label: Text('CATEGORIES', style: GoogleFonts.outfit(fontWeight: FontWeight.w700, letterSpacing: 1)),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: _gold,
+                        side: BorderSide(color: _gold.withValues(alpha: 0.3)),
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton.icon(
-                    onPressed: () => _showEventDialog(),
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('New Event'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.codingRimPrimary,
-                      foregroundColor: Colors.black,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ElevatedButton.icon(
+                      onPressed: () => _showEventDialog(),
+                      icon: const Icon(Icons.add_rounded, size: 20),
+                      label: Text('NEW EVENT', style: GoogleFonts.outfit(fontWeight: FontWeight.w700, letterSpacing: 1, color: Colors.black)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _gold,
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
                     ),
+                  ],
+                ),
+              ],
+            )
+          else
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'EVENT MANAGEMENT',
+                        style: GoogleFonts.outfit(
+                          color: Colors.white30,
+                          fontSize: 12,
+                          letterSpacing: 2,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Create and organize your events',
+                        style: GoogleFonts.outfit(color: Colors.white60, fontSize: 13),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
+                ),
+                const SizedBox(width: 16),
+                Flexible(
+                  child: Wrap(
+                    spacing: 16,
+                    runSpacing: 16,
+                    alignment: WrapAlignment.end,
+                    children: [
+                       OutlinedButton.icon(
+                        onPressed: () => _showManageCategoriesDialog(),
+                        icon: const Icon(Icons.category_outlined, size: 18),
+                        label: Text('CATEGORIES', style: GoogleFonts.outfit(fontWeight: FontWeight.w700, letterSpacing: 1)),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: _gold,
+                          side: BorderSide(color: _gold.withValues(alpha: 0.3)),
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                      ElevatedButton.icon(
+                        onPressed: () => _showEventDialog(),
+                        icon: const Icon(Icons.add_rounded, size: 20),
+                        label: Text('NEW EVENT', style: GoogleFonts.outfit(fontWeight: FontWeight.w700, letterSpacing: 1, color: Colors.black)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _gold,
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          const SizedBox(height: 40),
           Expanded(
             child: StreamBuilder<List<CodingEvent>>(
               stream: adminRepo.watchEvents(),
@@ -640,7 +709,6 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                 if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
                 if (snapshot.data!.isEmpty) return const Center(child: Text('No events found', style: TextStyle(color: Colors.white38)));
                 
-                // Merge Firestore data (removed mock seed usage)
                 final firestoreEvents = snapshot.data ?? [];
                 final allEvents = [...firestoreEvents];
 
@@ -714,50 +782,76 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
 
   Widget _eventItem(CodingEvent event) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 50,
-            height: 50,
-            padding: event.imageUrl.isEmpty ? const EdgeInsets.all(10) : EdgeInsets.zero,
-            decoration: BoxDecoration(
-              color: Colors.white12,
-              borderRadius: BorderRadius.circular(12),
-              image: event.imageUrl.isNotEmpty
-                ? DecorationImage(
-                    image: NetworkImage(event.imageUrl),
-                    fit: BoxFit.cover,
-                  )
+      margin: const EdgeInsets.only(bottom: 20),
+      child: _GlassCard(
+        padding: const EdgeInsets.all(20),
+        child: Row(
+          children: [
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(16),
+                image: event.imageUrl.isNotEmpty
+                  ? DecorationImage(
+                      image: NetworkImage(event.imageUrl),
+                      fit: BoxFit.cover,
+                    )
+                  : null,
+              ),
+              child: event.imageUrl.isEmpty 
+                ? const Icon(Icons.event_available_rounded, color: AppColors.codingRimPrimary, size: 24) 
                 : null,
             ),
-            child: event.imageUrl.isEmpty 
-              ? const Icon(Icons.event_note, color: AppColors.codingRimPrimary) 
-              : null,
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(event.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                Text(event.location, style: const TextStyle(color: Colors.white54, fontSize: 12)),
-              ],
+            const SizedBox(width: 20),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    event.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.outfit(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Icon(Icons.location_on_rounded, color: Colors.white24, size: 14),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          event.location,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.outfit(color: Colors.white38, fontSize: 13),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-          PopupMenuButton(
-            icon: const Icon(Icons.more_vert, color: Colors.white38),
-            itemBuilder: (context) => [
-              PopupMenuItem(child: const Text('Edit'), onTap: () => Future.delayed(Duration.zero, () => _showEventDialog(event: event))),
-              PopupMenuItem(child: const Text('Delete', style: TextStyle(color: Colors.red)), onTap: () => ref.read(adminRepositoryProvider).deleteEvent(event.id)),
-            ],
-          ),
-        ],
+            const SizedBox(width: 8),
+            _iconButton(Icons.qr_code_2_rounded, () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => AdminEntryManagementScreen(event: event),
+                ),
+              );
+            }),
+            const SizedBox(width: 8),
+            _iconButton(Icons.edit_outlined, () => _showEventDialog(event: event)),
+            const SizedBox(width: 8),
+            _iconButton(Icons.delete_outline_rounded, () => ref.read(adminRepositoryProvider).deleteEvent(event.id)),
+          ],
+        ),
       ),
     );
   }
@@ -876,7 +970,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                       Switch(
                         value: isFree,
                         onChanged: (val) => setState(() => isFree = val),
-                        activeColor: _gold,
+                        activeThumbColor: _gold,
                       ),
                     ],
                   ),
@@ -1016,95 +1110,104 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
   }
 
   // --- 3. MEMBERS SECTION (Real-time) ---
-  Widget _buildMembersSection() {
-    return ListView(
-      padding: const EdgeInsets.all(24),
-      children: [
-        _sectionTitle('Joined Members'),
-        const SizedBox(height: 20),
-        StreamBuilder<List<Participant>>(
-          stream: ref.watch(userRepositoryProvider).getRealTimeMembers(),
-          builder: (context, snapshot) {
-            if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: Color(0xFFFFD700)));
-            if (snapshot.data!.isEmpty) {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const SizedBox(height: 40),
-                    Icon(Icons.people_outline, size: 48, color: Colors.white.withValues(alpha: 0.1)),
-                    const SizedBox(height: 16),
-                    Text('No one has joined yet', style: TextStyle(color: Colors.white.withValues(alpha: 0.3))),
-                  ],
-                ),
-              );
-            }
-            
-            return ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: snapshot.data!.length,
-              separatorBuilder: (_, _) => Divider(color: Colors.white.withValues(alpha: 0.05)),
-              itemBuilder: (context, index) {
-                final member = snapshot.data![index];
-                return _memberItem(member);
+  Widget _buildMembersSection(bool isNarrow) {
+    final userRepo = ref.watch(userRepositoryProvider);
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: isNarrow ? 20 : 40, vertical: 32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionHeader('USER MANAGEMENT', 'View and manage platform participants'),
+          const SizedBox(height: 40),
+          Expanded(
+            child: StreamBuilder<List<Participant>>(
+              stream: userRepo.getRealTimeMembers(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: AppColors.codingRimPrimary));
+                if (snapshot.data!.isEmpty) {
+                  return _emptySection(Icons.people_outline_rounded, 'No one has joined yet');
+                }
+                
+                return ListView.builder(
+                  itemCount: snapshot.data!.length,
+                  itemBuilder: (context, index) {
+                    final member = snapshot.data![index];
+                    return _memberItem(member);
+                  },
+                );
               },
-            );
-          },
-        ),
-      ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
 
 
   // --- 4. SPEAKERS SECTION ---
-  String? _selectedSpeakerEventId; // Event ID state for speakers
-  String? _selectedSponsorEventId; // Event ID state for sponsors
-
-  Widget _buildSpeakersSection() {
+  Widget _buildSpeakersSection(bool isNarrow) {
     final adminRepo = ref.watch(adminRepositoryProvider);
     
     return Padding(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.symmetric(horizontal: isNarrow ? 20 : 40, vertical: 32),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _sectionTitle('Manage Speakers'),
-              ElevatedButton.icon(
-                onPressed: () => _showSpeakerDialog(),
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('Add Speaker'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _gold,
-                  foregroundColor: Colors.black,
+          if (isNarrow)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _sectionHeader('SPEAKERS & GUESTS', 'Manage event speakers and their assignments'),
+                const SizedBox(height: 20),
+                ElevatedButton.icon(
+                  onPressed: () => _showSpeakerDialog(),
+                  icon: const Icon(Icons.add_rounded, size: 20),
+                  label: Text('ADD SPEAKER', style: GoogleFonts.outfit(fontWeight: FontWeight.w700, letterSpacing: 1, color: Colors.black)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _gold,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
+              ],
+            )
+          else
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: _sectionHeader('SPEAKERS & GUESTS', 'Manage event speakers and their assignments'),
+                ),
+                const SizedBox(width: 16),
+                Flexible(
+                  child: ElevatedButton.icon(
+                    onPressed: () => _showSpeakerDialog(),
+                    icon: const Icon(Icons.add_rounded, size: 20),
+                    label: Text('ADD SPEAKER', style: GoogleFonts.outfit(fontWeight: FontWeight.w700, letterSpacing: 1, color: Colors.black)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _gold,
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          const SizedBox(height: 40),
           Expanded(
             child: StreamBuilder<List<Speaker>>(
-              stream: adminRepo.watchAllSpeakers(), // Use global stream
+              stream: adminRepo.watchAllSpeakers(),
               builder: (context, snapshot) {
-                 if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: Color(0xFFFFD700)));
-                 
-                 final allSpeakers = snapshot.data!;
-                 if (allSpeakers.isEmpty) {
-                    return Center(
-                      child: Text('No speakers added yet', style: TextStyle(color: Colors.white.withValues(alpha: 0.3))),
-                    );
-                 }
-                 
-                 return ListView.builder(
-                   itemCount: allSpeakers.length,
-                   itemBuilder: (context, index) {
-                      final speaker = allSpeakers[index];
-                      return _speakerItem(speaker);
-                   },
-                 );
+                if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: AppColors.codingRimPrimary));
+                if (snapshot.data!.isEmpty) return _emptySection(Icons.mic_none_rounded, 'No speakers added yet');
+                
+                return ListView.builder(
+                  itemCount: snapshot.data!.length,
+                  itemBuilder: (context, index) {
+                    return _speakerItem(snapshot.data![index]);
+                  },
+                );
               },
             ),
           ),
@@ -1113,46 +1216,64 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
     );
   }
 
+  String? _selectedSpeakerEventId; // Event ID state for speakers
+  String? _selectedSponsorEventId; // Event ID state for sponsors
+
   Widget _speakerItem(Speaker speaker) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 24,
-            backgroundImage: speaker.photoUrl.isNotEmpty ? NetworkImage(speaker.photoUrl) : null,
-            backgroundColor: Colors.white12,
-            child: speaker.photoUrl.isEmpty ? const Icon(Icons.mic, color: Colors.white) : null,
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(speaker.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                Text('${speaker.topic} • ${speaker.company}', style: const TextStyle(color: Colors.white54, fontSize: 12)),
-              ],
-            ),
-          ),
-          PopupMenuButton(
-            icon: const Icon(Icons.more_vert, color: Colors.white38),
-            itemBuilder: (context) => [
-              PopupMenuItem(child: const Text('Edit'), onTap: () => Future.delayed(Duration.zero, () => _showSpeakerDialog(speaker: speaker))),
-              PopupMenuItem(
-                child: const Text('Delete / Unlink', style: TextStyle(color: Colors.red)),
-                onTap: () => Future.delayed(Duration.zero, () {
-                   // For common list, delete also deletes global speaker
-                   ref.read(adminRepositoryProvider).deleteSpeaker('', speaker.id); 
-                }),
+      margin: const EdgeInsets.only(bottom: 20),
+      child: _GlassCard(
+        padding: const EdgeInsets.all(20),
+        child: Row(
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(16),
+                image: speaker.photoUrl.isNotEmpty
+                  ? DecorationImage(
+                      image: NetworkImage(speaker.photoUrl),
+                      fit: BoxFit.cover,
+                    )
+                  : null,
               ),
-            ],
-          ),
-        ],
+              child: speaker.photoUrl.isEmpty 
+                ? const Icon(Icons.mic_none_rounded, color: AppColors.codingRimPrimary, size: 24) 
+                : null,
+            ),
+            const SizedBox(width: 20),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    speaker.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.outfit(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${speaker.topic} • ${speaker.company}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.outfit(color: Colors.white38, fontSize: 13),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            _iconButton(Icons.edit_outlined, () => _showSpeakerDialog(speaker: speaker)),
+            const SizedBox(width: 8),
+            _iconButton(Icons.delete_outline_rounded, () => ref.read(adminRepositoryProvider).deleteSpeaker(speaker.eventId, speaker.id)),
+          ],
+        ),
       ),
     );
   }
@@ -1280,42 +1401,65 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
   }
 
   // --- 5. SPONSORS SECTION ---
-  Widget _buildSponsorsSection() {
+  Widget _buildSponsorsSection(bool isNarrow) {
     final adminRepo = ref.watch(adminRepositoryProvider);
-    
     return Padding(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.symmetric(horizontal: isNarrow ? 20 : 40, vertical: 32),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _sectionTitle('Manage Sponsors'),
-              ElevatedButton.icon(
-                onPressed: () => _showSponsorDialog(),
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('Add Sponsor'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _gold,
-                  foregroundColor: Colors.black,
+          if (isNarrow)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _sectionHeader('SPONSOR PARTNERS', 'Maintain and organize platform sponsors'),
+                const SizedBox(height: 20),
+                ElevatedButton.icon(
+                  onPressed: () => _showSponsorDialog(),
+                  icon: const Icon(Icons.add_rounded, size: 20),
+                  label: Text('ADD SPONSOR', style: GoogleFonts.outfit(fontWeight: FontWeight.w700, letterSpacing: 1, color: Colors.black)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _gold,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
+              ],
+            )
+          else
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: _sectionHeader('SPONSOR PARTNERS', 'Maintain and organize platform sponsors'),
+                ),
+                const SizedBox(width: 16),
+                Flexible(
+                  child: ElevatedButton.icon(
+                    onPressed: () => _showSponsorDialog(),
+                    icon: const Icon(Icons.add_rounded, size: 20),
+                    label: Text('ADD SPONSOR', style: GoogleFonts.outfit(fontWeight: FontWeight.w700, letterSpacing: 1, color: Colors.black)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _gold,
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          const SizedBox(height: 40),
           Expanded(
             child: StreamBuilder<List<Sponsor>>(
               stream: adminRepo.watchAllSponsors(),
               builder: (context, snapshot) {
-                 if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: Color(0xFFFFD700)));
+                 if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: AppColors.codingRimPrimary));
                  
                  final allSponsors = snapshot.data!;
                  if (allSponsors.isEmpty) {
-                    return Center(
-                      child: Text('No sponsors added yet', style: TextStyle(color: Colors.white.withValues(alpha: 0.3))),
-                    );
+                    return _emptySection(Icons.business_outlined, 'No sponsors added yet');
                  }
-
+ 
                  return ListView.builder(
                    itemCount: allSponsors.length,
                    itemBuilder: (context, index) {
@@ -1332,52 +1476,62 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
   }
 
   Widget _sponsorItem(Sponsor sponsor) {
-      return Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(20),
-        ),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      child: _GlassCard(
+        padding: const EdgeInsets.all(20),
         child: Row(
           children: [
             Container(
-              width: 50,
-              height: 50,
+              width: 64,
+              height: 64,
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-                image: sponsor.logoUrl.isNotEmpty ? DecorationImage(image: NetworkImage(sponsor.logoUrl), fit: BoxFit.contain) : null,
+                borderRadius: BorderRadius.circular(16),
+                image: sponsor.logoUrl.isNotEmpty
+                  ? DecorationImage(
+                      image: NetworkImage(sponsor.logoUrl),
+                      fit: BoxFit.contain,
+                    )
+                  : null,
               ),
-              child: sponsor.logoUrl.isEmpty ? const Icon(Icons.business, color: Colors.black) : null,
+              child: sponsor.logoUrl.isEmpty 
+                ? const Icon(Icons.business_outlined, color: Colors.black54, size: 24) 
+                : null,
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 20),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(sponsor.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  Text('${sponsor.company} • ${sponsor.jobPosition}', style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                  Text(
+                    sponsor.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.outfit(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${sponsor.tier.toUpperCase()} • Active Partner',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.outfit(color: Colors.white38, fontSize: 13),
+                  ),
                 ],
               ),
             ),
-            PopupMenuButton(
-              icon: const Icon(Icons.more_vert, color: Colors.white38),
-              itemBuilder: (context) => [
-                PopupMenuItem(
-                  child: const Text('Edit'),
-                  onTap: () => Future.delayed(Duration.zero, () => _showSponsorDialog(sponsor: sponsor)),
-                ),
-                PopupMenuItem(
-                  child: const Text('Delete', style: TextStyle(color: Colors.red)),
-                  onTap: () => ref.read(adminRepositoryProvider).deleteSponsor('', sponsor.id),
-                ),
-              ],
-            ),
+            _iconButton(Icons.edit_outlined, () => _showSponsorDialog(sponsor: sponsor)),
+            const SizedBox(width: 8),
+            _iconButton(Icons.delete_outline_rounded, () => ref.read(adminRepositoryProvider).deleteSponsor(sponsor.eventId, sponsor.id)),
           ],
         ),
-      );
-    }
+      ),
+    );
+  }
   void _showSponsorDialog({Sponsor? sponsor, String? eventId}) {
     final nameController = TextEditingController(text: sponsor?.name);
     final companyController = TextEditingController(text: sponsor?.company);
@@ -1887,29 +2041,54 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
   }
 
   // --- 6. SCHEDULES SECTION ---
-  Widget _buildSchedulesSection() {
+  Widget _buildSchedulesSection(bool isNarrow) {
     final adminRepo = ref.watch(adminRepositoryProvider);
-    
     return Padding(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.symmetric(horizontal: isNarrow ? 20 : 40, vertical: 32),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _sectionTitle('Manage Schedules'),
-              ElevatedButton.icon(
-                onPressed: () => _showScheduleDialog(),
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('Add Schedule'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _gold,
-                  foregroundColor: Colors.black,
+          if (isNarrow)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _sectionHeader('EVENT SCHEDULES', 'Organize and manage session timings'),
+                const SizedBox(height: 20),
+                ElevatedButton.icon(
+                  onPressed: () => _showScheduleDialog(),
+                  icon: const Icon(Icons.event_available_rounded, size: 20),
+                  label: Text('NEW SESSION', style: GoogleFonts.outfit(fontWeight: FontWeight.w700, letterSpacing: 1, color: Colors.black)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _gold,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
+              ],
+            )
+          else
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: _sectionHeader('EVENT SCHEDULES', 'Organize and manage session timings'),
+                ),
+                const SizedBox(width: 16),
+                Flexible(
+                  child: ElevatedButton.icon(
+                    onPressed: () => _showScheduleDialog(),
+                    icon: const Icon(Icons.event_available_rounded, size: 20),
+                    label: Text('NEW SESSION', style: GoogleFonts.outfit(fontWeight: FontWeight.w700, letterSpacing: 1, color: Colors.black)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _gold,
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          const SizedBox(height: 40),
           Expanded(
             child: StreamBuilder<List<CodingEvent>>(
               stream: adminRepo.watchEvents(),
@@ -1921,8 +2100,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                 return StreamBuilder<List<new_schedule.Schedule>>(
                   stream: adminRepo.watchAllSchedules(),
                   builder: (context, snapshot) {
-                    if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-                    if (snapshot.data!.isEmpty) return const Center(child: Text('No schedules yet', style: TextStyle(color: Colors.white38)));
+                    if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: AppColors.codingRimPrimary));
+                    if (snapshot.data!.isEmpty) return _emptySection(Icons.schedule_rounded, 'No schedules yet');
                     
                     final allSchedules = snapshot.data!;
 
@@ -1946,51 +2125,62 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
 
   Widget _scheduleItem(new_schedule.Schedule schedule, String eventName) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: Colors.white12, borderRadius: BorderRadius.circular(12)),
-            child: const Icon(Icons.schedule, color: Color(0xFFFFD700)),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(schedule.title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                Text('${_formatTime(schedule.startTime)} - ${_formatTime(schedule.endTime)}', style: const TextStyle(color: Colors.white54, fontSize: 12)),
-                const SizedBox(height: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: _gold.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(eventName, style: TextStyle(color: _gold, fontSize: 10, fontWeight: FontWeight.bold)),
-                ),
-              ],
-            ),
-          ),
-          PopupMenuButton(
-            icon: const Icon(Icons.more_vert, color: Colors.white38),
-            itemBuilder: (context) => [
-              PopupMenuItem(child: const Text('Edit'), onTap: () => Future.delayed(Duration.zero, () => _showScheduleDialog(schedule: schedule))),
-              PopupMenuItem(
-                child: const Text('Delete', style: TextStyle(color: Colors.red)),
-                onTap: () => Future.delayed(Duration.zero, () {
-                   ref.read(adminRepositoryProvider).deleteSchedule(schedule.eventId, schedule.id);
-                }),
+      margin: const EdgeInsets.only(bottom: 20),
+      child: _GlassCard(
+        padding: const EdgeInsets.all(20),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(16),
               ),
-            ],
-          ),
-        ],
+              child: const Icon(Icons.schedule_rounded, color: AppColors.codingRimPrimary, size: 24),
+            ),
+            const SizedBox(width: 20),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    schedule.title,
+                    style: GoogleFonts.outfit(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Text(
+                        '${_formatTime(schedule.startTime)} - ${_formatTime(schedule.endTime)}',
+                        style: GoogleFonts.outfit(color: Colors.white38, fontSize: 13),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: _gold.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: _gold.withValues(alpha: 0.2)),
+                        ),
+                        child: Text(
+                          eventName,
+                          style: GoogleFonts.outfit(color: _gold, fontSize: 11, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            _iconButton(Icons.edit_outlined, () => _showScheduleDialog(schedule: schedule)),
+            const SizedBox(width: 8),
+            _iconButton(Icons.delete_outline_rounded, () => ref.read(adminRepositoryProvider).deleteSchedule(schedule.eventId, schedule.id)),
+          ],
+        ),
       ),
     );
   }
@@ -2114,22 +2304,22 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
   }
 
   // --- 6. CHAT SECTION (Real-time Admin List View) ---
-  Widget _buildChatSection() {
+  Widget _buildChatSection(bool isNarrow) {
     final chatRepo = ref.watch(adminChatRepositoryProvider);
     
     return Padding(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.symmetric(horizontal: isNarrow ? 20 : 40, vertical: 32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sectionTitle('User Inquiries'),
-          const SizedBox(height: 20),
+          _sectionHeader('USER INQUIRIES', 'Communicate with platform users in real-time'),
+          const SizedBox(height: 40),
           Expanded(
             child: StreamBuilder<List<Map<String, dynamic>>>(
               stream: chatRepo.watchAllChats(),
               builder: (context, snapshot) {
-                if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-                if (snapshot.data!.isEmpty) return const Center(child: Text('No active chats', style: TextStyle(color: Colors.white38)));
+                if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: AppColors.codingRimPrimary));
+                if (snapshot.data!.isEmpty) return _emptySection(Icons.chat_bubble_outline_rounded, 'No active chats');
                 
                 return ListView.builder(
                   itemCount: snapshot.data!.length,
@@ -2150,21 +2340,51 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
     final bool hasUnread = chat['unreadByAdmin'] ?? false;
     
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: hasUnread ? 0.08 : 0.03),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: hasUnread ? _gold.withValues(alpha: 0.3) : Colors.transparent),
-      ),
-      child: ListTile(
-        onTap: () => _openAdminChatRoom(chat['userId'], chat['userName'] ?? 'User'),
-        leading: CircleAvatar(
-          backgroundColor: Colors.white12,
-          child: Text(chat['userName']?[0] ?? 'U', style: const TextStyle(color: Colors.white)),
+      margin: const EdgeInsets.only(bottom: 20),
+      child: _GlassCard(
+        padding: const EdgeInsets.all(12),
+        borderColor: hasUnread ? _gold.withValues(alpha: 0.3) : Colors.transparent,
+        child: ListTile(
+          onTap: () => _openAdminChatRoom(chat['userId'], chat['userName'] ?? 'User'),
+          leading: Container(
+            padding: const EdgeInsets.all(2),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: hasUnread ? _gold : Colors.white12, width: 2),
+            ),
+            child: CircleAvatar(
+              backgroundColor: Colors.white.withValues(alpha: 0.05),
+              child: Text(
+                chat['userName']?[0] ?? 'U',
+                style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+          title: Text(
+            chat['userName'] ?? 'User',
+            style: GoogleFonts.outfit(
+              color: Colors.white,
+              fontWeight: hasUnread ? FontWeight.w900 : FontWeight.bold,
+              fontSize: 16,
+            ),
+          ),
+          subtitle: Text(
+            chat['lastMessage'] ?? '',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.outfit(
+              color: hasUnread ? Colors.white60 : Colors.white38,
+              fontSize: 13,
+            ),
+          ),
+          trailing: hasUnread 
+            ? Container(
+                width: 12,
+                height: 12,
+                decoration: BoxDecoration(color: _gold, shape: BoxShape.circle),
+              ) 
+            : const Icon(Icons.chevron_right_rounded, color: Colors.white24),
         ),
-        title: Text(chat['userName'] ?? 'User', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        subtitle: Text(chat['lastMessage'] ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white54, fontSize: 12)),
-        trailing: hasUnread ? CircleAvatar(radius: 4, backgroundColor: _gold) : const Icon(Icons.chevron_right, color: Colors.white24),
       ),
     );
   }
@@ -2214,7 +2434,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
   }
 
   // --- SYSTEM ACTIVITY / RECENT MEMBERS ---
-  Widget _buildSystemActionsModule() {
+  Widget _buildSystemActionsModule(bool isNarrow) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2267,55 +2487,81 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
 
   // --- MEMBER ITEM & DETAILS ---
   Widget _memberItem(Participant member) {
-    return ListTile(
-      onTap: () => _showMemberDetails(member),
-      contentPadding: const EdgeInsets.symmetric(vertical: 8),
-      leading: Stack(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(2),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: _gold.withValues(alpha: 0.3)),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      child: _GlassCard(
+        padding: const EdgeInsets.all(20),
+        child: Row(
+          children: [
+            Stack(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: _gold.withValues(alpha: 0.2)),
+                  ),
+                  child: CircleAvatar(
+                    radius: 28,
+                    backgroundColor: Colors.white.withValues(alpha: 0.05),
+                    backgroundImage: member.profileImage != null && member.profileImage!.isNotEmpty 
+                      ? NetworkImage(member.profileImage!) 
+                      : null,
+                    child: member.profileImage == null || member.profileImage!.isEmpty
+                      ? Text(
+                          member.name.isNotEmpty ? member.name[0] : 'U',
+                          style: GoogleFonts.outfit(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                        )
+                      : null,
+                  ),
+                ),
+                Positioned(
+                  right: 4,
+                  bottom: 4,
+                  child: Container(
+                    width: 14,
+                    height: 14,
+                    decoration: BoxDecoration(
+                      color: member.isOnline ? const Color(0xFF00FF94) : Colors.grey, 
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.black, width: 2.5),
+                    ),
+                  ),
+                ),
+              ],
             ),
-            child: CircleAvatar(
-              radius: 20,
-              backgroundColor: Colors.white.withValues(alpha: 0.1),
-              backgroundImage: member.profileImage != null && member.profileImage!.isNotEmpty 
-                ? NetworkImage(member.profileImage!) 
-                : null,
-              child: member.profileImage == null || member.profileImage!.isEmpty
-                ? Text(member.name.isNotEmpty ? member.name[0] : 'U', style: const TextStyle(color: Colors.white, fontSize: 14))
-                : null,
-            ),
-          ),
-          Positioned(
-            right: 0,
-            bottom: 0,
-            child: Container(
-              width: 12,
-              height: 12,
-              decoration: BoxDecoration(
-                color: member.isOnline ? const Color(0xFF00FF94) : Colors.grey, 
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.black, width: 2),
+            const SizedBox(width: 20),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    member.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.outfit(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    member.email,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.outfit(color: Colors.white38, fontSize: 13),
+                  ),
+                ],
               ),
             ),
-          ),
-        ],
+            const SizedBox(width: 16),
+            _iconButton(Icons.mail_outline_rounded, () {}),
+            const SizedBox(width: 8),
+            _iconButton(Icons.more_vert_rounded, () {}),
+          ],
+        ),
       ),
-      title: Text(member.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(member.email, style: const TextStyle(color: Colors.white54, fontSize: 11)),
-          Text(
-            'Joined: ${member.joinedAt?.toString().split(' ')[0] ?? 'Just now'}', 
-            style: TextStyle(color: _gold, fontSize: 10, fontWeight: FontWeight.bold)
-          ),
-        ],
-      ),
-      trailing: const Icon(Icons.chevron_right, color: Colors.white24, size: 16),
     );
   }
 
@@ -2468,6 +2714,75 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
     );
   }
 
+  Widget _sectionHeader(String title, String subtitle) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: GoogleFonts.outfit(
+            color: Colors.white30,
+            fontSize: 12,
+            letterSpacing: 2,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          subtitle,
+          style: GoogleFonts.outfit(color: Colors.white60, fontSize: 13),
+        ),
+      ],
+    );
+  }
+
+  Widget _emptySection(IconData icon, String message) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 80),
+          Icon(icon, size: 64, color: Colors.white.withValues(alpha: 0.05)),
+          const SizedBox(height: 24),
+          Text(
+            message,
+            style: GoogleFonts.outfit(color: Colors.white24, fontSize: 16),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _statBadge(IconData icon, String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(width: 10),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.outfit(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _sectionTitle(String title) {
     return Text(
       title,
@@ -2475,210 +2790,234 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
     );
   }
 
-  Widget _buildBrandingSection() {
+  Widget _buildBrandingSection(bool isNarrow) {
     final brandingAsync = ref.watch(brandingProvider);
 
-    return brandingAsync.when(
-      loading: () => _buildBrandingForm(BrandingInfo(companyName: 'Event App')),
-      error: (error, _) {
-        debugPrint('⚠️ Branding UI Error: $error');
-        return _buildBrandingForm(BrandingInfo(companyName: 'Event App'));
-      },
-      data: (branding) => _buildBrandingForm(branding),
-    );
-  }
-
-  Widget _buildBrandingForm(BrandingInfo branding) {
-    if (_brandingNameController.text.isEmpty && branding.companyName != 'Event App') {
-      _brandingNameController.text = branding.companyName;
-    }
-
     return Padding(
-      padding: const EdgeInsets.all(24),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _sectionTitle('Branding Settings'),
-            const SizedBox(height: 24),
-            
-            _GlassCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _moduleHeader('General Branding', Icons.branding_watermark_outlined, _gold),
-                  const SizedBox(height: 24),
-                  const Text('Company Name', style: TextStyle(color: Colors.white70, fontSize: 14)),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _brandingNameController,
-                    style: const TextStyle(color: Colors.white, fontSize: 16),
-                    decoration: InputDecoration(
-                      hintText: 'Enter company name',
-                      hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.2)),
-                      filled: true,
-                      fillColor: Colors.white.withValues(alpha: 0.05),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  const Text('Company Logo', style: TextStyle(color: Colors.white70, fontSize: 14)),
-                  const SizedBox(height: 12),
-                  Center(
-                    child: GestureDetector(
-                      onTap: _isSavingBranding ? null : () async {
-                        final picker = ImagePicker();
-                        final image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
-                        if (image != null) {
-                          final bytes = await image.readAsBytes();
-                          setState(() {
-                            _brandingLogo = image;
-                            _brandingLogoBytes = bytes;
-                          });
-                        }
-                      },
-                      child: Container(
-                        width: 120,
-                        height: 120,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.05),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(20),
-                          child: Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              if (_brandingLogoBytes != null)
-                                Image.memory(_brandingLogoBytes!, fit: BoxFit.contain)
-                              else if (branding.companyLogoUrl != null)
-                                CachedNetworkImage(imageUrl: branding.companyLogoUrl!, fit: BoxFit.contain)
-                              else
-                                const Icon(Icons.add_photo_alternate_outlined, color: Colors.white24, size: 40),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 48),
-
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _isSavingBranding ? null : () async {
-                  setState(() => _isSavingBranding = true);
-                  try {
-                    String finalLogoUrl = branding.companyLogoUrl ?? '';
-                    final adminRepo = ref.read(adminRepositoryProvider);
-
-                    if (_brandingLogoBytes != null) {
-                      finalLogoUrl = await adminRepo.uploadToCloudinary(_brandingLogoBytes!, folder: 'branding');
-                    }
-
-                    final updatedBranding = BrandingInfo(
-                      companyName: _brandingNameController.text.trim(),
-                      companyLogoUrl: finalLogoUrl.isEmpty ? null : finalLogoUrl,
-                      splashImageUrl: branding.splashImageUrl, // Preserve existing
-                      splashText: branding.splashText,
-                      splashAnimationType: branding.splashAnimationType,
-                      onboardingPages: branding.onboardingPages,
-                    );
-
-                    await adminRepo.saveBranding(updatedBranding);
-
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Settings updated successfully!'), backgroundColor: Colors.green));
-                      setState(() => _brandingLogoBytes = null);
-                      ref.invalidate(brandingProvider); // Force refresh
-                    }
-                  } catch (e) {
-                    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
-                  } finally {
-                    if (mounted) setState(() => _isSavingBranding = false);
-                  }
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _gold,
-                  foregroundColor: Colors.black,
-                  padding: const EdgeInsets.symmetric(vertical: 20),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                ),
-                child: _isSavingBranding
-                    ? const SizedBox(height: 22, width: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.black))
-                    : const Text('SAVE BRANDING', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.5)),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Center(
-              child: TextButton.icon(
-                onPressed: _isDeletingBranding ? null : () async {
-                  final confirm = await showDialog<bool>(
-                    context: context,
-                    builder: (context) => AlertDialog(
-                      backgroundColor: AppColors.surface,
-                      title: const Text('Reset Branding?', style: TextStyle(color: Colors.white)),
-                      content: const Text(
-                        'This will reset the Company Name and Logo to the default "EVENT APP". This action cannot be undone.',
-                        style: TextStyle(color: Colors.white70),
-                      ),
-                      actions: [
-                        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-                        TextButton(
-                          onPressed: () => Navigator.pop(context, true), 
-                          style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
-                          child: const Text('Reset'),
-                        ),
-                      ],
-                    ),
-                  );
-
-                  if (confirm == true) {
-                    setState(() => _isDeletingBranding = true);
-                    try {
-                      await ref.read(adminRepositoryProvider).deleteBranding();
-                      
-                      if (mounted) {
-                        _brandingNameController.clear();
-                        setState(() {
-                          _brandingLogo = null;
-                          _brandingLogoBytes = null;
-                        });
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Branding reset to default!'), backgroundColor: Colors.green));
-                        ref.invalidate(brandingProvider); // Force refresh
-                      }
-                    } catch (e) {
-                      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
-                    } finally {
-                      if (mounted) setState(() => _isDeletingBranding = false);
-                    }
-                  }
-                },
-                icon: _isDeletingBranding 
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.redAccent))
-                  : const Icon(Icons.delete_outline_rounded, size: 18),
-                label: Text(_isDeletingBranding ? 'RESETTING...' : 'RESET TO DEFAULT', style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.redAccent.withValues(alpha: 0.8),
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                ),
-              ),
-            ),
-            const SizedBox(height: 60),
-          ],
-        ),
+      padding: EdgeInsets.symmetric(horizontal: isNarrow ? 20 : 40, vertical: 32),
+      child: brandingAsync.when(
+        loading: () => _buildBrandingForm(BrandingInfo(companyName: 'Event App'), isNarrow),
+        error: (error, _) => _buildBrandingForm(BrandingInfo(companyName: 'Event App'), isNarrow),
+        data: (branding) => _buildBrandingForm(branding, isNarrow),
       ),
     );
   }
 
+  Widget _buildBrandingForm(BrandingInfo branding, bool isNarrow) {
+    if (_brandingNameController.text.isEmpty && branding.companyName != 'Event App') {
+      _brandingNameController.text = branding.companyName;
+    }
 
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionHeader('BRANDING SETTINGS', 'Customize your platform appearance and identity'),
+          const SizedBox(height: 40),
+          _GlassCard(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: _gold.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(Icons.palette_outlined, color: _gold, size: 24),
+                    ),
+                    const SizedBox(width: 16),
+                    Text(
+                      'Identity & Visuals',
+                      style: GoogleFonts.outfit(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 32),
+                const Text('Company Name', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _brandingNameController,
+                  style: const TextStyle(color: Colors.white, fontSize: 16),
+                  decoration: InputDecoration(
+                    hintText: 'Enter company name',
+                    hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.2)),
+                    filled: true,
+                    fillColor: Colors.white.withValues(alpha: 0.05),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                const Text('Company Logo', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                const SizedBox(height: 12),
+                Center(
+                  child: GestureDetector(
+                    onTap: _isSavingBranding ? null : () async {
+                      final picker = ImagePicker();
+                      final image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
+                      if (image != null) {
+                        final bytes = await image.readAsBytes();
+                        setState(() {
+                          _brandingLogo = image;
+                          _brandingLogoBytes = bytes;
+                        });
+                      }
+                    },
+                    child: Container(
+                      width: 120,
+                      height: 120,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(20),
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            if (_brandingLogoBytes != null)
+                              Image.memory(_brandingLogoBytes!, fit: BoxFit.cover)
+                            else if (branding.companyLogoUrl != null)
+                              CachedNetworkImage(
+                                imageUrl: branding.companyLogoUrl!,
+                                fit: BoxFit.cover,
+                                placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
+                                errorWidget: (context, url, error) => const Icon(Icons.error),
+                              )
+                            else
+                              const Icon(Icons.add_photo_alternate_outlined, color: Colors.white24, size: 40),
+                            Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [Colors.transparent, Colors.black.withValues(alpha: 0.7)],
+                                ),
+                              ),
+                            ),
+                            const Positioned(
+                              bottom: 8,
+                              left: 0,
+                              right: 0,
+                              child: Center(
+                                child: Text(
+                                  'CHANGE LOGO',
+                                  style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 40),
+                SizedBox(
+                  width: double.infinity,
+                  height: 64,
+                  child: ElevatedButton(
+                    onPressed: _isSavingBranding ? null : () async {
+                      setState(() => _isSavingBranding = true);
+                      try {
+                         final adminRepo = ref.read(adminRepositoryProvider);
+                         String? logoUrl = branding.companyLogoUrl;
+                         if (_brandingLogoBytes != null) {
+                           logoUrl = await adminRepo.uploadToCloudinary(_brandingLogoBytes!, folder: 'branding');
+                         }
+                         await adminRepo.saveBranding(branding.copyWith(
+                           companyName: _brandingNameController.text,
+                           companyLogoUrl: logoUrl,
+                         ));
+                         if (mounted) {
+                           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Branding saved successfully!'), backgroundColor: Colors.green));
+                           ref.invalidate(brandingProvider);
+                         }
+                      } catch (e) {
+                         if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+                      } finally {
+                         if (mounted) setState(() => _isSavingBranding = false);
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _gold,
+                      foregroundColor: Colors.black,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      elevation: 0,
+                    ),
+                    child: _isSavingBranding 
+                      ? const CircularProgressIndicator(color: Colors.black)
+                      : Text('SAVE BRANDING', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, letterSpacing: 2)),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Center(
+                  child: TextButton.icon(
+                    onPressed: _isDeletingBranding ? null : () async {
+                      final confirm = await showDialog<bool>(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          backgroundColor: AppColors.surface,
+                          title: const Text('Reset Branding?', style: TextStyle(color: Colors.white)),
+                          content: const Text(
+                            'This will reset the Company Name and Logo to the default "EVENT APP". This action cannot be undone.',
+                            style: TextStyle(color: Colors.white70),
+                          ),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+                            TextButton(
+                              onPressed: () => Navigator.pop(context, true), 
+                              style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+                              child: const Text('Reset'),
+                            ),
+                          ],
+                        ),
+                      );
 
-
-  // --- CATEGORIES SECTION (Refactored to Dialog) ---
+                      if (confirm == true) {
+                        setState(() => _isDeletingBranding = true);
+                        try {
+                          await ref.read(adminRepositoryProvider).deleteBranding();
+                          
+                          if (mounted) {
+                            _brandingNameController.clear();
+                            setState(() {
+                              _brandingLogo = null;
+                              _brandingLogoBytes = null;
+                            });
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Branding reset to default!'), backgroundColor: Colors.green));
+                            ref.invalidate(brandingProvider); // Force refresh
+                          }
+                        } catch (e) {
+                          if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+                        } finally {
+                          if (mounted) setState(() => _isDeletingBranding = false);
+                        }
+                      }
+                    },
+                    icon: _isDeletingBranding 
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.redAccent))
+                      : const Icon(Icons.delete_outline_rounded, size: 18),
+                    label: Text(_isDeletingBranding ? 'RESETTING...' : 'RESET TO DEFAULT', style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.redAccent.withValues(alpha: 0.8),
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 60),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+// --- CATEGORIES SECTION (Refactored to Dialog) ---
   // The Categories section is now managed via _showManageCategoriesDialog() 
   // accessed from the Manage Events header.
 
@@ -2720,7 +3059,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
             onChanged: (val) {
               ref.read(adminRepositoryProvider).saveCategory(category.copyWith(isEnabled: val));
             },
-            activeColor: _gold,
+            activeThumbColor: _gold,
           ),
           PopupMenuButton(
             icon: const Icon(Icons.more_vert, color: Colors.white38),
@@ -2763,7 +3102,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                   Switch(
                     value: isEnabled,
                     onChanged: (val) => setState(() => isEnabled = val),
-                    activeColor: _gold,
+                    activeThumbColor: _gold,
                   ),
                 ],
               ),
@@ -2790,157 +3129,101 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
     );
   }
 
-  Widget _buildOnboardingPageEditor(int index) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 20),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('Page ${index + 1}', style: TextStyle(color: _gold, fontWeight: FontWeight.bold)),
-              IconButton(
-                icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
-                onPressed: () {
-                  setState(() {
-                    _onboardingTitleControllers.removeAt(index);
-                    _onboardingDescControllers.removeAt(index);
-                    _onboardingImages.removeAt(index);
-                    _onboardingImageBytes.removeAt(index);
-                    _onboardingExistingUrls.removeAt(index);
-                  });
-                },
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _onboardingTitleControllers[index],
-            decoration: const InputDecoration(labelText: 'Title', hintText: 'Enter title'),
-            style: const TextStyle(color: Colors.white),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _onboardingDescControllers[index],
-            decoration: const InputDecoration(labelText: 'Description', hintText: 'Enter description'),
-            style: const TextStyle(color: Colors.white),
-            maxLines: 2,
-          ),
-          const SizedBox(height: 16),
-          const Text('Page Image', style: TextStyle(color: Colors.white70, fontSize: 12)),
-          const SizedBox(height: 8),
-          Center(
-            child: GestureDetector(
-              onTap: () async {
-                final picker = ImagePicker();
-                final image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
-                if (image != null) {
-                  final bytes = await image.readAsBytes();
-                  setState(() {
-                    _onboardingImages[index] = image;
-                    _onboardingImageBytes[index] = bytes;
-                  });
-                }
-              },
-              child: Container(
-                width: 100,
-                height: 100,
-                decoration: BoxDecoration(
-                  color: Colors.black26,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.white10),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: _onboardingImageBytes[index] != null
-                      ? Image.memory(_onboardingImageBytes[index]!, fit: BoxFit.cover)
-                      : (_onboardingExistingUrls[index] != null
-                          ? CachedNetworkImage(imageUrl: _onboardingExistingUrls[index]!, fit: BoxFit.cover)
-                          : const Icon(Icons.add_photo_alternate_outlined, color: Colors.white24)),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   // --- 8. PROFILE APP SECTION ---
-  Widget _buildProfileSection() {
+  Widget _buildProfileSection(bool isNarrow) {
     final adminRepo = ref.watch(adminRepositoryProvider);
-
+ 
     return Padding(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.symmetric(horizontal: isNarrow ? 20 : 40, vertical: 32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(child: _sectionTitle('Manage Profile Layout')),
-              Wrap(
-                spacing: 8,
-                runSpacing: 4,
-                children: [
-                  OutlinedButton.icon(
-                    onPressed: () => _seedInitialProfileTiles(),
-                    icon: const Icon(Icons.auto_awesome, size: 18),
-                    label: const Text('Seed Initial'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: _gold,
-                      side: BorderSide(color: _gold.withValues(alpha: 0.5)),
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
+          if (isNarrow)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _sectionHeader('PROFILE LAYOUT', 'Control which options appear on the user profile screen'),
+                const SizedBox(height: 20),
+                Wrap(
+                  spacing: 16,
+                  runSpacing: 16,
+                  children: [
+                     OutlinedButton.icon(
+                      onPressed: () => _seedInitialProfileTiles(),
+                      icon: const Icon(Icons.auto_awesome_rounded, size: 18),
+                      label: Text('SEED DEFAULT', style: GoogleFonts.outfit(fontWeight: FontWeight.w700, letterSpacing: 1)),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: _gold,
+                        side: BorderSide(color: _gold.withValues(alpha: 0.3)),
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
                     ),
-                  ),
-                  ElevatedButton.icon(
-                    onPressed: () => _showProfileItemDialog(),
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('New Tile'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _gold,
-                      foregroundColor: Colors.black,
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                    ElevatedButton.icon(
+                      onPressed: () => _showProfileItemDialog(),
+                      icon: const Icon(Icons.add_rounded, size: 20),
+                      label: Text('NEW TILE', style: GoogleFonts.outfit(fontWeight: FontWeight.w700, letterSpacing: 1, color: Colors.black)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _gold,
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
                     ),
+                  ],
+                ),
+              ],
+            )
+          else
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: _sectionHeader('PROFILE LAYOUT', 'Control which options appear on the user profile screen'),
+                ),
+                const SizedBox(width: 16),
+                Flexible(
+                  child: Wrap(
+                    spacing: 16,
+                    runSpacing: 16,
+                    alignment: WrapAlignment.end,
+                    children: [
+                       OutlinedButton.icon(
+                        onPressed: () => _seedInitialProfileTiles(),
+                        icon: const Icon(Icons.auto_awesome_rounded, size: 18),
+                        label: Text('SEED DEFAULT', style: GoogleFonts.outfit(fontWeight: FontWeight.w700, letterSpacing: 1)),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: _gold,
+                          side: BorderSide(color: _gold.withValues(alpha: 0.3)),
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                      ElevatedButton.icon(
+                        onPressed: () => _showProfileItemDialog(),
+                        icon: const Icon(Icons.add_rounded, size: 20),
+                        label: Text('NEW TILE', style: GoogleFonts.outfit(fontWeight: FontWeight.w700, letterSpacing: 1, color: Colors.black)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _gold,
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Control which options appear on the user profile screen.',
-            style: GoogleFonts.inter(color: Colors.white54, fontSize: 13),
-          ),
-          const SizedBox(height: 24),
+                ),
+              ],
+            ),
+          const SizedBox(height: 40),
           Expanded(
             child: StreamBuilder<List<ProfileItem>>(
               stream: adminRepo.watchProfileItems(),
               builder: (context, snapshot) {
-                if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+                if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: AppColors.codingRimPrimary));
+                
                 final items = snapshot.data!;
                 if (items.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.dashboard_customize_outlined, color: Colors.white24, size: 64),
-                        const SizedBox(height: 16),
-                        const Text('No profile tiles configured', style: TextStyle(color: Colors.white38)),
-                        const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: () => _seedInitialProfileTiles(),
-                          child: const Text('Seed Default Tiles'),
-                        ),
-                      ],
-                    ),
-                  );
+                  return _emptySection(Icons.dashboard_customize_outlined, 'No profile tiles configured');
                 }
 
                 return ListView.builder(
@@ -2960,72 +3243,61 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
 
   Widget _profileItemCard(ProfileItem item) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: item.isEnabled ? _gold.withValues(alpha: 0.2) : Colors.white10),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: item.isEnabled ? _gold.withValues(alpha: 0.1) : Colors.white10,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              IconData(item.iconCodePoint, fontFamily: 'MaterialIcons'),
-              color: item.isEnabled ? _gold : Colors.white38,
-              size: 24,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.title,
-                  style: GoogleFonts.outfit(
-                    color: item.isEnabled ? Colors.white : Colors.white38,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
-                Text(
-                  'Route: ${item.route}',
-                  style: GoogleFonts.inter(color: Colors.white38, fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-          Column(
-            children: [
-              Switch(
-                value: item.isEnabled,
-                activeColor: _gold,
-                onChanged: (val) {
-                  ref.read(adminRepositoryProvider).saveProfileItem(item.copyWith(isEnabled: val));
-                },
+      margin: const EdgeInsets.only(bottom: 20),
+      child: _GlassCard(
+        padding: const EdgeInsets.all(20),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: item.isEnabled ? _gold.withValues(alpha: 0.1) : Colors.white.withValues(alpha: 0.05),
+                shape: BoxShape.circle,
               ),
-              PopupMenuButton(
-                icon: const Icon(Icons.more_vert, color: Colors.white38),
-                itemBuilder: (context) => [
-                  PopupMenuItem(
-                    child: const Text('Edit'),
-                    onTap: () => Future.delayed(Duration.zero, () => _showProfileItemDialog(item: item)),
+              child: Icon(
+                AppIcons.getIcon(item.iconCodePoint),
+                color: item.isEnabled ? _gold : Colors.white24,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 20),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.outfit(
+                      color: item.isEnabled ? Colors.white : Colors.white38,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
                   ),
-                  PopupMenuItem(
-                    child: const Text('Delete', style: TextStyle(color: Colors.red)),
-                    onTap: () => _confirmDeleteProfileItem(item),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Route: ${item.route}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.outfit(color: Colors.white24, fontSize: 13),
                   ),
                 ],
               ),
-            ],
-          ),
-        ],
+            ),
+            Switch(
+              value: item.isEnabled,
+              activeThumbColor: _gold,
+              onChanged: (val) {
+                ref.read(adminRepositoryProvider).saveProfileItem(item.copyWith(isEnabled: val));
+              },
+            ),
+            const SizedBox(width: 8),
+            _iconButton(Icons.edit_outlined, () => _showProfileItemDialog(item: item)),
+            const SizedBox(width: 8),
+            _iconButton(Icons.delete_outline_rounded, () => _confirmDeleteProfileItem(item)),
+          ],
+        ),
       ),
     );
   }
@@ -3097,7 +3369,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                           border: Border.all(color: isSelected ? _gold : Colors.transparent),
                         ),
                         child: Icon(
-                          IconData(ic['code'], fontFamily: 'MaterialIcons'),
+                          AppIcons.getIcon(ic['code']),
                           color: isSelected ? _gold : Colors.white54,
                           size: 24,
                         ),
@@ -3201,8 +3473,9 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
 class _GlassCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry? padding;
+  final Color? borderColor;
 
-  _GlassCard({required this.child, this.padding});
+  const _GlassCard({required this.child, this.padding, this.borderColor});
 
   @override
   Widget build(BuildContext context) {
@@ -3211,7 +3484,7 @@ class _GlassCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(28), // Premium rounded corners matching Event Home
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        border: Border.all(color: borderColor ?? Colors.white.withValues(alpha: 0.08)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.1),

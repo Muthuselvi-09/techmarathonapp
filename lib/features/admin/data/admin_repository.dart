@@ -437,4 +437,95 @@ class AdminRepository {
         .map((doc) => new_schedule.Schedule.fromMap(doc.data(), doc.id))
         .toList();
   }
+
+  // --- ENTRY PASS MANAGEMENT ---
+
+  Future<void> toggleEntryScan(String eventId, bool enabled) async {
+    await _firestore.collection('events').doc(eventId).update({
+      'isEntryScanEnabled': enabled,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    debugPrint('🎟️ Entry Scan ${enabled ? 'ENABLED' : 'DISABLED'} for event $eventId');
+  }
+
+  Stream<List<EntryPass>> watchEntryPasses(String eventId) {
+    return _firestore
+        .collectionGroup('entryPasses')
+        .where('eventId', isEqualTo: eventId)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs
+          .map((doc) => EntryPass.fromMap(doc.data(), doc.id))
+          .toList();
+    });
+  }
+
+  Future<String> validateAndProcessPass({
+    required String passId,
+    required String eventId,
+    required String adminId,
+  }) async {
+    try {
+      // 1. Check if event has entry scan enabled
+      final eventDoc = await _firestore.collection('events').doc(eventId).get();
+      if (!eventDoc.exists) return 'Event not found';
+      
+      final eventData = eventDoc.data()!;
+      if (!(eventData['isEntryScanEnabled'] ?? false)) {
+        return 'Entry not started yet';
+      }
+
+      // 2. Find the pass (collection group search)
+      final passQuery = await _firestore
+          .collectionGroup('entryPasses')
+          .where('eventId', isEqualTo: eventId)
+          .where(FieldPath.documentId, isEqualTo: passId)
+          .get();
+
+      if (passQuery.docs.isEmpty) {
+        return 'Invalid QR Code (Pass not found)';
+      }
+
+      final passDoc = passQuery.docs.first;
+      final pass = EntryPass.fromMap(passDoc.data(), passDoc.id);
+
+      // 3. Check status
+      if (pass.status == 'USED') {
+        return 'Access Denied: Ticket already used';
+      }
+
+      // 4. Mark as USED
+      await passDoc.reference.update({
+        'status': 'USED',
+        'entryTime': FieldValue.serverTimestamp(),
+        'scannedByAdminId': adminId,
+      });
+
+      return 'SUCCESS';
+    } catch (e) {
+      debugPrint('❌ Validation Error: $e');
+      return 'Error: $e';
+    }
+  }
+
+  Future<void> createEntryPass(String eventId, String userId, String userName) async {
+    final docRef = _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('entryPasses')
+        .doc();
+    
+    final pass = EntryPass(
+      id: docRef.id,
+      eventId: eventId,
+      userId: userId,
+      userName: userName,
+      status: 'ACTIVE',
+      createdAt: DateTime.now(),
+    );
+
+    await docRef.set(pass.toMap());
+    debugPrint('🎟️ Entry Pass Created for $userName (Event: $eventId)');
+  }
 }

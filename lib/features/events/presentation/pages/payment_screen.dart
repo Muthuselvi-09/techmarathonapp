@@ -6,6 +6,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../features/home/domain/event_models.dart';
 import '../../../../features/profile/data/profile_repository.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../../../features/admin/data/admin_repository.dart';
 import 'package:go_router/go_router.dart';
 
 class PaymentScreen extends ConsumerStatefulWidget {
@@ -29,6 +30,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     final userId = FirebaseAuth.instance.currentUser?.uid;
     if (userId != null) {
       await ref.read(profileRepositoryProvider).registerEvent(userId, widget.event.id);
+      final userName = FirebaseAuth.instance.currentUser?.displayName ?? 'Attendee';
+      await ref.read(adminRepositoryProvider).createEntryPass(widget.event.id, userId, userName);
       
       if (mounted) {
         _showSuccessDialog();
