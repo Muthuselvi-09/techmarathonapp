@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../../../core/utils/app_icons.dart';
 import 'package:go_router/go_router.dart';
@@ -25,7 +27,26 @@ import 'package:shimmer/shimmer.dart';
 import '../../../home/presentation/providers/branding_provider.dart';
 import '../widgets/admin_sidebar.dart';
 import 'admin_entry_management_screen.dart';
- 
+import 'create_event_screen.dart';
+import 'create_speaker_screen.dart';
+import 'create_sponsor_screen.dart';
+import 'create_schedule_screen.dart';
+import 'package:tech_marathon_app/features/admin/presentation/pages/attendee_insights_screen.dart';
+import 'package:tech_marathon_app/features/home/presentation/providers/event_stream_providers.dart';
+
+Widget _buildHeaderAction({required String label, required IconData icon, required VoidCallback onPressed}) {
+  return ElevatedButton.icon(
+    onPressed: onPressed,
+    icon: Icon(icon, size: 16, color: Colors.black),
+    label: Text(label, style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black)),
+    style: ElevatedButton.styleFrom(
+      backgroundColor: const Color(0xFFFFD700),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+    ),
+  );
+}
+
 class AdminDashboardScreen extends ConsumerStatefulWidget {
   final int initialTab;
   const AdminDashboardScreen({super.key, this.initialTab = 0});
@@ -35,6 +56,19 @@ class AdminDashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> with SingleTickerProviderStateMixin {
+  Widget _buildHeaderAction({required String label, required IconData icon, required VoidCallback onPressed}) {
+    return ElevatedButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 16, color: Colors.black),
+      label: Text(label, style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black)),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: const Color(0xFFFFD700),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
+  }
+
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   late int _currentTab; // 0: Overview, 1: Events, 2: Members, 3: Speakers, 4: Sponsors, 5: Schedules, 6: Chat, 7: Branding
 
@@ -50,6 +84,12 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
   String _splashAnimationType = 'scale';
   XFile? _splashImage;
   Uint8List? _splashImageBytes;
+
+  // Search State
+  String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
+  int _scheduleSubTab = 0; // 0: All, 1: Draft, 2: Published, 3: Completed, 4: Conflicts
+
 
   // Onboarding Screen state
   // Profile Actions state
@@ -76,6 +116,20 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
   // Gold + Black Theme Constants
   final Color _gold = const Color(0xFFFFD700);
   final Color _darkBg = const Color(0xFF121212); // Deep Black/Grey
+
+  void _handleSearch(String query) {
+    if (query.isEmpty) return;
+    
+    // Simple navigation logic for menu items
+    final q = query.toLowerCase();
+    if (q.contains('event')) setState(() => _currentTab = 1);
+    else if (q.contains('member') || q.contains('user')) setState(() => _currentTab = 2);
+    else if (q.contains('speaker')) setState(() => _currentTab = 3);
+    else if (q.contains('sponsor')) setState(() => _currentTab = 4);
+    else if (q.contains('schedule') || q.contains('session')) setState(() => _currentTab = 5);
+    else if (q.contains('chat')) setState(() => _currentTab = 6);
+    else if (q.contains('brand')) setState(() => _currentTab = 7);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -172,8 +226,34 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                   ),
                 ],
               ],
+                  ), // Closing Column
+                ), // Closing Expanded
+          // Search Bar
+          if (!isNarrow) ...[
+            Container(
+              width: 300,
+              height: 48,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+              ),
+              child: TextField(
+                controller: _searchController,
+                style: const TextStyle(color: Colors.white),
+                onSubmitted: _handleSearch,
+                onChanged: (val) => setState(() => _searchQuery = val.trim()),
+                decoration: InputDecoration(
+                  hintText: 'Search attendees, menu...',
+                  hintStyle: const TextStyle(color: Colors.white38, fontSize: 13),
+                  prefixIcon: const Icon(Icons.search, color: Colors.white38, size: 20),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                ),
+              ),
             ),
-          ),
+            const SizedBox(width: 24),
+          ],
           const SizedBox(width: 16),
           _iconButton(Icons.notifications_none_rounded, () {}),
           const SizedBox(width: 16),
@@ -201,7 +281,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
     switch (index) {
       case 0: return 'Overview';
       case 1: return 'Events';
-      case 2: return 'Members';
+      case 2: return 'Participants';
       case 3: return 'Speakers';
       case 4: return 'Sponsors';
       case 5: return 'Schedules';
@@ -525,20 +605,34 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                           Row(
                             children: [
                               const Icon(Icons.location_on_rounded, color: Colors.white24, size: 14),
-                              const SizedBox(width: 6),
+                              const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
                                   event.location,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: GoogleFonts.outfit(
+                                  style: GoogleFonts.inter(
                                     color: Colors.white38,
-                                    fontSize: 13,
+                                    fontSize: 12,
                                   ),
                                 ),
                               ),
+                              _buildHeaderAction(
+                                label: 'ANALYTICS',
+                                icon: Icons.analytics_rounded,
+                                onPressed: () {
+                                  final currentEvent = ref.read(currentEventStreamProvider).value;
+                                  if (currentEvent != null) {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(builder: (context) => AttendeeInsightsScreen(eventId: currentEvent.id)),
+                                    );
+                                  }
+                                },
+                              ),
                             ],
                           ),
+
                         ],
                       ),
                     ),
@@ -711,13 +805,20 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                 
                 final firestoreEvents = snapshot.data ?? [];
                 final allEvents = [...firestoreEvents];
+                
+                final filteredEvents = _searchQuery.isEmpty 
+                    ? allEvents 
+                    : allEvents.where((e) => e.name.toLowerCase().contains(_searchQuery.toLowerCase())).toList();
 
-                if (allEvents.isEmpty) return const Center(child: Text('No events found', style: TextStyle(color: Colors.white38)));
+                if (filteredEvents.isEmpty) {
+                   if (_searchQuery.isNotEmpty) return Center(child: Text('No events matching "$_searchQuery"', style: const TextStyle(color: Colors.white38)));
+                   return const Center(child: Text('No events found', style: TextStyle(color: Colors.white38)));
+                }
                 
                 return ListView.builder(
-                  itemCount: allEvents.length,
+                  itemCount: filteredEvents.length,
                   itemBuilder: (context, index) {
-                    final event = allEvents[index];
+                    final event = filteredEvents[index];
                     return _eventItem(event);
                   },
                 );
@@ -834,6 +935,14 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                       ),
                     ],
                   ),
+                  if (event.totalSeats > 0) ...[
+                    const SizedBox(height: 8),
+                    _statBadge(
+                      Icons.event_seat_rounded, 
+                      '${event.bookedSeats}/${event.totalSeats} Seats Booked', 
+                      event.bookedSeats >= event.totalSeats ? Colors.redAccent : _gold
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -847,9 +956,21 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
               );
             }),
             const SizedBox(width: 8),
-            _iconButton(Icons.edit_outlined, () => _showEventDialog(event: event)),
-            const SizedBox(width: 8),
-            _iconButton(Icons.delete_outline_rounded, () => ref.read(adminRepositoryProvider).deleteEvent(event.id)),
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert_rounded, color: Colors.white),
+              color: AppColors.surface,
+              onSelected: (value) {
+                if (value == 'edit') {
+                  _showEventDialog(event: event);
+                } else if (value == 'delete') {
+                  ref.read(adminRepositoryProvider).deleteEvent(event.id);
+                }
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(value: 'edit', child: Text('Edit', style: TextStyle(color: Colors.white))),
+                const PopupMenuItem(value: 'delete', child: Text('Delete', style: TextStyle(color: Colors.redAccent))),
+              ],
+            ),
           ],
         ),
       ),
@@ -857,259 +978,13 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
   }
 
   void _showEventDialog({CodingEvent? event}) {
-    final titleController = TextEditingController(text: event?.name);
-    final locationController = TextEditingController(text: event?.location);
-    final descController = TextEditingController(text: event?.description);
-    final feeController = TextEditingController(text: event?.entryFee.toString());
-    final currencyController = TextEditingController(text: event?.currency ?? '₹');
-    final entryTimingController = TextEditingController(text: event?.entryTiming);
-    List<String> rules = List<String>.from(event?.rules ?? []);
-    
-    XFile? selectedImage;
-    String? currentImageUrl = event?.imageUrl;
-    String? selectedCategoryId = event?.categoryId;
-    bool isFree = event?.isFree ?? true;
-
-    showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) {
-          final categoriesAsync = ref.watch(adminRepositoryProvider).watchCategories();
-
-          return AlertDialog(
-            backgroundColor: AppColors.surface,
-            title: Text(event == null ? 'New Event' : 'Edit Event', style: const TextStyle(color: Colors.white)),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  GestureDetector(
-                    onTap: () async {
-                      final picker = ImagePicker();
-                      final image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
-                      if (image != null) {
-                        setState(() => selectedImage = image);
-                      }
-                    },
-                    child: Container(
-                      height: 150,
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: Colors.white12,
-                        borderRadius: BorderRadius.circular(12),
-                        image: selectedImage != null 
-                          ? DecorationImage(
-                              image: kIsWeb 
-                                  ? NetworkImage(selectedImage!.path) 
-                                  : FileImage(File(selectedImage!.path)) as ImageProvider,
-                              fit: BoxFit.cover
-                            )
-                          : (currentImageUrl != null && currentImageUrl!.isNotEmpty)
-                            ? DecorationImage(image: NetworkImage(currentImageUrl!), fit: BoxFit.cover)
-                            : null,
-                      ),
-                      child: selectedImage == null && (currentImageUrl == null || currentImageUrl!.isEmpty)
-                        ? Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(Icons.add_photo_alternate_rounded, color: Colors.white54, size: 40),
-                              const SizedBox(height: 8),
-                              const Text('Add Cover Image', style: TextStyle(color: Colors.white54, fontSize: 12)),
-                            ],
-                          )
-                        : null,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(controller: titleController, decoration: const InputDecoration(labelText: 'Event Title'), style: const TextStyle(color: Colors.white)),
-                  TextField(controller: locationController, decoration: const InputDecoration(labelText: 'Location'), style: const TextStyle(color: Colors.white)),
-                  
-                  const SizedBox(height: 16),
-                  const Text('Category', style: TextStyle(color: Colors.white70, fontSize: 12)),
-                  StreamBuilder<List<Category>>(
-                    stream: ref.watch(adminRepositoryProvider).watchCategories(),
-                    builder: (context, snapshot) {
-                      final categoriesList = snapshot.data ?? [];
-                      final categories = categoriesList.where((c) => c.isEnabled).toList();
-                      return Row(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Expanded(
-                            child: DropdownButtonFormField<String>(
-                              value: selectedCategoryId,
-                              dropdownColor: AppColors.surface,
-                              style: const TextStyle(color: Colors.white),
-                              decoration: const InputDecoration(
-                                hintText: 'Select Category',
-                                hintStyle: TextStyle(color: Colors.white24),
-                              ),
-                              items: categories.map((cat) => DropdownMenuItem<String>(
-                                value: cat.id,
-                                child: Text(cat.name),
-                              )).toList(),
-                              onChanged: (val) => setState(() => selectedCategoryId = val),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          IconButton(
-                            onPressed: () => _showCategoryDialog(),
-                            icon: Icon(Icons.add_circle_outline, color: _gold),
-                            tooltip: 'Add New Category',
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('Free Event', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                      Switch(
-                        value: isFree,
-                        onChanged: (val) => setState(() => isFree = val),
-                        activeThumbColor: _gold,
-                      ),
-                    ],
-                  ),
-                  if (!isFree) ...[
-                    Row(
-                      children: [
-                        Expanded(
-                          flex: 2,
-                          child: TextField(
-                            controller: currencyController,
-                            decoration: const InputDecoration(labelText: 'Currency'),
-                            style: const TextStyle(color: Colors.white),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          flex: 3,
-                          child: TextField(
-                            controller: feeController,
-                            decoration: const InputDecoration(labelText: 'Entry Fee'),
-                            keyboardType: TextInputType.number,
-                            style: const TextStyle(color: Colors.white),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-
-                  const SizedBox(height: 16),
-                  TextField(controller: descController, decoration: const InputDecoration(labelText: 'Description'), style: const TextStyle(color: Colors.white), maxLines: 3),
-                  
-                  const SizedBox(height: 16),
-                  TextField(controller: entryTimingController, decoration: const InputDecoration(labelText: 'Entry Timing (e.g. Registration opens at 8:00 AM)'), style: const TextStyle(color: Colors.white)),
-                  
-                  const SizedBox(height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Rules & Instructions', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold)),
-                      IconButton(
-                        onPressed: () => setState(() => rules.add('')),
-                        icon: Icon(Icons.add_circle_outline, color: _gold),
-                      ),
-                    ],
-                  ),
-                  ...rules.asMap().entries.map((entry) {
-                    final index = entry.key;
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: TextFormField(
-                              initialValue: entry.value,
-                              decoration: InputDecoration(hintText: 'Rule ${index + 1}', hintStyle: const TextStyle(color: Colors.white24)),
-                              style: const TextStyle(color: Colors.white, fontSize: 13),
-                              onChanged: (val) => rules[index] = val,
-                            ),
-                          ),
-                          IconButton(
-                            onPressed: () => setState(() => rules.removeAt(index)),
-                            icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent, size: 20),
-                          ),
-                        ],
-                      ),
-                    );
-                  }).toList(),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context), 
-                child: const Text('Cancel')
-              ),
-              ElevatedButton(
-                onPressed: () async {
-                   if (titleController.text.isEmpty) return;
-                   
-                   final price = double.tryParse(feeController.text) ?? 0.0;
-                   
-                   // Fetch category name for backward compatibility
-                   String catName = '';
-                   if (selectedCategoryId != null) {
-                     final repo = ref.read(adminRepositoryProvider);
-                     // This is a bit slow for a sync callback, but we need it for 'category' string field
-                     // Alternatively, we just save without it and let it be empty or placeholder.
-                     // The prompt said "Decide which event belongs to which category"
-                   }
-
-                   final repo = ref.read(adminRepositoryProvider);
-                   final categories = await repo.watchCategories().first;
-                   catName = categories.firstWhere((c) => c.id == selectedCategoryId, orElse: () => Category(id: '', name: 'All')).name;
-
-                   final optimisticEvent = CodingEvent(
-                     id: event?.id ?? 'temp_${DateTime.now().millisecondsSinceEpoch}',
-                     name: titleController.text,
-                     location: locationController.text,
-                     category: catName, // Preserving name
-                     categoryId: selectedCategoryId,
-                     isFree: isFree,
-                     entryFee: isFree ? 0.0 : price,
-                     currency: currencyController.text,
-                     description: descController.text,
-                     date: event?.date ?? DateTime.now(),
-                     speakerIds: event?.speakerIds ?? [],
-                     imageUrl: currentImageUrl ?? 'https://images.unsplash.com/photo-1540575467063-178a50c2df87',
-                     entryTiming: entryTimingController.text,
-                     rules: rules.where((r) => r.trim().isNotEmpty).toList(),
-                   );
-
-                   if (event == null) {
-                     ref.read(optimisticEventsProvider.notifier).addEvent(optimisticEvent);
-                   } else {
-                     ref.read(optimisticEventsProvider.notifier).updateEvent(optimisticEvent);
-                   }
-
-                   Navigator.pop(context);
-
-                   ref.read(adminRepositoryProvider).saveEvent(
-                     optimisticEvent,
-                     isNew: event == null,
-                     imageFile: selectedImage,
-                   );
-
-                   Future.delayed(const Duration(seconds: 3), () {
-                     ref.read(optimisticEventsProvider.notifier).removeEvent(optimisticEvent.id);
-                   });
-                },
-                child: const Text('Save'),
-              ),
-            ],
-          );
-        },
-      ),
+    Navigator.push(
+      context, 
+      MaterialPageRoute(builder: (_) => CreateEventScreen(event: event))
     );
   }
 
-  // --- 3. MEMBERS SECTION (Real-time) ---
+  // --- 3. PARTICIPANTS SECTION (Real-time) ---
   Widget _buildMembersSection(bool isNarrow) {
     final userRepo = ref.watch(userRepositoryProvider);
     return Padding(
@@ -1124,14 +999,24 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
               stream: userRepo.getRealTimeMembers(),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: AppColors.codingRimPrimary));
-                if (snapshot.data!.isEmpty) {
+                
+                final members = snapshot.data!;
+                if (members.isEmpty) {
                   return _emptySection(Icons.people_outline_rounded, 'No one has joined yet');
+                }
+
+                final filteredMembers = _searchQuery.isEmpty 
+                    ? members 
+                    : members.where((m) => m.name.toLowerCase().contains(_searchQuery.toLowerCase()) || m.email.toLowerCase().contains(_searchQuery.toLowerCase())).toList();
+
+                if (filteredMembers.isEmpty && _searchQuery.isNotEmpty) {
+                   return _emptySection(Icons.search_off, 'No participants found matching "$_searchQuery"');
                 }
                 
                 return ListView.builder(
-                  itemCount: snapshot.data!.length,
+                  itemCount: filteredMembers.length,
                   itemBuilder: (context, index) {
-                    final member = snapshot.data![index];
+                    final member = filteredMembers[index];
                     return _memberItem(member);
                   },
                 );
@@ -1269,9 +1154,22 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
               ),
             ),
             const SizedBox(width: 8),
-            _iconButton(Icons.edit_outlined, () => _showSpeakerDialog(speaker: speaker)),
-            const SizedBox(width: 8),
-            _iconButton(Icons.delete_outline_rounded, () => ref.read(adminRepositoryProvider).deleteSpeaker(speaker.eventId, speaker.id)),
+            const Spacer(),
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert_rounded, color: Colors.white),
+              color: AppColors.surface,
+              onSelected: (value) {
+                if (value == 'edit') {
+                  _showSpeakerDialog(speaker: speaker);
+                } else if (value == 'delete') {
+                  ref.read(adminRepositoryProvider).deleteSpeaker(speaker.eventId, speaker.id);
+                }
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(value: 'edit', child: Text('Edit', style: TextStyle(color: Colors.white))),
+                const PopupMenuItem(value: 'delete', child: Text('Delete', style: TextStyle(color: Colors.redAccent))),
+              ],
+            ),
           ],
         ),
       ),
@@ -1279,122 +1177,12 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
   }
 
   void _showSpeakerDialog({Speaker? speaker, String? eventId}) {
-    final nameController = TextEditingController(text: speaker?.name);
-    final topicController = TextEditingController(text: speaker?.topic);
-    final companyController = TextEditingController(text: speaker?.company);
-    final bioController = TextEditingController(text: speaker?.bio);
-    
-    // Use local state for event selection in dialog
-    String? selectedEventId = eventId;
-    
-    XFile? selectedImage;
-    String? currentPhotoUrl = speaker?.photoUrl;
-
-    showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          backgroundColor: AppColors.surface,
-          title: Text(speaker == null ? 'Add Speaker' : 'Edit Speaker', style: const TextStyle(color: Colors.white)),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                GestureDetector(
-                  onTap: () async {
-                    final picker = ImagePicker();
-                    final image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
-                    if (image != null) {
-                      setState(() => selectedImage = image);
-                    }
-                  },
-                  child: Container(
-                    height: 100,
-                    width: 100,
-                    decoration: BoxDecoration(
-                      color: Colors.white12,
-                      borderRadius: BorderRadius.circular(50),
-                      image: selectedImage != null 
-                        ? DecorationImage(
-                            image: kIsWeb 
-                                ? NetworkImage(selectedImage!.path) 
-                                : FileImage(File(selectedImage!.path)) as ImageProvider,
-                            fit: BoxFit.cover
-                          )
-                        : (currentPhotoUrl != null && currentPhotoUrl!.isNotEmpty)
-                          ? DecorationImage(image: NetworkImage(currentPhotoUrl!), fit: BoxFit.cover)
-                          : null,
-                    ),
-                    child: selectedImage == null && (currentPhotoUrl == null || currentPhotoUrl!.isEmpty)
-                      ? const Icon(Icons.add_a_photo, color: Colors.white54, size: 30)
-                      : null,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                
-                // Event Selection inside dialog
-                StreamBuilder<List<CodingEvent>>(
-                  stream: ref.watch(adminRepositoryProvider).watchEvents(),
-                  builder: (context, snapshot) {
-                    final events = snapshot.data ?? [];
-                    return DropdownButtonFormField<String>(
-                      value: selectedEventId,
-                      dropdownColor: const Color(0xFF1E1E1E),
-                      decoration: const InputDecoration(labelText: 'Link to Event (Optional)'),
-                      style: const TextStyle(color: Colors.white),
-                      items: events.map((e) => DropdownMenuItem(
-                        value: e.id,
-                        child: Text(e.name, style: const TextStyle(color: Colors.white)),
-                      )).toList(),
-                      onChanged: (val) => setState(() => selectedEventId = val),
-                    );
-                  }
-                ),
-                
-                TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Name'), style: const TextStyle(color: Colors.white)),
-                TextField(controller: topicController, decoration: const InputDecoration(labelText: 'Topic'), style: const TextStyle(color: Colors.white)),
-                TextField(controller: companyController, decoration: const InputDecoration(labelText: 'Company'), style: const TextStyle(color: Colors.white)),
-                TextField(controller: bioController, decoration: const InputDecoration(labelText: 'Bio'), style: const TextStyle(color: Colors.white), maxLines: 3),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-            ElevatedButton(
-              onPressed: () {
-                if (nameController.text.trim().isEmpty) {
-                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter a name')));
-                   return;
-                }
-                
-                final optimisticSpeaker = Speaker(
-                  id: speaker?.id ?? '', 
-                  name: nameController.text.trim(),
-                  topic: topicController.text.trim(),
-                  company: companyController.text.trim(),
-                  imageUrl: currentPhotoUrl ?? '',
-                  bio: bioController.text.trim(),
-                  role: speaker?.role ?? '',
-                  linkedinUrl: speaker?.linkedinUrl ?? '',
-                );
-
-                Navigator.pop(context);
-                
-                ref.read(adminRepositoryProvider).saveSpeaker(
-                  optimisticSpeaker,
-                  eventId: selectedEventId,
-                  isNew: speaker == null,
-                  imageFile: selectedImage,
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _gold,
-                foregroundColor: Colors.black,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              child: const Text('Save', style: TextStyle(fontWeight: FontWeight.bold)),
-            ),
-          ],
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CreateSpeakerScreen(
+          speaker: speaker,
+          preselectedEventId: eventId,
         ),
       ),
     );
@@ -1459,11 +1247,19 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                  if (allSponsors.isEmpty) {
                     return _emptySection(Icons.business_outlined, 'No sponsors added yet');
                  }
+
+                 final filteredSponsors = _searchQuery.isEmpty 
+                    ? allSponsors 
+                    : allSponsors.where((s) => s.name.toLowerCase().contains(_searchQuery.toLowerCase())).toList();
+
+                 if (filteredSponsors.isEmpty && _searchQuery.isNotEmpty) {
+                    return _emptySection(Icons.search_off, 'No sponsors found matching "$_searchQuery"');
+                 }
  
                  return ListView.builder(
-                   itemCount: allSponsors.length,
+                   itemCount: filteredSponsors.length,
                    itemBuilder: (context, index) {
-                     final sponsor = allSponsors[index];
+                     final sponsor = filteredSponsors[index];
                      return _sponsorItem(sponsor);
                    }
                  );
@@ -1524,522 +1320,38 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                 ],
               ),
             ),
-            _iconButton(Icons.edit_outlined, () => _showSponsorDialog(sponsor: sponsor)),
-            const SizedBox(width: 8),
-            _iconButton(Icons.delete_outline_rounded, () => ref.read(adminRepositoryProvider).deleteSponsor(sponsor.eventId, sponsor.id)),
+            const Spacer(),
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert_rounded, color: Colors.white),
+              color: AppColors.surface,
+              onSelected: (value) {
+                if (value == 'edit') {
+                  _showSponsorDialog(sponsor: sponsor);
+                } else if (value == 'delete') {
+                  ref.read(adminRepositoryProvider).deleteSponsor(sponsor.eventId, sponsor.id);
+                }
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(value: 'edit', child: Text('Edit', style: TextStyle(color: Colors.white))),
+                const PopupMenuItem(value: 'delete', child: Text('Delete', style: TextStyle(color: Colors.redAccent))),
+              ],
+            ),
           ],
         ),
       ),
     );
   }
   void _showSponsorDialog({Sponsor? sponsor, String? eventId}) {
-    final nameController = TextEditingController(text: sponsor?.name);
-    final companyController = TextEditingController(text: sponsor?.company);
-    final roleController = TextEditingController(text: sponsor?.jobPosition);
-    final taglineController = TextEditingController(text: sponsor?.tagline);
-    final websiteController = TextEditingController(text: sponsor?.websiteUrl);
-    final descriptionController = TextEditingController(text: sponsor?.detailedDescription ?? sponsor?.description);
-    final boothLocationController = TextEditingController(text: sponsor?.boothLocation);
-    final instagramController = TextEditingController(text: sponsor?.instagramUrl);
-    final linkedinController = TextEditingController(text: sponsor?.linkedinUrl);
-    final youtubeController = TextEditingController(text: sponsor?.youtubeUrl);
-    
-    String tier = sponsor?.tier ?? 'Gold';
-    String? selectedEventId = eventId ?? sponsor?.eventId;
-    
-    XFile? logoImage;
-    XFile? bannerImage;
-    String? currentLogoUrl = sponsor?.logoUrl;
-    String? currentBannerUrl = sponsor?.bannerUrl;
-    bool isUploadingMedia = false;
-    
-    // Local mutable state for lists
-    final List<Map<String, dynamic>> tempOffers = List.from(sponsor?.offers ?? []);
-    final List<Map<String, dynamic>> tempProducts = List.from(sponsor?.products ?? []);
-    final List<String> tempMedia = List.from(sponsor?.media ?? []);
-
-    showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          backgroundColor: AppColors.surface,
-          title: Text(sponsor == null ? 'Add Sponsor' : 'Edit Sponsor', style: const TextStyle(color: Colors.white)),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        children: [
-                          const Text('Logo', style: TextStyle(color: Colors.white70, fontSize: 12)),
-                          const SizedBox(height: 8),
-                          GestureDetector(
-                            onTap: () async {
-                              final picker = ImagePicker();
-                              final image = await picker.pickImage(
-                                source: ImageSource.gallery,
-                                imageQuality: 70,
-                                maxWidth: 1080,
-                                maxHeight: 1080,
-                              );
-                              if (image != null) setState(() => logoImage = image);
-                            },
-                            child: Container(
-                              height: 80,
-                              decoration: BoxDecoration(
-                                color: Colors.white12,
-                                borderRadius: BorderRadius.circular(12),
-                                image: logoImage != null
-                                    ? DecorationImage(
-                                        image: kIsWeb ? NetworkImage(logoImage!.path) : FileImage(File(logoImage!.path)) as ImageProvider,
-                                        fit: BoxFit.contain,
-                                      )
-                                    : (currentLogoUrl != null && currentLogoUrl!.isNotEmpty)
-                                        ? DecorationImage(image: NetworkImage(currentLogoUrl!), fit: BoxFit.contain)
-                                        : null,
-                              ),
-                              child: logoImage == null && (currentLogoUrl == null || currentLogoUrl!.isEmpty) ? const Icon(Icons.add_photo_alternate, color: Colors.white54) : null,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      flex: 2,
-                      child: Column(
-                        children: [
-                          const Text('Banner', style: TextStyle(color: Colors.white70, fontSize: 12)),
-                          const SizedBox(height: 8),
-                          GestureDetector(
-                            onTap: () async {
-                              final picker = ImagePicker();
-                              final image = await picker.pickImage(
-                                source: ImageSource.gallery,
-                                imageQuality: 75,
-                                maxWidth: 1080,
-                                maxHeight: 1080,
-                              );
-                              if (image != null) setState(() => bannerImage = image);
-                            },
-                            child: Container(
-                              height: 80,
-                              decoration: BoxDecoration(
-                                color: Colors.white12,
-                                borderRadius: BorderRadius.circular(12),
-                                image: bannerImage != null
-                                    ? DecorationImage(
-                                        image: kIsWeb ? NetworkImage(bannerImage!.path) : FileImage(File(bannerImage!.path)) as ImageProvider,
-                                        fit: BoxFit.cover,
-                                      )
-                                    : (currentBannerUrl != null && currentBannerUrl!.isNotEmpty)
-                                        ? DecorationImage(image: NetworkImage(currentBannerUrl!), fit: BoxFit.cover)
-                                        : null,
-                              ),
-                              child: bannerImage == null && (currentBannerUrl == null || currentBannerUrl!.isEmpty) ? const Icon(Icons.image, color: Colors.white54) : null,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                StreamBuilder<List<CodingEvent>>(
-                  stream: ref.watch(adminRepositoryProvider).watchEvents(),
-                  builder: (context, snapshot) {
-                    final events = snapshot.data ?? [];
-                    return DropdownButtonFormField<String>(
-                      value: (events.any((e) => e.id == selectedEventId)) ? selectedEventId : null,
-                      dropdownColor: const Color(0xFF1E1E1E),
-                      decoration: const InputDecoration(labelText: 'Link to Event (Optional)'),
-                      style: const TextStyle(color: Colors.white),
-                      items: events
-                          .map((e) => DropdownMenuItem(
-                                value: e.id,
-                                child: Text(e.name, style: const TextStyle(color: Colors.white)),
-                              ))
-                          .toList(),
-                      onChanged: (val) => setState(() => selectedEventId = val),
-                    );
-                  },
-                ),
-                DropdownButtonFormField<String>(
-                  value: tier,
-                  dropdownColor: const Color(0xFF1E1E1E),
-                  decoration: const InputDecoration(labelText: 'Sponsorship Tier'),
-                  style: const TextStyle(color: Colors.white),
-                  items: ['Platinum', 'Gold', 'Silver', 'Bronze']
-                      .map((t) => DropdownMenuItem(value: t, child: Text(t, style: const TextStyle(color: Colors.white))))
-                      .toList(),
-                  onChanged: (val) => setState(() => tier = val!),
-                ),
-                TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Sponsor Name'), style: const TextStyle(color: Colors.white)),
-                TextField(controller: taglineController, decoration: const InputDecoration(labelText: 'Tagline'), style: const TextStyle(color: Colors.white)),
-                TextField(controller: companyController, decoration: const InputDecoration(labelText: 'Company'), style: const TextStyle(color: Colors.white)),
-                TextField(controller: roleController, decoration: const InputDecoration(labelText: 'Role / Position'), style: const TextStyle(color: Colors.white)),
-                TextField(controller: descriptionController, decoration: const InputDecoration(labelText: 'Detailed Description'), style: const TextStyle(color: Colors.white), maxLines: 3),
-                TextField(controller: boothLocationController, decoration: const InputDecoration(labelText: 'Booth/Stall Location (e.g. B12)'), style: const TextStyle(color: Colors.white)),
-                TextField(controller: websiteController, decoration: const InputDecoration(labelText: 'Website URL'), style: const TextStyle(color: Colors.white)),
-                const SizedBox(height: 24),
-                
-                // Offers Management
-                _dialogSectionHeader('Offers & Deals'),
-                const SizedBox(height: 8),
-                ...List.generate(tempOffers.length, (i) {
-                  final offer = tempOffers[i];
-                  return Container(
-                    padding: const EdgeInsets.all(8),
-                    margin: const EdgeInsets.only(bottom: 8),
-                    decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(8)),
-                    child: Row(
-                      children: [
-                        Expanded(child: Text(offer['title'] ?? 'Offer', style: const TextStyle(color: Colors.white70, fontSize: 12))),
-                        IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.red, size: 16),
-                          onPressed: () => setState(() => tempOffers.removeAt(i)),
-                        ),
-                      ],
-                    ),
-                  );
-                }),
-                TextButton.icon(
-                  onPressed: () => _showAddOfferDialog(context, (newOffer) => setState(() => tempOffers.add(newOffer))),
-                  icon: const Icon(Icons.add_circle_outline, size: 16),
-                  label: const Text('Add New Offer', style: TextStyle(fontSize: 12)),
-                  style: TextButton.styleFrom(iconColor: _gold, foregroundColor: _gold),
-                ),
-                
-                const SizedBox(height: 16),
-                const SizedBox(height: 16),
-                _dialogSectionHeader('Products & Services'),
-                const SizedBox(height: 8),
-                ...List.generate(tempProducts.length, (i) {
-                  final p = tempProducts[i];
-                  return Container(
-                    padding: const EdgeInsets.all(8),
-                    margin: const EdgeInsets.only(bottom: 8),
-                    decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(8)),
-                    child: Row(
-                      children: [
-                        Expanded(child: Text(p['name'] ?? 'Product', style: const TextStyle(color: Colors.white70, fontSize: 12))),
-                        IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.red, size: 16),
-                          onPressed: () => setState(() => tempProducts.removeAt(i)),
-                        ),
-                      ],
-                    ),
-                  );
-                }),
-                TextButton.icon(
-                  onPressed: () => _showAddProductDialog(context, (newProduct) => setState(() => tempProducts.add(newProduct))),
-                  icon: const Icon(Icons.add_circle_outline, size: 16),
-                  label: const Text('Add New Product', style: TextStyle(fontSize: 12)),
-                  style: TextButton.styleFrom(iconColor: _gold, foregroundColor: _gold),
-                ),
-
-                const SizedBox(height: 16),
-                _dialogSectionHeader('Media Gallery'),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    ...List.generate(tempMedia.length, (i) {
-                      return Stack(
-                        children: [
-                          Container(
-                            width: 60,
-                            height: 60,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(8),
-                              image: DecorationImage(image: NetworkImage(tempMedia[i]), fit: BoxFit.cover),
-                            ),
-                          ),
-                          Positioned(
-                            right: -8,
-                            top: -8,
-                            child: IconButton(
-                              icon: const Icon(Icons.cancel, color: Colors.red, size: 18),
-                              onPressed: () => setState(() => tempMedia.removeAt(i)),
-                            ),
-                          ),
-                        ],
-                      );
-                    }),
-                    GestureDetector(
-                      onTap: isUploadingMedia ? null : () async {
-                        final picker = ImagePicker();
-                        final image = await picker.pickImage(
-                          source: ImageSource.gallery, 
-                          imageQuality: 70,
-                          maxWidth: 1080,
-                          maxHeight: 1080,
-                        );
-                        if (image != null) {
-                          setState(() => isUploadingMedia = true);
-                          try {
-                            // Show loading feedback
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Uploading media...'), duration: Duration(seconds: 1)),
-                            );
-                            
-                            final bytes = await image.readAsBytes();
-                            final url = await ref.read(adminRepositoryProvider).uploadToCloudinary(bytes, folder: 'sponsors/media');
-                            
-                            setState(() {
-                              tempMedia.add(url);
-                              isUploadingMedia = false;
-                            });
-                          } catch (e) {
-                            setState(() => isUploadingMedia = false);
-                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Upload failed: $e')));
-                          }
-                        }
-                      },
-                      child: Container(
-                        width: 60,
-                        height: 60,
-                        decoration: BoxDecoration(
-                          color: Colors.white10, 
-                          borderRadius: BorderRadius.circular(8), 
-                          border: Border.all(color: Colors.white24, style: BorderStyle.solid),
-                        ),
-                        child: isUploadingMedia 
-                            ? const Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFFFD700))))
-                            : const Icon(Icons.add_a_photo, color: Colors.white38, size: 20),
-                      ),
-                    ),
-                  ],
-                ),
-                
-                const SizedBox(height: 24),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                if (nameController.text.trim().isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter a name')));
-                  return;
-                }
-                
-                final optimisticSponsor = Sponsor(
-                  id: sponsor?.id ?? '',
-                  name: nameController.text.trim(),
-                  company: companyController.text.trim(),
-                  jobPosition: roleController.text.trim(),
-                  tier: tier,
-                  logoUrl: currentLogoUrl ?? '',
-                  bannerUrl: currentBannerUrl ?? '',
-                  tagline: taglineController.text.trim(),
-                  websiteUrl: websiteController.text.trim(),
-                  detailedDescription: descriptionController.text.trim(),
-                  boothLocation: boothLocationController.text.trim(),
-                  instagramUrl: instagramController.text.trim(),
-                  linkedinUrl: linkedinController.text.trim(),
-                  youtubeUrl: youtubeController.text.trim(),
-                  eventId: selectedEventId ?? '',
-                  offers: tempOffers,
-                  products: tempProducts,
-                  media: tempMedia,
-                );
-
-                Navigator.pop(context);
-                
-                await ref.read(adminRepositoryProvider).saveSponsor(
-                      optimisticSponsor,
-                      eventId: selectedEventId,
-                      isNew: sponsor == null,
-                      logoFile: logoImage,
-                      bannerFile: bannerImage,
-                    );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _gold,
-                foregroundColor: Colors.black,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              child: const Text('Save Sponsor', style: TextStyle(fontWeight: FontWeight.bold)),
-            ),
-          ],
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CreateSponsorScreen(
+          sponsor: sponsor, 
+          preselectedEventId: eventId,
         ),
       ),
     );
   }
-
-  Widget _dialogSectionHeader(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 8, bottom: 4),
-      child: Row(
-        children: [
-          Container(width: 4, height: 16, color: _gold),
-          const SizedBox(width: 8),
-          Text(title, style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 0.5)),
-        ],
-      ),
-    );
-  }
-
-  void _showAddOfferDialog(BuildContext context, Function(Map<String, dynamic>) onAdd) {
-    final titleC = TextEditingController();
-    final descC = TextEditingController();
-    final codeC = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E1E),
-        title: const Text('Add Offer', style: TextStyle(color: Colors.white)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: titleC, decoration: const InputDecoration(labelText: 'Title'), style: const TextStyle(color: Colors.white)),
-            TextField(controller: descC, decoration: const InputDecoration(labelText: 'Description'), style: const TextStyle(color: Colors.white)),
-            TextField(controller: codeC, decoration: const InputDecoration(labelText: 'Promo Code'), style: const TextStyle(color: Colors.white)),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () {
-              onAdd({'title': titleC.text, 'description': descC.text, 'code': codeC.text});
-              Navigator.pop(ctx);
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: _gold, foregroundColor: Colors.black),
-            child: const Text('Add'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showAddProductDialog(BuildContext context, Function(Map<String, dynamic>) onAdd) {
-    final nameC = TextEditingController();
-    final descC = TextEditingController();
-    XFile? selectedImage;
-    bool isUploading = false;
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          backgroundColor: const Color(0xFF1E1E1E),
-          title: const Text('Add Product/Service', style: TextStyle(color: Colors.white)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              GestureDetector(
-                onTap: () async {
-                  final picker = ImagePicker();
-                  final image = await picker.pickImage(
-                    source: ImageSource.gallery, 
-                    imageQuality: 70,
-                    maxWidth: 1080,
-                    maxHeight: 1080,
-                  );
-                  if (image != null) setState(() => selectedImage = image);
-                },
-                child: Container(
-                  height: 100,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: Colors.white12,
-                    borderRadius: BorderRadius.circular(12),
-                    image: selectedImage != null
-                        ? DecorationImage(
-                            image: kIsWeb ? NetworkImage(selectedImage!.path) : FileImage(File(selectedImage!.path)) as ImageProvider,
-                            fit: BoxFit.cover,
-                          )
-                        : null,
-                  ),
-                  child: selectedImage == null
-                      ? const Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.add_photo_alternate, color: Colors.white54, size: 32),
-                            SizedBox(height: 8),
-                            Text('Tap to upload image', style: TextStyle(color: Colors.white54, fontSize: 12)),
-                          ],
-                        )
-                      : null,
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(controller: nameC, decoration: const InputDecoration(labelText: 'Name'), style: const TextStyle(color: Colors.white)),
-              TextField(controller: descC, decoration: const InputDecoration(labelText: 'Short Description'), style: const TextStyle(color: Colors.white)),
-              if (isUploading) ...[
-                const SizedBox(height: 16),
-                const LinearProgressIndicator(color: Color(0xFFFFD700)),
-                const SizedBox(height: 8),
-                const Text('Uploading image...', style: TextStyle(color: Colors.white54, fontSize: 12)),
-              ],
-            ],
-          ),
-          actions: [
-            if (!isUploading) TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-            ElevatedButton(
-              onPressed: isUploading ? null : () async {
-                if (nameC.text.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter a name')));
-                  return;
-                }
-                
-                String imageUrl = '';
-                if (selectedImage != null) {
-                  setState(() => isUploading = true);
-                  try {
-                    final bytes = await selectedImage!.readAsBytes();
-                    imageUrl = await ref.read(adminRepositoryProvider).uploadToCloudinary(bytes, folder: 'sponsors/products');
-                  } catch (e) {
-                    setState(() => isUploading = false);
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Upload failed: $e')));
-                    return;
-                  }
-                }
-
-                onAdd({'name': nameC.text, 'desc': descC.text, 'image': imageUrl});
-                if (context.mounted) Navigator.pop(ctx);
-              },
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFFD700), foregroundColor: Colors.black),
-              child: const Text('Add'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showAddMediaUrlDialog(BuildContext context, Function(String) onAdd) {
-    final urlC = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E1E),
-        title: const Text('Add Gallery Image URL', style: TextStyle(color: Colors.white)),
-        content: TextField(controller: urlC, decoration: const InputDecoration(hintText: 'https://...', labelText: 'Image URL'), style: const TextStyle(color: Colors.white)),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () {
-              onAdd(urlC.text);
-              Navigator.pop(ctx);
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: _gold, foregroundColor: Colors.black),
-            child: const Text('Add'),
-          ),
-        ],
-      ),
-    );
-  }
-
   // --- 6. SCHEDULES SECTION ---
   Widget _buildSchedulesSection(bool isNarrow) {
     final adminRepo = ref.watch(adminRepositoryProvider);
@@ -2071,8 +1383,10 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Expanded(
-                  child: _sectionHeader('EVENT SCHEDULES', 'Organize and manage session timings'),
+                  child: _sectionHeader('SCHEDULE DASHBOARD', 'Manage session timings, tracks, and speakers'),
                 ),
+                const SizedBox(width: 16),
+                _statBadge(Icons.verified_rounded, 'No Conflicts', Colors.green),
                 const SizedBox(width: 16),
                 Flexible(
                   child: ElevatedButton.icon(
@@ -2088,7 +1402,23 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                 ),
               ],
             ),
-          const SizedBox(height: 40),
+          const SizedBox(height: 32),
+          
+          // Sub Tabs
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _subTabItem('All', 0),
+                _subTabItem('Drafts', 1),
+                _subTabItem('Published', 2),
+                _subTabItem('Completed', 3),
+                _subTabItem('Conflicts', 4, isWarning: true),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
           Expanded(
             child: StreamBuilder<List<CodingEvent>>(
               stream: adminRepo.watchEvents(),
@@ -2101,14 +1431,42 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                   stream: adminRepo.watchAllSchedules(),
                   builder: (context, snapshot) {
                     if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: AppColors.codingRimPrimary));
-                    if (snapshot.data!.isEmpty) return _emptySection(Icons.schedule_rounded, 'No schedules yet');
                     
-                    final allSchedules = snapshot.data!;
+                    var filteredSchedules = snapshot.data!;
+                    
+                    // Filter based on sub-tab
+                    if (_scheduleSubTab == 1) filteredSchedules = filteredSchedules.where((s) => s.status == 'draft').toList();
+                    else if (_scheduleSubTab == 2) filteredSchedules = filteredSchedules.where((s) => s.status == 'published').toList();
+                    else if (_scheduleSubTab == 3) filteredSchedules = filteredSchedules.where((s) => s.status == 'completed').toList();
+                    else if (_scheduleSubTab == 4) {
+                      // Conflict Logic: sessions in same hall at same time
+                      final conflicts = <new_schedule.Schedule>[];
+                      for (var i = 0; i < filteredSchedules.length; i++) {
+                        for (var j = i + 1; j < filteredSchedules.length; j++) {
+                          final a = filteredSchedules[i];
+                          final b = filteredSchedules[j];
+                          if (a.hall == b.hall && a.hall.isNotEmpty &&
+                              a.sessionDate.year == b.sessionDate.year &&
+                              a.sessionDate.month == b.sessionDate.month &&
+                              a.sessionDate.day == b.sessionDate.day &&
+                              a.startTime.isBefore(b.endTime) &&
+                              a.endTime.isAfter(b.startTime)) {
+                            if (!conflicts.contains(a)) conflicts.add(a);
+                            if (!conflicts.contains(b)) conflicts.add(b);
+                          }
+                        }
+                      }
+                      filteredSchedules = conflicts;
+                    }
+
+                    if (filteredSchedules.isEmpty) {
+                       return _emptySection(Icons.schedule_rounded, 'No sessions found in this category');
+                    }
 
                     return ListView.builder(
-                      itemCount: allSchedules.length,
+                      itemCount: filteredSchedules.length,
                       itemBuilder: (context, index) {
-                         final schedule = allSchedules[index];
+                         final schedule = filteredSchedules[index];
                          final eventName = eventMap[schedule.eventId] ?? 'Unknown Event';
                          return _scheduleItem(schedule, eventName);
                       }
@@ -2119,6 +1477,30 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _subTabItem(String label, int index, {bool isWarning = false}) {
+    final isSelected = _scheduleSubTab == index;
+    return GestureDetector(
+      onTap: () => setState(() => _scheduleSubTab = index),
+      child: Container(
+        margin: const EdgeInsets.only(right: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? (isWarning ? Colors.orange.withValues(alpha: 0.2) : _gold.withValues(alpha: 0.1)) : Colors.white.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: isSelected ? (isWarning ? Colors.orange : _gold) : Colors.white12),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.outfit(
+            color: isSelected ? (isWarning ? Colors.orange : _gold) : Colors.white60,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            fontSize: 13,
+          ),
+        ),
       ),
     );
   }
@@ -2151,14 +1533,11 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                       fontSize: 18,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Row(
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      Text(
-                        '${_formatTime(schedule.startTime)} - ${_formatTime(schedule.endTime)}',
-                        style: GoogleFonts.outfit(color: Colors.white38, fontSize: 13),
-                      ),
-                      const SizedBox(width: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
@@ -2167,18 +1546,100 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                           border: Border.all(color: _gold.withValues(alpha: 0.2)),
                         ),
                         child: Text(
-                          eventName,
-                          style: GoogleFonts.outfit(color: _gold, fontSize: 11, fontWeight: FontWeight.bold),
+                          schedule.sessionType.toUpperCase(),
+                          style: GoogleFonts.outfit(color: _gold, fontSize: 10, fontWeight: FontWeight.bold),
                         ),
+                      ),
+                      Text(
+                        '${_formatTime(schedule.startTime)} - ${_formatTime(schedule.endTime)}',
+                        style: GoogleFonts.outfit(color: Colors.white38, fontSize: 13),
+                      ),
+                      if (schedule.hall.isNotEmpty)
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.room_rounded, color: Colors.white24, size: 12),
+                            const SizedBox(width: 4),
+                            Text(
+                              schedule.hall,
+                              style: GoogleFonts.outfit(color: Colors.white38, fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.05),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          eventName,
+                          style: GoogleFonts.outfit(color: Colors.white38, fontSize: 11),
+                        ),
+                      ),
+                      // Status Badge
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: _getStatusColor(schedule.status).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: _getStatusColor(schedule.status).withValues(alpha: 0.2)),
+                        ),
+                        child: Text(
+                          schedule.status.toUpperCase(),
+                          style: GoogleFonts.outfit(color: _getStatusColor(schedule.status), fontSize: 9, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      // Attendance Count
+                      StreamBuilder<int>(
+                        stream: ref.read(adminRepositoryProvider).watchAttendanceCount(schedule.eventId, schedule.id),
+                        builder: (context, snapshot) {
+                          final count = snapshot.data ?? 0;
+                          return Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.blue.withValues(alpha: 0.2)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.people_outline_rounded, color: Colors.blueAccent, size: 10),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '$count Attended',
+                                  style: GoogleFonts.outfit(color: Colors.blueAccent, fontSize: 10, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
                       ),
                     ],
                   ),
                 ],
               ),
             ),
-            _iconButton(Icons.edit_outlined, () => _showScheduleDialog(schedule: schedule)),
-            const SizedBox(width: 8),
-            _iconButton(Icons.delete_outline_rounded, () => ref.read(adminRepositoryProvider).deleteSchedule(schedule.eventId, schedule.id)),
+            const Spacer(),
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert_rounded, color: Colors.white),
+              color: AppColors.surface,
+              onSelected: (value) {
+                if (value == 'edit') {
+                  _showScheduleDialog(schedule: schedule);
+                } else if (value == 'scan') {
+                   _scanSessionAttendance(schedule);
+                } else if (value == 'delete') {
+                  ref.read(adminRepositoryProvider).deleteSchedule(schedule.eventId, schedule.id);
+                }
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(value: 'edit', child: Text('Edit', style: TextStyle(color: Colors.white))),
+                const PopupMenuItem(value: 'scan', child: Text('Scan Attendance', style: TextStyle(color: Colors.lightBlueAccent))),
+                const PopupMenuItem(value: 'delete', child: Text('Delete', style: TextStyle(color: Colors.redAccent))),
+              ],
+            ),
           ],
         ),
       ),
@@ -2186,120 +1647,23 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
   }
 
   void _showScheduleDialog({new_schedule.Schedule? schedule}) {
-    final titleController = TextEditingController(text: schedule?.title);
-    final descController = TextEditingController(text: schedule?.description);
-    final locationController = TextEditingController(text: schedule?.location);
-    
-    DateTime startTime = schedule?.startTime ?? DateTime.now();
-    DateTime endTime = schedule?.endTime ?? DateTime.now().add(const Duration(hours: 1));
-    
-    String? selectedEventId = schedule?.eventId;
-
-    showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          backgroundColor: AppColors.surface,
-          title: Text(schedule == null ? 'Add Schedule' : 'Edit Schedule', style: const TextStyle(color: Colors.white)),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                  StreamBuilder<List<CodingEvent>>(
-                    stream: ref.read(adminRepositoryProvider).watchEvents(),
-                    builder: (context, snapshot) {
-                      if (!snapshot.hasData) return const SizedBox.shrink();
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 16),
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        decoration: BoxDecoration(
-                          color: Colors.white10,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            value: (snapshot.data!.any((e) => e.id == selectedEventId)) ? selectedEventId : null,
-                            hint: const Text('Select Event', style: TextStyle(color: Colors.white54)),
-                            dropdownColor: AppColors.surface,
-                            isExpanded: true,
-                            items: snapshot.data!.map((e) => DropdownMenuItem(
-                              value: e.id,
-                              child: Text(e.name, style: const TextStyle(color: Colors.white)),
-                            )).toList(),
-                            onChanged: (val) => setState(() => selectedEventId = val),
-                          ),
-                        ),
-                      );
-                    }
-                  ),
-                TextField(controller: titleController, decoration: const InputDecoration(labelText: 'Title'), style: const TextStyle(color: Colors.white)),
-                TextField(controller: descController, decoration: const InputDecoration(labelText: 'Description'), style: const TextStyle(color: Colors.white), maxLines: 2),
-                TextField(controller: locationController, decoration: const InputDecoration(labelText: 'Location'), style: const TextStyle(color: Colors.white)),
-                const SizedBox(height: 16),
-                
-                // Time Pickers
-                ListTile(
-                  title: const Text('Start Time', style: TextStyle(color: Colors.white)),
-                  trailing: Text(_formatDate(startTime), style: const TextStyle(color: Color(0xFFFFD700))),
-                  onTap: () async {
-                    final date = await showDatePicker(context: context, initialDate: startTime, firstDate: DateTime(2024), lastDate: DateTime(2030));
-                    if (date != null) {
-                      final time = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(startTime));
-                      if (time != null) {
-                        setState(() => startTime = DateTime(date.year, date.month, date.day, time.hour, time.minute));
-                      }
-                    }
-                  },
-                ),
-                ListTile(
-                  title: const Text('End Time', style: TextStyle(color: Colors.white)),
-                  trailing: Text(_formatDate(endTime), style: const TextStyle(color: Color(0xFFFFD700))),
-                  onTap: () async {
-                    final date = await showDatePicker(context: context, initialDate: endTime, firstDate: DateTime(2024), lastDate: DateTime(2030));
-                    if (date != null) {
-                      final time = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(endTime));
-                      if (time != null) {
-                        setState(() => endTime = DateTime(date.year, date.month, date.day, time.hour, time.minute));
-                      }
-                    }
-                  },
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-            ElevatedButton(
-              onPressed: () {
-                 if (titleController.text.isEmpty) return;
-                 
-                 final eventId = selectedEventId;
-                 if (eventId == null || eventId.isEmpty) {
-                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select an event')));
-                   return;
-                 }
-
-                 final newSchedule = new_schedule.Schedule(
-                   id: schedule?.id ?? '',
-                   eventId: eventId,
-                   day: 1, // Default to day 1 for now
-                   title: titleController.text,
-                   description: descController.text,
-                   startTime: startTime,
-                   endTime: endTime,
-                   location: locationController.text,
-                   mediaUrls: [],
-                 );
-                 
-                 Navigator.pop(context);
-
-                 ref.read(adminRepositoryProvider).saveSchedule(newSchedule, isNew: schedule == null);
-              },
-              child: const Text('Save'),
-            ),
-          ],
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CreateScheduleScreen(
+          schedule: schedule,
+          preselectedEventId: null, // You might want to pass this if available
         ),
       ),
+    );
+  }
+
+  void _scanSessionAttendance(new_schedule.Schedule session) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _SessionScannerModal(session: session, gold: _gold),
     );
   }
 
@@ -2433,7 +1797,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
     );
   }
 
-  // --- SYSTEM ACTIVITY / RECENT MEMBERS ---
+  // --- SYSTEM ACTIVITY / RECENT PARTICIPANTS ---
   Widget _buildSystemActionsModule(bool isNarrow) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2460,7 +1824,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          'New member joined: ${m.name}', 
+                          'New participant joined: ${m.name}', 
                           style: const TextStyle(color: Colors.white, fontSize: 13)
                         ),
                       ),
@@ -2481,6 +1845,16 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
 
   String _formatTime(DateTime date) {
     return '${date.hour}:${date.minute.toString().padLeft(2, '0')}';
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'published': return Colors.green;
+      case 'draft': return Colors.orange;
+      case 'cancelled': return Colors.red;
+      case 'completed': return Colors.blue;
+      default: return Colors.white38;
+    }
   }
 
   // ... (keep _actionBtn helper if needed elsewhere, otherwise ok to remove)
@@ -2556,7 +1930,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
               ),
             ),
             const SizedBox(width: 16),
-            _iconButton(Icons.mail_outline_rounded, () {}),
+            _iconButton(Icons.mail_outline_rounded, () => _openAdminChatRoom(member.id, member.name)),
             const SizedBox(width: 8),
             _iconButton(Icons.more_vert_rounded, () {}),
           ],
@@ -2595,7 +1969,25 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
             const SizedBox(height: 16),
             _detailRow(Icons.phone, 'Phone', member.mobile.isEmpty ? 'N/A' : member.mobile),
             const SizedBox(height: 16),
-              _detailRow(Icons.event, 'Joined Events', '0 Events'), // Placeholder logic for user-event join relation
+              _detailRow(Icons.event, 'Joined Events', '0 Events'),
+              const SizedBox(height: 32),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _openAdminChatRoom(member.id, member.name);
+                  },
+                  icon: const Icon(Icons.chat_bubble_outline_rounded, size: 20),
+                  label: const Text('MESSAGE USER'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _gold,
+                    foregroundColor: Colors.black,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -2660,18 +2052,23 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
       child: Row(
         children: [
           Expanded(
-            child: TextField(
-              controller: controller,
-              decoration: InputDecoration(
-                hintText: 'Type a reply...',
-                hintStyle: const TextStyle(color: Colors.white38),
-                border: InputBorder.none,
-                fillColor: Colors.white.withValues(alpha: 0.05),
-                filled: true,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2A3942), // WhatsApp input background
+                borderRadius: BorderRadius.circular(24),
               ),
-              style: const TextStyle(color: Colors.white),
+              child: TextField(
+                controller: controller,
+                maxLines: null,
+                decoration: const InputDecoration(
+                  hintText: 'Message',
+                  hintStyle: TextStyle(color: Colors.white38),
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.symmetric(vertical: 10),
+                ),
+                style: const TextStyle(color: Colors.white),
+              ),
             ),
           ),
           const SizedBox(width: 12),
@@ -2696,21 +2093,41 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
     return Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
         decoration: BoxDecoration(
-          color: isMe ? _gold : Colors.white.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(18).copyWith(
-            bottomRight: isMe ? const Radius.circular(0) : const Radius.circular(18),
-            bottomLeft: isMe ? const Radius.circular(18) : const Radius.circular(0),
+          color: isMe ? const Color(0xFF005C4B) : const Color(0xFF202C33), // WhatsApp Dark colors
+          borderRadius: BorderRadius.only(
+            topLeft: const Radius.circular(12),
+            topRight: const Radius.circular(12),
+            bottomLeft: isMe ? const Radius.circular(12) : const Radius.circular(0),
+            bottomRight: isMe ? const Radius.circular(0) : const Radius.circular(12),
           ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.1),
+              blurRadius: 2,
+              offset: const Offset(0, 1),
+            )
+          ],
         ),
-        child: Text(
-          text,
-          style: TextStyle(color: isMe ? Colors.black : Colors.white),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              text,
+              style: const TextStyle(color: Colors.white, fontSize: 15),
+            ),
+             const SizedBox(height: 2),
+             // Mock time for now, can be real if message object has timestamp
+             Text(
+               DateFormat('HH:mm').format(DateTime.now()), 
+               style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 10),
+             ),
+          ],
         ),
-      ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1, end: 0),
+      ).animate().fadeIn(duration: 300.ms).slideY(begin: 0.1, end: 0),
     );
   }
 
@@ -3293,9 +2710,21 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
               },
             ),
             const SizedBox(width: 8),
-            _iconButton(Icons.edit_outlined, () => _showProfileItemDialog(item: item)),
-            const SizedBox(width: 8),
-            _iconButton(Icons.delete_outline_rounded, () => _confirmDeleteProfileItem(item)),
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert_rounded, color: Colors.white),
+              color: AppColors.surface,
+              onSelected: (value) {
+                if (value == 'edit') {
+                  _showProfileItemDialog(item: item);
+                } else if (value == 'delete') {
+                  _confirmDeleteProfileItem(item);
+                }
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(value: 'edit', child: Text('Edit', style: TextStyle(color: Colors.white))),
+                const PopupMenuItem(value: 'delete', child: Text('Delete', style: TextStyle(color: Colors.redAccent))),
+              ],
+            ),
           ],
         ),
       ),
@@ -3494,6 +2923,270 @@ class _GlassCard extends StatelessWidget {
         ],
       ),
       child: child,
+    );
+  }
+}
+
+class _SessionScannerModal extends ConsumerStatefulWidget {
+  final new_schedule.Schedule session;
+  final Color gold;
+  const _SessionScannerModal({required this.session, required this.gold});
+
+  @override
+  ConsumerState<_SessionScannerModal> createState() => _SessionScannerModalState();
+}
+
+class _SessionScannerModalState extends ConsumerState<_SessionScannerModal> {
+  final MobileScannerController controller = MobileScannerController();
+  final TextEditingController _manualIdController = TextEditingController();
+  bool _isProcessing = false;
+
+  @override
+  void dispose() {
+    controller.dispose();
+    _manualIdController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.85,
+      decoration: const BoxDecoration(
+        color: Color(0xFF121212),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+      ),
+      child: Stack(
+        children: [
+          Column(
+            children: [
+              const SizedBox(height: 12),
+              Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2))),
+              const SizedBox(height: 24),
+              Text(
+                'RECORD ATTENDANCE',
+                style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18, letterSpacing: 2),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                child: Text(
+                  widget.session.title,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.outfit(color: widget.gold, fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+              ),
+              const SizedBox(height: 40),
+              Expanded(
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 32),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(32),
+                    border: Border.all(color: widget.gold.withValues(alpha: 0.3), width: 2),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(30),
+                    child: MobileScanner(
+                      controller: controller,
+                      onDetect: (capture) {
+                        if (_isProcessing) return;
+                        final List<Barcode> barcodes = capture.barcodes;
+                        if (barcodes.isNotEmpty && barcodes.first.rawValue != null) {
+                          _processQRCode(barcodes.first.rawValue!);
+                        }
+                      },
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              // Manual Search Section
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 40),
+                child: Column(
+                  children: [
+                    Text(
+                      'OR ENTER ID MANUALLY',
+                      style: GoogleFonts.inter(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _manualIdController,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        hintText: 'User ID or Phone',
+                        hintStyle: const TextStyle(color: Colors.white24),
+                        filled: true,
+                        fillColor: Colors.white.withValues(alpha: 0.05),
+                        suffixIcon: IconButton(
+                          icon: Icon(Icons.arrow_circle_right_rounded, color: widget.gold),
+                          onPressed: () {
+                            if (_manualIdController.text.isNotEmpty) {
+                              _processQRCode(_manualIdController.text);
+                            }
+                          },
+                        ),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                      ),
+                      onSubmitted: (val) {
+                        if (val.isNotEmpty) _processQRCode(val);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 40),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    IconButton(
+                      icon: ValueListenableBuilder(
+                        valueListenable: controller,
+                        builder: (context, state, child) {
+                          switch (state.torchState) {
+                            case TorchState.on:
+                              return Icon(Icons.flash_on_rounded, color: widget.gold);
+                            case TorchState.off:
+                            default:
+                              return const Icon(Icons.flash_off_rounded, color: Colors.white54);
+                          }
+                        },
+                      ),
+                      onPressed: () => controller.toggleTorch(),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.flip_camera_ios_rounded, color: Colors.white54),
+                      onPressed: () => controller.switchCamera(),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 60),
+            ],
+          ),
+          if (_isProcessing)
+            Container(
+              color: Colors.black54,
+              child: const Center(child: CircularProgressIndicator()),
+            ),
+        ],
+      ),
+    );
+  }
+
+  void _processQRCode(String rawValue) async {
+    setState(() => _isProcessing = true);
+    
+    // QR Format expected: userId
+    final userId = rawValue.trim();
+
+    final adminId = FirebaseAuth.instance.currentUser?.uid ?? 'unknown_admin';
+    
+    try {
+      // 1. Basic validation - Does user exist and are they registered?
+      final repo = ref.read(adminRepositoryProvider);
+      
+      // We'll simulate a slightly more advanced validation here for the UI feedback
+      // In a real scenario, repo.recordAttendance should throw specific errors
+      
+      await repo.recordAttendance(
+        eventId: widget.session.eventId,
+        scheduleId: widget.session.id,
+        userId: userId,
+        adminId: adminId,
+      );
+      
+      _manualIdController.clear();
+      _showResultOverlay(true, 'Attendee: $userId\nEntry Allowed ✅');
+    } catch (e) {
+      String errorMessage = e.toString();
+      if (errorMessage.contains('already recorded') || errorMessage.contains('Duplicate')) {
+        _showResultOverlay(false, 'ALREADY USED ❌\nThis ticket has already been scanned for this session.', isWarning: true);
+      } else if (errorMessage.contains('not registered')) {
+        _showResultOverlay(false, 'INVALID TICKET ❌\nUser is not registered for this event.');
+      } else {
+        _showResultOverlay(false, 'ENTRY DENIED ❌\n$errorMessage');
+      }
+    }
+  }
+
+  void _showResultOverlay(bool success, String message, {bool isWarning = false}) {
+    if (!mounted) return;
+    
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(32),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E1E1E),
+                borderRadius: BorderRadius.circular(32),
+                border: Border.all(
+                  color: success 
+                      ? Colors.greenAccent.withValues(alpha: 0.3) 
+                      : (isWarning ? Colors.orangeAccent.withValues(alpha: 0.3) : Colors.redAccent.withValues(alpha: 0.3)),
+                  width: 2,
+                ),
+              ),
+              child: Column(
+                children: [
+                  Icon(
+                    success 
+                        ? Icons.check_circle_outline_rounded 
+                        : (isWarning ? Icons.warning_amber_rounded : Icons.error_outline_rounded),
+                    color: success 
+                        ? Colors.greenAccent 
+                        : (isWarning ? Colors.orangeAccent : Colors.redAccent),
+                    size: 80,
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    success ? 'SUCCESS' : (isWarning ? 'ALREADY USED' : 'ERROR'),
+                    style: GoogleFonts.outfit(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 24,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    message,
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.outfit(color: Colors.white38, fontSize: 14),
+                  ),
+                  const SizedBox(height: 32),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 54,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        setState(() => _isProcessing = false);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: success 
+                            ? Colors.greenAccent 
+                            : (isWarning ? Colors.orangeAccent : Colors.redAccent),
+                        foregroundColor: Colors.black,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                      child: const Text('OK', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

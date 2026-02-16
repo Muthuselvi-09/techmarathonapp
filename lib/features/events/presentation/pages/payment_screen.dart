@@ -20,6 +20,12 @@ class PaymentScreen extends ConsumerStatefulWidget {
 class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   bool _isProcessing = false;
   String? _selectedMethod = 'Card';
+  bool _isVipSelected = false;
+
+  double get _basePrice => _isVipSelected ? widget.event.vipPrice : widget.event.entryFee;
+  double get _vipDiscountAmount => _isVipSelected ? (_basePrice * widget.event.vipDiscountPercentage / 100) : 0;
+  double get _earlyBirdAmount => (_basePrice * widget.event.earlyBirdDiscount / 100);
+  double get _totalAmount => _basePrice - _vipDiscountAmount - _earlyBirdAmount;
 
   Future<void> _handlePayment() async {
     setState(() => _isProcessing = true);
@@ -73,7 +79,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
               child: ElevatedButton(
                 onPressed: () {
                   Navigator.pop(context); // Close dialog
-                  context.go('/my-events'); // Go to tickets
+                  context.go('/home'); // Go to home (my-events redirect)
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
@@ -108,6 +114,19 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (widget.event.isVipEnabled) ...[
+              _buildSectionLabel('SELECT PASS TYPE'),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                   _buildPassTypeTab('STANDARD', false),
+                   const SizedBox(width: 12),
+                   _buildPassTypeTab('VIP PASS', true),
+                ],
+              ),
+              const SizedBox(height: 32),
+            ],
+
             // Order Summary
             _buildSectionLabel('ORDER SUMMARY'),
             const SizedBox(height: 16),
@@ -140,12 +159,47 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                 child: _isProcessing
                     ? const CircularProgressIndicator(color: Colors.black)
                     : Text(
-                        'PAY ${widget.event.currency}${widget.event.entryFee}',
+                        'PAY ${widget.event.currency}${_totalAmount.toStringAsFixed(2)}',
                         style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: 1),
                       ),
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPassTypeTab(String label, bool isVip) {
+    final isSelected = _isVipSelected == isVip;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _isVipSelected = isVip),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          decoration: BoxDecoration(
+            color: isSelected ? AppColors.primary : AppColors.surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: isSelected ? AppColors.primary : Colors.white12),
+          ),
+          child: Column(
+            children: [
+              Text(
+                label,
+                style: GoogleFonts.outfit(
+                  color: isSelected ? Colors.black : Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                '${widget.event.currency}${isVip ? widget.event.vipPrice : widget.event.entryFee}',
+                style: TextStyle(
+                  color: isSelected ? Colors.black87 : AppColors.textDim,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -203,20 +257,28 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
             padding: EdgeInsets.symmetric(vertical: 20),
             child: Divider(color: Colors.white12),
           ),
-          _buildPriceRow('Ticket Price', '${widget.event.currency}${widget.event.entryFee}'),
+          _buildPriceRow('Base Price', '${widget.event.currency}${_basePrice.toStringAsFixed(2)}'),
+          if (widget.event.earlyBirdDiscount > 0) ...[
+            const SizedBox(height: 8),
+            _buildPriceRow('Early Bird Discount', '-${widget.event.currency}${_earlyBirdAmount.toStringAsFixed(2)}', isNegative: true),
+          ],
+          if (_isVipSelected && widget.event.vipDiscountPercentage > 0) ...[
+            const SizedBox(height: 8),
+            _buildPriceRow('VIP Discount', '-${widget.event.currency}${_vipDiscountAmount.toStringAsFixed(2)}', isNegative: true),
+          ],
           const SizedBox(height: 8),
           _buildPriceRow('Service Fee', '${widget.event.currency}0.00'),
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 20),
             child: Divider(color: Colors.white12),
           ),
-          _buildPriceRow('TOTAL AMOUNT', '${widget.event.currency}${widget.event.entryFee}', isTotal: true),
+          _buildPriceRow('TOTAL AMOUNT', '${widget.event.currency}${_totalAmount.toStringAsFixed(2)}', isTotal: true),
         ],
       ),
     );
   }
 
-  Widget _buildPriceRow(String label, String value, {bool isTotal = false}) {
+  Widget _buildPriceRow(String label, String value, {bool isTotal = false, bool isNegative = false}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -231,7 +293,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         Text(
           value,
           style: GoogleFonts.outfit(
-            color: isTotal ? AppColors.primary : Colors.white,
+            color: isTotal ? AppColors.primary : (isNegative ? Colors.greenAccent : Colors.white),
             fontWeight: FontWeight.bold,
             fontSize: isTotal ? 20 : 14,
           ),

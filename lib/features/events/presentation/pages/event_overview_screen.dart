@@ -179,53 +179,75 @@ class _EventOverviewScreenState extends ConsumerState<EventOverviewScreen> {
                     ),
                   ],
                 ),
+                if (event.totalSeats > 0) ...[
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      const Icon(Icons.event_seat_rounded, color: AppColors.primary, size: 16),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${event.availableSeats} / ${event.totalSeats} Seats Available',
+                        style: GoogleFonts.inter(
+                          color: event.availableSeats <= 5 ? Colors.redAccent : AppColors.textSecondary, 
+                          fontSize: 14,
+                          fontWeight: event.availableSeats <= 5 ? FontWeight.bold : FontWeight.normal,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
                 const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
                   height: 54,
-                  child: ElevatedButton(
-                    onPressed: isRegistered ? null : () async {
-                      if (userId != null) {
-                        if (!event.isFree) {
-                          context.push('/payment', extra: event);
-                          return;
-                        }
+                  child: Builder(
+                    builder: (context) {
+                      final isSoldOut = event.totalSeats > 0 && event.availableSeats <= 0;
+                      return ElevatedButton(
+                        onPressed: (isRegistered || isSoldOut) ? null : () async {
+                          if (userId != null) {
+                            if (!event.isFree) {
+                              context.push('/payment', extra: event);
+                              return;
+                            }
 
-                        await ref.read(profileRepositoryProvider).registerEvent(userId, event.id);
-                        final userName = FirebaseAuth.instance.currentUser?.displayName ?? 'Attendee';
-                        await ref.read(adminRepositoryProvider).createEntryPass(event.id, userId, userName);
-                        // 6. Push Notifications - Schedule reminders for joined event
-                        final schedules = await ref.read(adminRepositoryProvider).getSchedulesForEvent(event.id);
-                        await notificationService.scheduleAllSessionReminders(
-                          sessions: schedules.map((s) => {
-                            'id': s.id,
-                            'title': s.title,
-                            'startTime': s.startTime,
-                          }).toList(),
-                          eventName: event.name,
-                        );
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(event.isFree ? 'Successfully joined event!' : 'Ticket purchased successfully!'),
-                              backgroundColor: Colors.green,
-                            ),
-                          );
-                        }
-                      }
+                            await ref.read(profileRepositoryProvider).registerEvent(userId, event.id);
+                            final userName = FirebaseAuth.instance.currentUser?.displayName ?? 'Attendee';
+                            await ref.read(adminRepositoryProvider).createEntryPass(event.id, userId, userName);
+                            // 6. Push Notifications - Schedule reminders for joined event
+                            final schedules = await ref.read(adminRepositoryProvider).getSchedulesForEvent(event.id);
+                            await notificationService.scheduleAllSessionReminders(
+                              sessions: schedules.map((s) => {
+                                'id': s.id,
+                                'title': s.title,
+                                'startTime': s.startTime,
+                              }).toList(),
+                              eventName: event.name,
+                            );
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(event.isFree ? 'Successfully joined event!' : 'Ticket purchased successfully!'),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                            }
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: (isRegistered || isSoldOut) ? Colors.white10 : AppColors.primary,
+                          foregroundColor: (isRegistered || isSoldOut) ? Colors.white38 : Colors.black,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          elevation: (isRegistered || isSoldOut) ? 0 : 8,
+                        ),
+                        child: Text(
+                          isRegistered 
+                              ? 'ALREADY REGISTERED' 
+                              : (isSoldOut ? 'SOLD OUT' : (event.isFree ? 'JOIN EVENT NOW' : 'BUY TICKET NOW')),
+                          style: GoogleFonts.outfit(fontWeight: FontWeight.w900, letterSpacing: 1),
+                        ),
+                      );
                     },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: isRegistered ? Colors.white10 : AppColors.primary,
-                      foregroundColor: isRegistered ? Colors.white38 : Colors.black,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      elevation: isRegistered ? 0 : 8,
-                    ),
-                    child: Text(
-                      isRegistered 
-                          ? 'ALREADY REGISTERED' 
-                          : (event.isFree ? 'JOIN EVENT NOW' : 'BUY TICKET NOW'),
-                      style: GoogleFonts.outfit(fontWeight: FontWeight.w900, letterSpacing: 1),
-                    ),
                   ),
                 ),
               ],

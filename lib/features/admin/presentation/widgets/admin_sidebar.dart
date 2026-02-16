@@ -38,7 +38,7 @@ class AdminSidebar extends StatelessWidget {
                 children: [
                   _navItem(0, 'Overview', Icons.dashboard_outlined),
                   _navItem(1, 'Events', Icons.event_note_outlined),
-                  _navItem(2, 'Members', Icons.people_outline_rounded),
+                  _navItem(2, 'Participants', Icons.people_outline_rounded),
                   _navItem(3, 'Speakers', Icons.mic_none_rounded),
                   _navItem(4, 'Sponsors', Icons.business_outlined),
                   _navItem(5, 'Schedules', Icons.schedule_rounded),

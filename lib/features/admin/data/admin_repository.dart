@@ -332,16 +332,50 @@ class AdminRepository {
     });
   }
 
-  // ... watch participants methods ...
+  Future<String?> checkScheduleConflict(new_schedule.Schedule session) async {
+    try {
+      final snapshot = await _firestore
+          .collection('events')
+          .doc(session.eventId)
+          .collection('schedules')
+          .where('hall', isEqualTo: session.hall)
+          .where('isActive', isEqualTo: true)
+          .get();
+
+      for (var doc in snapshot.docs) {
+        if (doc.id == session.id) continue;
+        final existing = new_schedule.Schedule.fromMap(doc.data(), doc.id);
+        
+        // Exact Date check (since startTime/endTime include dates, but just to be sure)
+        if (session.sessionDate.year != existing.sessionDate.year ||
+            session.sessionDate.month != existing.sessionDate.month ||
+            session.sessionDate.day != existing.sessionDate.day) {
+          continue;
+        }
+
+        // Overlap detection: (StartA < EndB) and (EndA > StartB)
+        if (session.startTime.isBefore(existing.endTime) && 
+            session.endTime.isAfter(existing.startTime)) {
+          return 'Another session "${existing.title}" is already scheduled in this room (${session.hall}) at this time.';
+        }
+      }
+      return null;
+    } catch (e) {
+      debugPrint('❌ Conflict check failed: $e');
+      return null; // Assume no conflict on failure or handle as error
+    }
+  }
 
   Future<void> saveSchedule(new_schedule.Schedule schedule, {bool isNew = true}) async {
-      // ... kept as is ... (omitting for brevity in this thought block)
-      try {
+    try {
       final String docId = schedule.id.isEmpty
           ? _firestore.collection('events').doc(schedule.eventId).collection('schedules').doc().id
           : schedule.id;
 
       final scheduleData = schedule.toMap();
+      
+      // Ensure specific fields are explicitly set if not in toMap/fromMap consistently
+      // scheduleData['eventId'] = schedule.eventId; 
       
       if (isNew) {
         await _firestore
@@ -365,7 +399,6 @@ class AdminRepository {
       rethrow;
     }
   }
-
   Future<void> deleteSpeaker(String eventId, String speakerId) async {
     try {
       // Unlink instead of delete global
@@ -388,8 +421,7 @@ class AdminRepository {
   }
 
   Future<void> deleteSchedule(String eventId, String scheduleId) async {
-     // ... kept as is ...
-      try {
+    try {
       await _firestore
           .collection('events')
           .doc(eventId)
@@ -527,5 +559,75 @@ class AdminRepository {
 
     await docRef.set(pass.toMap());
     debugPrint('🎟️ Entry Pass Created for $userName (Event: $eventId)');
+  }
+
+  // --- ATTENDANCE TRACKING ---
+
+  Future<void> recordAttendance({
+    required String eventId,
+    required String scheduleId,
+    required String userId,
+    required String adminId,
+  }) async {
+    final docRef = _firestore
+        .collection('events')
+        .doc(eventId)
+        .collection('schedules')
+        .doc(scheduleId)
+        .collection('attendance')
+        .doc(userId);
+        
+    await docRef.set({
+      'userId': userId,
+      'adminId': adminId,
+      'eventId': eventId, // Added for analytics
+      'scheduleId': scheduleId,
+      'timestamp': FieldValue.serverTimestamp(),
+    });
+    
+    debugPrint('📝 Attendance recorded for user $userId (Session: $scheduleId)');
+  }
+
+  Stream<int> watchAttendanceCount(String eventId, String scheduleId) {
+    return _firestore
+        .collection('events')
+        .doc(eventId)
+        .collection('schedules')
+        .doc(scheduleId)
+        .collection('attendance')
+        .snapshots()
+        .map((snap) => snap.docs.length);
+  }
+
+  // --- ANALYTICS ---
+
+  Stream<int> watchTotalRegistrations(String eventId) {
+    return _firestore
+        .collectionGroup('entryPasses')
+        .where('eventId', isEqualTo: eventId)
+        .snapshots()
+        .map((snap) => snap.docs.length);
+  }
+
+  Stream<int> watchTotalCheckedIn(String eventId) {
+    // Unique users across all schedule attendance for this event
+    return _firestore
+        .collectionGroup('attendance')
+        .where('eventId', isEqualTo: eventId) // Note: Needs eventId in attendance doc for efficient group query
+        .snapshots()
+        .map((snap) {
+          final users = snap.docs.map((doc) => doc.data()['userId'] as String).toSet();
+          return users.length;
+        });
+  }
+
+  Future<List<Map<String, dynamic>>> getAttendeeParticipation(String eventId, String userId) async {
+    final snap = await _firestore
+        .collectionGroup('attendance')
+        .where('eventId', isEqualTo: eventId)
+        .where('userId', isEqualTo: userId)
+        .get();
+        
+    return snap.docs.map((doc) => doc.data()).toList();
   }
 }

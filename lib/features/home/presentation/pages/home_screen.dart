@@ -23,6 +23,7 @@ import 'package:tech_marathon_app/features/core/providers/user_location_provider
 import 'package:tech_marathon_app/core/providers.dart';
 import 'package:tech_marathon_app/features/home/domain/event_models.dart' as new_speaker;
 import 'package:tech_marathon_app/features/home/domain/event_models.dart' as new_sponsor;
+import 'package:tech_marathon_app/data/models/schedule.dart' as new_schedule;
 
 import 'sponsor_details_screen.dart';
 import 'speaker_details_screen.dart';
@@ -121,7 +122,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   _buildProfileCompletionBanner(),
                   const SizedBox(height: 32),
                   _buildEventsSection(),
-                  const SizedBox(height: 48),
+                  const SizedBox(height: 32),
                   _buildSponsorsSection(),
                   const SizedBox(height: 48),
                   _buildSliderCards(),
@@ -1034,12 +1035,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         child: InkWell(
                           borderRadius: BorderRadius.circular(24),
                           onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => SponsorDetailsScreen(sponsor: sponsor),
-                              ),
-                            );
+                            if (index == 1) {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const ScheduleDetailsScreen(),
+                                ),
+                              );
+                            } else {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => SponsorDetailsScreen(sponsor: sponsor),
+                                ),
+                              );
+                            }
                           },
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
@@ -1256,5 +1266,130 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
       ],
     );
+  }
+
+  Widget _buildScheduleSnapshot() {
+    final schedulesAsync = ref.watch(schedulesStreamProvider);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'LIVE & UPCOMING',
+                style: GoogleFonts.outfit(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 14,
+                  letterSpacing: 2,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              TextButton(
+                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ScheduleDetailsScreen())),
+                child: Text('VIEW ALL', style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primary)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          schedulesAsync.when(
+            data: (schedules) {
+               if (schedules.isEmpty) return const SizedBox.shrink();
+               
+               final now = DateTime.now();
+               final published = schedules.where((s) => s.status == 'published').toList();
+               if (published.isEmpty) return const SizedBox.shrink();
+
+               final sorted = List.from(published)..sort((a,b) => a.startTime.compareTo(b.startTime));
+               
+               final liveSessions = sorted.where((s) => s.startTime.isBefore(now) && s.endTime.isAfter(now)).toList();
+               final nextSessions = sorted.where((s) => s.startTime.isAfter(now)).toList();
+               
+               if (liveSessions.isEmpty && nextSessions.isEmpty) return const SizedBox.shrink();
+               
+               final session = liveSessions.isNotEmpty ? liveSessions.first : nextSessions.first;
+               final isLive = liveSessions.isNotEmpty;
+               
+               return _sessionHighlightCard(session, isLive);
+            },
+            loading: () => Container(
+              height: 120,
+              decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(24)),
+              child: const Center(child: CircularProgressIndicator()),
+            ),
+            error: (err, _) => const SizedBox.shrink(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _sessionHighlightCard(new_schedule.Schedule session, bool isLive) {
+     return Container(
+       padding: const EdgeInsets.all(24),
+       decoration: BoxDecoration(
+         color: AppColors.surface,
+         borderRadius: BorderRadius.circular(24),
+         border: Border.all(color: isLive ? AppColors.primary.withValues(alpha: 0.3) : Colors.white.withValues(alpha: 0.05)),
+         boxShadow: isLive ? [BoxShadow(color: AppColors.primary.withValues(alpha: 0.05), blurRadius: 20, spreadRadius: 5)] : null,
+       ),
+       child: Column(
+         crossAxisAlignment: CrossAxisAlignment.start,
+         children: [
+           Row(
+             children: [
+               if (isLive) ...[
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                  ).animate(onPlay: (c) => c.repeat()).scale(begin: const Offset(1,1), end: const Offset(1.5,1.5), duration: 800.ms).fadeOut(),
+                  const SizedBox(width: 8),
+                  Text('LIVE NOW', style: GoogleFonts.inter(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 10, letterSpacing: 1)),
+               ] else ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
+                    child: Text('UP NEXT', style: GoogleFonts.inter(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 10, letterSpacing: 1)),
+                  ),
+               ],
+               const Spacer(),
+               Text('${session.startTime.hour}:${session.startTime.minute.toString().padLeft(2, '0')}', style: GoogleFonts.outfit(color: Colors.white38, fontSize: 12)),
+             ],
+           ),
+           const SizedBox(height: 16),
+           Text(
+             session.title, 
+             style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white, height: 1.2),
+             maxLines: 2,
+             overflow: TextOverflow.ellipsis,
+           ),
+           const SizedBox(height: 12),
+           Row(
+             children: [
+               const Icon(Icons.room_rounded, color: AppColors.primary, size: 14),
+               const SizedBox(width: 4),
+               Expanded(
+                 child: Text(
+                   session.hall.isNotEmpty ? session.hall : (session.location.isNotEmpty ? session.location : 'Main Hall'), 
+                   style: GoogleFonts.inter(color: AppColors.textDim, fontSize: 12),
+                   maxLines: 1,
+                   overflow: TextOverflow.ellipsis,
+                 ),
+               ),
+               const SizedBox(width: 16),
+               const Icon(Icons.person_outline_rounded, color: AppColors.primary, size: 14),
+               const SizedBox(width: 4),
+               Text(
+                 '${session.speakerIds.length} Speaker${session.speakerIds.length > 1 ? 's' : ''}', 
+                 style: GoogleFonts.inter(color: AppColors.textDim, fontSize: 12),
+               ),
+             ],
+           ),
+         ],
+       ),
+     );
   }
 }

@@ -75,6 +75,15 @@ class CodingEvent {
   final String? entryTiming;
   final List<String> rules;
   final bool isEntryScanEnabled;
+  final int totalSeats;
+  final int bookedSeats;
+  // VIP & Discount Fields
+  final bool isVipEnabled;
+  final double vipPrice;
+  final double vipDiscountPercentage;
+  final double earlyBirdDiscount;
+
+  int get availableSeats => totalSeats - bookedSeats;
 
   CodingEvent({
     required this.id,
@@ -100,6 +109,12 @@ class CodingEvent {
     this.entryTiming,
     this.rules = const [],
     this.isEntryScanEnabled = false,
+    this.totalSeats = 0,
+    this.bookedSeats = 0,
+    this.isVipEnabled = false,
+    this.vipPrice = 0.0,
+    this.vipDiscountPercentage = 0.0,
+    this.earlyBirdDiscount = 0.0,
   });
 
   factory CodingEvent.fromMap(Map<String, dynamic> data, String id) {
@@ -124,6 +139,12 @@ class CodingEvent {
       entryTiming: data['entryTiming'],
       rules: List<String>.from(data['rules'] ?? []),
       isEntryScanEnabled: data['isEntryScanEnabled'] ?? false,
+      totalSeats: data['totalSeats'] ?? 0,
+      bookedSeats: data['bookedSeats'] ?? 0,
+      isVipEnabled: data['isVipEnabled'] ?? false,
+      vipPrice: (data['vipPrice'] ?? 0.0).toDouble(),
+      vipDiscountPercentage: (data['vipDiscountPercentage'] ?? 0.0).toDouble(),
+      earlyBirdDiscount: (data['earlyBirdDiscount'] ?? 0.0).toDouble(),
     );
   }
 
@@ -155,6 +176,12 @@ class CodingEvent {
       'entryTiming': entryTiming,
       'rules': rules,
       'isEntryScanEnabled': isEntryScanEnabled,
+      'totalSeats': totalSeats,
+      'bookedSeats': bookedSeats,
+      'isVipEnabled': isVipEnabled,
+      'vipPrice': vipPrice,
+      'vipDiscountPercentage': vipDiscountPercentage,
+      'earlyBirdDiscount': earlyBirdDiscount,
     };
   }
 
@@ -183,6 +210,12 @@ class CodingEvent {
     bool? isActive,
     String? entryTiming,
     List<String>? rules,
+    int? totalSeats,
+    int? bookedSeats,
+    bool? isVipEnabled,
+    double? vipPrice,
+    double? vipDiscountPercentage,
+    double? earlyBirdDiscount,
   }) {
     return CodingEvent(
       id: id ?? this.id,
@@ -207,6 +240,12 @@ class CodingEvent {
       isActive: isActive ?? this.isActive,
       entryTiming: entryTiming ?? this.entryTiming,
       rules: rules ?? this.rules,
+      totalSeats: totalSeats ?? this.totalSeats,
+      bookedSeats: bookedSeats ?? this.bookedSeats,
+      isVipEnabled: isVipEnabled ?? this.isVipEnabled,
+      vipPrice: vipPrice ?? this.vipPrice,
+      vipDiscountPercentage: vipDiscountPercentage ?? this.vipDiscountPercentage,
+      earlyBirdDiscount: earlyBirdDiscount ?? this.earlyBirdDiscount,
     );
   }
 }

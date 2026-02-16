@@ -5,8 +5,10 @@ import '../../features/home/presentation/pages/home_screen.dart';
 import '../../features/events/presentation/pages/event_timeline_screen.dart';
 import '../../features/events/presentation/pages/all_events_screen.dart';
 import '../../features/events/presentation/pages/schedule_screen.dart';
+import '../../features/home/presentation/pages/schedule_details_screen.dart';
 import '../../features/profile/presentation/pages/profile_screen.dart';
 import '../../features/home/presentation/widgets/session_feedback_watcher.dart';
+import '../../features/home/presentation/pages/professional_calendar_screen.dart';
 
 class MainScaffold extends StatefulWidget {
   const MainScaffold({super.key});
@@ -19,10 +21,10 @@ class _MainScaffoldState extends State<MainScaffold> {
   int _selectedIndex = 0;
   final List<Widget> _pages = [
     const HomeScreen(),
-    const ScheduleScreen(), // Replaces Network View
+    const ScheduleDetailsScreen(), // Professional Overhauled Schedule
     const Scaffold(body: Center(child: Text('QR Pass Placeholder'))), // QR index 2
     const AllEventsScreen(),
-    const Scaffold(body: Center(child: Text('Calendar View'))), // Placeholder for index 4
+    const ProfessionalCalendarScreen(), 
   ];
 
   void _onItemTapped(int index) {
@@ -32,29 +34,7 @@ class _MainScaffoldState extends State<MainScaffold> {
        return;
     }
     
-    if (index == 4) {
-      showDatePicker(
-        context: context,
-        initialDate: DateTime.now(),
-        firstDate: DateTime(2024),
-        lastDate: DateTime(2030),
-        builder: (context, child) {
-          return Theme(
-            data: Theme.of(context).copyWith(
-              colorScheme: const ColorScheme.dark(
-                primary: AppColors.primary,
-                onPrimary: Colors.black,
-                surface: AppColors.surface,
-                onSurface: Colors.white,
-              ),
-            ),
-            child: child!,
-          );
-        },
-      );
-    } else {
-      setState(() => _selectedIndex = index);
-    }
+    setState(() => _selectedIndex = index);
   }
 
   @override
