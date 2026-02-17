@@ -335,6 +335,8 @@ class _EventInfoScreenState extends ConsumerState<EventInfoScreen> {
   }
 
   Widget _buildBottomBar(CodingEvent event, bool isRegistered) {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -342,46 +344,111 @@ class _EventInfoScreenState extends ConsumerState<EventInfoScreen> {
         border: Border(top: BorderSide(color: Colors.white.withValues(alpha:0.05))),
       ),
       child: SafeArea(
-        child: Row(
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'ENTRY FEE',
-                  style: GoogleFonts.inter(fontSize: 10, color: AppColors.textDim, fontWeight: FontWeight.bold, letterSpacing: 1),
-                ),
-                Text(
-                  event.isFree ? 'FREE' : '${event.currency}${event.entryFee}',
-                  style: GoogleFonts.outfit(fontSize: 20, color: AppColors.primary, fontWeight: FontWeight.w900),
-                ),
-              ],
-            ),
-            const SizedBox(width: 32),
-            Expanded(
-              child: SizedBox(
-                height: 54,
-                child: ElevatedButton(
-                  onPressed: (isRegistered || _isRegistering) ? null : () => _handleBooking(event),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.black,
-                    disabledBackgroundColor: Colors.white10,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    elevation: 0,
-                  ),
-                  child: _isRegistering
-                      ? const CircularProgressIndicator(color: Colors.black)
-                      : Text(
-                          isRegistered ? 'ALREADY BOOKED' : (event.isFree ? 'BOOK NOW' : 'SECURE SPOT'),
-                          style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 14, letterSpacing: 1),
+        child: isRegistered && userId != null
+            ? StreamBuilder<List<EntryPass>>(
+                stream: ref.read(adminRepositoryProvider).watchUserEntryPasses(userId, event.id),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  
+                  final ticketCount = snapshot.data?.length ?? 0;
+                  
+                  return Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(Icons.confirmation_number_rounded, color: AppColors.primary, size: 20),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'You have $ticketCount ticket${ticketCount > 1 ? 's' : ''}',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 14,
+                                    color: AppColors.primary,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Book more for friends & family',
+                              style: GoogleFonts.inter(
+                                fontSize: 11,
+                                color: AppColors.textDim,
+                              ),
+                            ),
+                          ],
                         ),
-                ),
+                      ),
+                      const SizedBox(width: 16),
+                      SizedBox(
+                        height: 54,
+                        child: ElevatedButton.icon(
+                          onPressed: () => _handleBooking(event),
+                          icon: const Icon(Icons.add, size: 18),
+                          label: Text(
+                            'BOOK MORE',
+                            style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 1),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.black,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            elevation: 0,
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              )
+            : Row(
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'ENTRY FEE',
+                        style: GoogleFonts.inter(fontSize: 10, color: AppColors.textDim, fontWeight: FontWeight.bold, letterSpacing: 1),
+                      ),
+                      Text(
+                        event.isFree ? 'FREE' : '${event.currency}${event.entryFee}',
+                        style: GoogleFonts.outfit(fontSize: 20, color: AppColors.primary, fontWeight: FontWeight.w900),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(width: 32),
+                  Expanded(
+                    child: SizedBox(
+                      height: 54,
+                      child: ElevatedButton(
+                        onPressed: _isRegistering ? null : () => _handleBooking(event),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.black,
+                          disabledBackgroundColor: Colors.white10,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          elevation: 0,
+                        ),
+                        child: _isRegistering
+                            ? const CircularProgressIndicator(color: Colors.black)
+                            : Text(
+                                event.isFree ? 'BOOK NOW' : 'SECURE SPOT',
+                                style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 14, letterSpacing: 1),
+                              ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ],
-        ),
       ),
     );
   }

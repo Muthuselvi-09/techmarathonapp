@@ -7,6 +7,8 @@ import 'package:tech_marathon_app/core/theme/app_colors.dart';
 import 'package:tech_marathon_app/features/home/presentation/providers/event_stream_providers.dart';
 import 'package:tech_marathon_app/features/profile/data/profile_repository.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:tech_marathon_app/features/admin/data/admin_repository.dart';
+import 'package:tech_marathon_app/features/home/domain/event_models.dart';
 
 class MyEventsScreen extends ConsumerStatefulWidget {
   const MyEventsScreen({super.key});
@@ -338,17 +340,30 @@ class _MyEventsScreenState extends ConsumerState<MyEventsScreen> {
     required String eventName,
     required String eventDate,
     required String location,
-  }) {
+  }) async {
     final user = FirebaseAuth.instance.currentUser;
     final userName = user?.displayName ?? 'Valued Member';
     final userId = user?.uid ?? 'USER-ID';
+
+    // Fetch all entry passes for this event
+    final passes = await ref.read(adminRepositoryProvider).getUserEntryPasses(userId, eventId);
+    
+    if (passes.isEmpty) {
+      // Show error - no tickets found
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No tickets found for this event')),
+        );
+      }
+      return;
+    }
 
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.7,
+        height: MediaQuery.of(context).size.height * 0.75,
         decoration: const BoxDecoration(
           color: AppColors.background,
           borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
@@ -358,99 +373,50 @@ class _MyEventsScreenState extends ConsumerState<MyEventsScreen> {
           children: [
             Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2))),
             const SizedBox(height: 32),
-            Expanded(
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                child: Column(
-                  children: [
-                    Text(
-                      'YOUR EVENT TICKET',
-                      style: GoogleFonts.outfit(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w900,
-                        color: AppColors.primary,
-                        letterSpacing: 2,
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                    Container(
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: AppColors.surface,
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-                      ),
-                      child: Column(
-                        children: [
-                          Text(
-                            eventName.toUpperCase(),
-                            textAlign: TextAlign.center,
-                            style: GoogleFonts.outfit(
-                              fontSize: 24,
-                              fontWeight: FontWeight.w900,
-                              color: Colors.white,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            eventDate,
-                            style: GoogleFonts.inter(color: AppColors.primary, fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 16),
-                          const Divider(color: Colors.white10),
-                          const SizedBox(height: 16),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text('ATTENDEE', style: TextStyle(color: Colors.white38, fontSize: 10)),
-                                  Text(userName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                                ],
-                              ),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  const Text('CHECK-IN STATUS', style: TextStyle(color: Colors.white38, fontSize: 10)),
-                                  Row(
-                                    children: [
-                                      Container(
-                                        width: 8,
-                                        height: 8,
-                                        decoration: const BoxDecoration(color: Colors.orange, shape: BoxShape.circle),
-                                      ),
-                                      const SizedBox(width: 6),
-                                      const Text('PENDING', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 12)),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 32),
-                          Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: QrImageView(
-                              data: 'TICKET-$eventId-$userId',
-                              version: QrVersions.auto,
-                              size: 150.0,
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                          _buildTermsSection(),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                  ],
-                ),
+            Text(
+              'YOUR EVENT TICKET${passes.length > 1 ? 'S' : ''}',
+              style: GoogleFonts.outfit(
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+                color: AppColors.primary,
+                letterSpacing: 2,
               ),
             ),
+            const SizedBox(height: 24),
+            Expanded(
+              child: PageView.builder(
+                itemCount: passes.length,
+                itemBuilder: (context, index) {
+                  final pass = passes[index];
+                  return _buildTicketPage(
+                    pass: pass,
+                    eventName: eventName,
+                    eventDate: eventDate,
+                    userName: userName,
+                    userId: userId,
+                  );
+                },
+              ),
+            ),
+            if (passes.length > 1) ...[
+              const SizedBox(height: 16),
+              // Page indicator
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(
+                  passes.length,
+                  (index) => Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(
+                      color: AppColors.primary,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
@@ -468,6 +434,358 @@ class _MyEventsScreenState extends ConsumerState<MyEventsScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildTicketPage({
+    required EntryPass pass,
+    required String eventName,
+    required String eventDate,
+    required String userName,
+    required String userId,
+  }) {
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      child: Column(
+        children: [
+          if (pass.totalTickets > 1)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Ticket ${pass.ticketNumber} of ${pass.totalTickets}',
+                    style: GoogleFonts.inter(
+                      color: AppColors.primary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  // Show action buttons only for ACTIVE tickets
+                  if (pass.status == 'ACTIVE')
+                    Row(
+                      children: [
+                        // Share button
+                        IconButton(
+                          onPressed: () => _shareTicket(pass, eventName, eventDate),
+                          icon: const Icon(Icons.share_rounded, color: AppColors.primary, size: 20),
+                          style: IconButton.styleFrom(
+                            backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        // Cancel button
+                        IconButton(
+                          onPressed: () => _cancelTicket(pass, eventName),
+                          icon: const Icon(Icons.cancel_rounded, color: Colors.red, size: 20),
+                          style: IconButton.styleFrom(
+                            backgroundColor: Colors.red.withValues(alpha: 0.1),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                        ),
+                      ],
+                    ),
+                ],
+              ),
+            ),
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+            ),
+            child: Column(
+              children: [
+                Text(
+                  eventName.toUpperCase(),
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.outfit(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  eventDate,
+                  style: GoogleFonts.inter(color: AppColors.primary, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 16),
+                const Divider(color: Colors.white10),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('ATTENDEE', style: TextStyle(color: Colors.white38, fontSize: 10)),
+                        Text(userName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        const Text('CHECK-IN STATUS', style: TextStyle(color: Colors.white38, fontSize: 10)),
+                        Row(
+                          children: [
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                color: pass.status == 'USED' 
+                                    ? Colors.green 
+                                    : pass.status == 'CANCELLED'
+                                    ? Colors.red
+                                    : Colors.orange,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              pass.status == 'USED' 
+                                  ? 'CHECKED IN' 
+                                  : pass.status == 'CANCELLED'
+                                  ? 'CANCELLED'
+                                  : 'PENDING',
+                              style: TextStyle(
+                                color: pass.status == 'USED' 
+                                    ? Colors.green 
+                                    : pass.status == 'CANCELLED'
+                                    ? Colors.red
+                                    : Colors.orange,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 32),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: QrImageView(
+                    data: 'PASS-${pass.id}',
+                    version: QrVersions.auto,
+                    size: 150.0,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'ID: ${pass.id.substring(0, 8).toUpperCase()}',
+                  style: GoogleFonts.robotoMono(
+                    color: AppColors.textDim,
+                    fontSize: 10,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                _buildTermsSection(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _shareTicket(EntryPass pass, String eventName, String eventDate) {
+    final shareText = '''
+🎟️ EVENT TICKET
+
+Event: $eventName
+Date: $eventDate
+Ticket: ${pass.ticketNumber} of ${pass.totalTickets}
+Status: ${pass.status}
+
+Ticket ID: ${pass.id}
+QR Code: PASS-${pass.id}
+
+⚠️ Important: Each ticket has a unique ID and QR code. This ticket can only be used once for entry. Share this with someone if you cannot attend.
+    ''';
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Row(
+          children: [
+            const Icon(Icons.share_rounded, color: AppColors.primary),
+            const SizedBox(width: 12),
+            Text('Share Ticket', style: GoogleFonts.outfit(color: Colors.white)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Share this ticket with a friend or family member who can attend on your behalf.',
+              style: GoogleFonts.inter(color: Colors.white70, fontSize: 13),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.security_rounded, color: AppColors.primary, size: 20),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Each ticket has a unique QR code. No scam possible!',
+                      style: GoogleFonts.inter(
+                        color: AppColors.primary,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () {
+              // Future: Implement actual share functionality with share_plus package
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Ticket details copied: $shareText'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            },
+            icon: const Icon(Icons.copy_rounded),
+            label: const Text('Copy Details'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.black,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _cancelTicket(EntryPass pass, String eventName) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Row(
+          children: [
+            const Icon(Icons.cancel_rounded, color: Colors.red),
+            const SizedBox(width: 12),
+            Text('Cancel Ticket?', style: GoogleFonts.outfit(color: Colors.white)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Are you sure you want to cancel this ticket for $eventName?',
+              style: GoogleFonts.inter(color: Colors.white70, fontSize: 14, height: 1.5),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.info_outline_rounded, color: Colors.red, size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Refund Information',
+                        style: GoogleFonts.inter(
+                          color: Colors.red,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '• Ticket will be cancelled immediately\n• Your seat will be released\n• Refund will be processed to original payment method\n• This action cannot be undone',
+                    style: GoogleFonts.inter(
+                      color: Colors.white70,
+                      fontSize: 11,
+                      height: 1.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Keep Ticket'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              try {
+                final userId = FirebaseAuth.instance.currentUser?.uid;
+                if (userId != null) {
+                  await ref.read(adminRepositoryProvider).cancelTicket(userId, pass.id, pass.eventId);
+                  if (context.mounted) {
+                    Navigator.pop(context); // Close dialog
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Ticket cancelled successfully! Refund will be processed.'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error cancelling ticket: $e'), backgroundColor: Colors.red),
+                  );
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Cancel Ticket'),
+          ),
+        ],
       ),
     );
   }

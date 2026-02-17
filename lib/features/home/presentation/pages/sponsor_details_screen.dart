@@ -8,6 +8,7 @@ import 'package:tech_marathon_app/core/theme/app_colors.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:tech_marathon_app/features/chat/presentation/pages/admin_chat_page.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class SponsorDetailsScreen extends ConsumerStatefulWidget {
   final Sponsor sponsor;
@@ -475,14 +476,27 @@ class _SponsorDetailsScreenState extends ConsumerState<SponsorDetailsScreen> {
             children: [
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: () {
-                    // Navigate to chat - using admin chat for sponsor communication
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                         builder: (context) => AdminChatPage(userId: currentUserId ?? 'anonymous_admin'),
-                      ),
-                    );
+                  onPressed: () async {
+                    // Open sponsor's chat/community URL or fallback to website
+                    final chatLink = widget.sponsor.chatUrl ?? widget.sponsor.websiteUrl;
+                    if (chatLink != null && chatLink.isNotEmpty) {
+                      final uri = Uri.parse(chatLink.startsWith('http') ? chatLink : 'https://$chatLink');
+                      if (await canLaunchUrl(uri)) {
+                        await launchUrl(uri, mode: LaunchMode.externalApplication);
+                      } else {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Unable to open chat link')),
+                          );
+                        }
+                      }
+                    } else {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('No chat link available')),
+                        );
+                      }
+                    }
                   },
                   icon: const Icon(Icons.chat_bubble_outline, size: 18),
                   label: const Text("CHAT NOW"),
@@ -497,38 +511,59 @@ class _SponsorDetailsScreenState extends ConsumerState<SponsorDetailsScreen> {
               const SizedBox(width: 16),
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: () {
-                    // Show booth location info
-                    showDialog(
-                      context: context,
-                      builder: (ctx) => AlertDialog(
-                        backgroundColor: AppColors.surface,
-                        title: const Text('Booth Location', style: TextStyle(color: Colors.white)),
-                        content: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.location_on, color: AppColors.primary, size: 48),
-                            const SizedBox(height: 16),
-                            Text(
-                              widget.sponsor.boothLocation ?? 'Nearby Main Stage, Hall A',
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                  onPressed: () async {
+                    // Open map with sponsor location
+                    final lat = widget.sponsor.latitude;
+                    final lng = widget.sponsor.longitude;
+                    
+                    if (lat != null && lng != null && lat != 0.0 && lng != 0.0) {
+                      // Use Google Maps URL  
+                      final googleMapsUrl = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
+                      
+                      if (await canLaunchUrl(googleMapsUrl)) {
+                        await launchUrl(googleMapsUrl, mode: LaunchMode.externalApplication);
+                      } else {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Unable to open map')),
+                          );
+                        }
+                      }
+                    } else {
+                      // Fallback: show location text
+                      if (context.mounted) {
+                        showDialog(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            backgroundColor: AppColors.surface,
+                            title: const Text('Booth Location', style: TextStyle(color: Colors.white)),
+                            content: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.location_on, color: AppColors.primary, size: 48),
+                                const SizedBox(height: 16),
+                                Text(
+                                  widget.sponsor.boothLocation ?? 'Nearby Main Stage, Hall A',
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 8),
+                                const Text(
+                                  'Visit us at the event venue',
+                                  style: TextStyle(color: Colors.white54, fontSize: 12),
+                                ),
+                              ],
                             ),
-                            const SizedBox(height: 8),
-                            const Text(
-                              'Visit us at the event venue',
-                              style: TextStyle(color: Colors.white54, fontSize: 12),
-                            ),
-                          ],
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(ctx),
-                            child: const Text('Close'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx),
+                                child: const Text('Close'),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                    );
+                        );
+                      }
+                    }
                   },
                   icon: const Icon(Icons.map_outlined, size: 18),
                   label: const Text("SEE MAP"),

@@ -359,6 +359,7 @@ class Sponsor {
   final String? linkedinUrl;
   final String? youtubeUrl;
   final String? boothLocation;
+  final String? chatUrl; // Community/Chat platform URL
 
   Sponsor({
     required this.id,
@@ -385,6 +386,7 @@ class Sponsor {
     this.linkedinUrl,
     this.youtubeUrl,
     this.boothLocation,
+    this.chatUrl,
   });
 
   factory Sponsor.fromMap(Map<String, dynamic> data, String id) {
@@ -413,6 +415,7 @@ class Sponsor {
       linkedinUrl: data['linkedinUrl'],
       youtubeUrl: data['youtubeUrl'],
       boothLocation: data['boothLocation'],
+      chatUrl: data['chatUrl'],
     );
   }
 
@@ -448,6 +451,7 @@ class Sponsor {
       'linkedinUrl': linkedinUrl,
       'youtubeUrl': youtubeUrl,
       'boothLocation': boothLocation,
+      'chatUrl': chatUrl,
     };
   }
 
@@ -478,6 +482,7 @@ class Sponsor {
     String? linkedinUrl,
     String? youtubeUrl,
     String? boothLocation,
+    String? chatUrl,
   }) {
     return Sponsor(
       id: id ?? this.id,
@@ -504,6 +509,7 @@ class Sponsor {
       linkedinUrl: linkedinUrl ?? this.linkedinUrl,
       youtubeUrl: youtubeUrl ?? this.youtubeUrl,
       boothLocation: boothLocation ?? this.boothLocation,
+      chatUrl: chatUrl ?? this.chatUrl,
     );
   }
 }
@@ -939,6 +945,9 @@ class EntryPass {
   final DateTime? entryTime;
   final String? scannedByAdminId;
   final DateTime createdAt;
+  final String? transactionId; // Groups tickets from same purchase
+  final int ticketNumber; // Position in group (1, 2, 3...)
+  final int totalTickets; // Total tickets in transaction
 
   EntryPass({
     required this.id,
@@ -949,6 +958,9 @@ class EntryPass {
     this.entryTime,
     this.scannedByAdminId,
     required this.createdAt,
+    this.transactionId,
+    this.ticketNumber = 1,
+    this.totalTickets = 1,
   });
 
   factory EntryPass.fromMap(Map<String, dynamic> data, String id) {
@@ -961,6 +973,9 @@ class EntryPass {
       entryTime: (data['entryTime'] as Timestamp?)?.toDate(),
       scannedByAdminId: data['scannedByAdminId'],
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      transactionId: data['transactionId'],
+      ticketNumber: data['ticketNumber'] ?? 1,
+      totalTickets: data['totalTickets'] ?? 1,
     );
   }
 
@@ -973,6 +988,9 @@ class EntryPass {
       'entryTime': entryTime != null ? Timestamp.fromDate(entryTime!) : null,
       'scannedByAdminId': scannedByAdminId,
       'createdAt': Timestamp.fromDate(createdAt),
+      'transactionId': transactionId,
+      'ticketNumber': ticketNumber,
+      'totalTickets': totalTickets,
     };
   }
 
@@ -985,6 +1003,9 @@ class EntryPass {
     DateTime? entryTime,
     String? scannedByAdminId,
     DateTime? createdAt,
+    String? transactionId,
+    int? ticketNumber,
+    int? totalTickets,
   }) {
     return EntryPass(
       id: id ?? this.id,
@@ -995,6 +1016,9 @@ class EntryPass {
       entryTime: entryTime ?? this.entryTime,
       scannedByAdminId: scannedByAdminId ?? this.scannedByAdminId,
       createdAt: createdAt ?? this.createdAt,
+      transactionId: transactionId ?? this.transactionId,
+      ticketNumber: ticketNumber ?? this.ticketNumber,
+      totalTickets: totalTickets ?? this.totalTickets,
     );
   }
 }

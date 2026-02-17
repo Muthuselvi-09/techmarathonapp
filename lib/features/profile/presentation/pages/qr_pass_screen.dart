@@ -111,6 +111,7 @@ class _QrPassScreenState extends ConsumerState<QrPassScreen> with TickerProvider
           .collection('users')
           .doc(user.uid)
           .collection('entryPasses')
+          .where('status', whereIn: ['ACTIVE', 'USED']) // Exclude CANCELLED tickets
           .orderBy('createdAt', descending: true)
           .snapshots(),
       builder: (context, snapshot) {

@@ -541,24 +541,100 @@ class AdminRepository {
     }
   }
 
-  Future<void> createEntryPass(String eventId, String userId, String userName) async {
-    final docRef = _firestore
+  Future<void> createEntryPass(
+    String eventId, 
+    String userId, 
+    String userName, 
+    {int quantity = 1, String? transactionId}
+  ) async {
+    // Generate transaction ID if not provided
+    final txnId = transactionId ?? 'TXN-${DateTime.now().millisecondsSinceEpoch}';
+    
+    // Create multiple passes
+    for (int i = 1; i <= quantity; i++) {
+      final docRef = _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('entryPasses')
+          .doc();
+      
+      final pass = EntryPass(
+        id: docRef.id,
+        eventId: eventId,
+        userId: userId,
+        userName: userName,
+        status: 'ACTIVE',
+        createdAt: DateTime.now(),
+        transactionId: txnId,
+        ticketNumber: i,
+        totalTickets: quantity,
+      );
+
+      await docRef.set(pass.toMap());
+    }
+    
+    debugPrint('🎟️ Created $quantity Entry Pass(es) for $userName (Event: $eventId, TXN: $txnId)');
+  }
+
+  ///Update event seat count after booking
+  Future<void> updateEventSeats(String eventId, int quantityBooked) async {
+    await _firestore.collection('events').doc(eventId).update({
+      'bookedSeats': FieldValue.increment(quantityBooked),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    debugPrint('💺 Updated seats: +$quantityBooked booked for event $eventId');
+  }
+
+  /// Fetch all entry passes for a user and event
+  Future<List<EntryPass>> getUserEntryPasses(String userId, String eventId) async {
+    final snapshot = await _firestore
         .collection('users')
         .doc(userId)
         .collection('entryPasses')
-        .doc();
+        .where('eventId', isEqualTo: eventId)
+        .orderBy('ticketNumber')
+        .get();
     
-    final pass = EntryPass(
-      id: docRef.id,
-      eventId: eventId,
-      userId: userId,
-      userName: userName,
-      status: 'ACTIVE',
-      createdAt: DateTime.now(),
-    );
+    return snapshot.docs
+        .map((doc) => EntryPass.fromMap(doc.data(), doc.id))
+        .toList();
+  }
 
-    await docRef.set(pass.toMap());
-    debugPrint('🎟️ Entry Pass Created for $userName (Event: $eventId)');
+  /// Stream version for real-time updates
+  Stream<List<EntryPass>> watchUserEntryPasses(String userId, String eventId) {
+    return _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('entryPasses')
+        .where('eventId', isEqualTo: eventId)
+        .where('status', whereIn: ['ACTIVE', 'USED']) // Exclude cancelled
+        .orderBy('ticketNumber')
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => EntryPass.fromMap(doc.data(), doc.id))
+            .toList());
+  }
+
+  /// Cancel ticket and process refund
+  Future<void> cancelTicket(String userId, String passId, String eventId) async {
+    // Update ticket status
+    await _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('entryPasses')
+        .doc(passId)
+        .update({
+      'status': 'CANCELLED',
+      'cancelledAt': FieldValue.serverTimestamp(),
+    });
+
+    // Decrement booked seats (refund the seat)
+    await _firestore.collection('events').doc(eventId).update({
+      'bookedSeats': FieldValue.increment(-1),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+
+    debugPrint('🎫 Ticket cancelled: $passId, seat refunded for event $eventId');
   }
 
   // --- ATTENDANCE TRACKING ---

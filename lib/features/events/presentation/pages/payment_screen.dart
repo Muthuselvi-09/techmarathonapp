@@ -21,11 +21,14 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   bool _isProcessing = false;
   String? _selectedMethod = 'Card';
   bool _isVipSelected = false;
+  int _ticketQuantity = 1; // New: ticket quantity
 
   double get _basePrice => _isVipSelected ? widget.event.vipPrice : widget.event.entryFee;
   double get _vipDiscountAmount => _isVipSelected ? (_basePrice * widget.event.vipDiscountPercentage / 100) : 0;
   double get _earlyBirdAmount => (_basePrice * widget.event.earlyBirdDiscount / 100);
-  double get _totalAmount => _basePrice - _vipDiscountAmount - _earlyBirdAmount;
+  double get _pricePerTicket => _basePrice - _vipDiscountAmount - _earlyBirdAmount;
+  double get _totalAmount => _pricePerTicket * _ticketQuantity; // Updated calculation
+  int get _availableSeats => widget.event.availableSeats;
 
   Future<void> _handlePayment() async {
     setState(() => _isProcessing = true);
@@ -35,9 +38,23 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     
     final userId = FirebaseAuth.instance.currentUser?.uid;
     if (userId != null) {
+      final txnId = 'TXN-${DateTime.now().millisecondsSinceEpoch}';
+      
+      // Register event
       await ref.read(profileRepositoryProvider).registerEvent(userId, widget.event.id);
+      
+      // Create multiple entry passes
       final userName = FirebaseAuth.instance.currentUser?.displayName ?? 'Attendee';
-      await ref.read(adminRepositoryProvider).createEntryPass(widget.event.id, userId, userName);
+      await ref.read(adminRepositoryProvider).createEntryPass(
+        widget.event.id, 
+        userId, 
+        userName,
+        quantity: _ticketQuantity,
+        transactionId: txnId,
+      );
+      
+      // Update seat count
+      await ref.read(adminRepositoryProvider).updateEventSeats(widget.event.id, _ticketQuantity);
       
       if (mounted) {
         _showSuccessDialog();
@@ -46,6 +63,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   }
 
   void _showSuccessDialog() {
+    setState(() => _isProcessing = false); // Stop processing immediately
+    
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -69,7 +88,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
             ),
             const SizedBox(height: 12),
             Text(
-              'Your ticket for ${widget.event.name} is confirmed.',
+              _ticketQuantity > 1 
+                ? '$_ticketQuantity tickets for ${widget.event.name} confirmed.'
+                : 'Your ticket for ${widget.event.name} is confirmed.',
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(color: Colors.white70),
             ),
@@ -79,7 +100,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
               child: ElevatedButton(
                 onPressed: () {
                   Navigator.pop(context); // Close dialog
-                  context.go('/home'); // Go to home (my-events redirect)
+                  Navigator.pop(context); // Close payment screen
+                  context.go('/my-events'); // Navigate to tickets
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
@@ -87,7 +109,10 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
-                child: const Text('VIEW TICKET', style: TextStyle(fontWeight: FontWeight.bold)),
+                child: Text(
+                  _ticketQuantity > 1 ? 'VIEW TICKETS' : 'VIEW TICKET',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
               ),
             ),
           ],
@@ -127,6 +152,14 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
               const SizedBox(height: 32),
             ],
 
+            // Quantity Selector (only for paid events with seat management)
+            if (!widget.event.isFree && widget.event.totalSeats > 0) ...[ 
+              _buildSectionLabel('NUMBER OF TICKETS'),
+              const SizedBox(height: 16),
+              _buildQuantitySelector(),
+             const SizedBox(height: 32),
+            ],
+
             // Order Summary
             _buildSectionLabel('ORDER SUMMARY'),
             const SizedBox(height: 16),
@@ -149,17 +182,22 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
               width: double.infinity,
               height: 56,
               child: ElevatedButton(
-                onPressed: _isProcessing ? null : _handlePayment,
+                onPressed: (_isProcessing || (_availableSeats > 0 && _ticketQuantity > _availableSeats)) 
+                  ? null 
+                  : _handlePayment,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.black,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   elevation: 8,
+                  disabledBackgroundColor: Colors.grey.shade800,
                 ),
                 child: _isProcessing
                     ? const CircularProgressIndicator(color: Colors.black)
                     : Text(
-                        'PAY ${widget.event.currency}${_totalAmount.toStringAsFixed(2)}',
+                        (_availableSeats > 0 && _ticketQuantity > _availableSeats)
+                          ? 'NOT ENOUGH SEATS AVAILABLE'
+                          : 'PAY ${widget.event.currency}${_totalAmount.toStringAsFixed(2)}',
                         style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: 1),
                       ),
               ),
@@ -268,6 +306,12 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
           ],
           const SizedBox(height: 8),
           _buildPriceRow('Service Fee', '${widget.event.currency}0.00'),
+          if (_ticketQuantity > 1) ...[ 
+            const SizedBox(height: 8),
+            _buildPriceRow('Price per Ticket', '${widget.event.currency}${_pricePerTicket.toStringAsFixed(2)}'),
+            const SizedBox(height: 8),
+            _buildPriceRow('Quantity', 'x$_ticketQuantity'),
+          ],
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 20),
             child: Divider(color: Colors.white12),
@@ -334,6 +378,124 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
               const Icon(Icons.check_circle_rounded, color: AppColors.primary, size: 20),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildQuantitySelector() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Select Quantity',
+                style: GoogleFonts.outfit(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+              Row(
+                children: [
+                  // Minus Button
+                  IconButton(
+                    onPressed: _ticketQuantity > 1
+                        ? () => setState(() => _ticketQuantity--)
+                        : null,
+                    style: IconButton.styleFrom(
+                      backgroundColor: _ticketQuantity > 1 
+                        ? AppColors.primary.withValues(alpha: 0.2)
+                        : Colors.white.withValues(alpha: 0.05),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    icon: Icon(
+                      Icons.remove,
+                      color: _ticketQuantity > 1 ? AppColors.primary : Colors.white24,
+                    ),
+                  ),
+                  // Count Display
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                    ),
+                    child: Text(
+                      '$_ticketQuantity',
+                      style: GoogleFonts.outfit(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 20,
+                      ),
+                    ),
+                  ),
+                  // Plus Button
+                  IconButton(
+                    onPressed: (_availableSeats == 0 || _ticketQuantity < _availableSeats)
+                        ? () => setState(() => _ticketQuantity++)
+                        : null,
+                    style: IconButton.styleFrom(
+                      backgroundColor: (_availableSeats == 0 || _ticketQuantity < _availableSeats)
+                        ? AppColors.primary.withValues(alpha: 0.2)
+                        : Colors.white.withValues(alpha: 0.05),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    icon: Icon(
+                      Icons.add,
+                      color: (_availableSeats == 0 || _ticketQuantity < _availableSeats)
+                        ? AppColors.primary
+                        : Colors.white24,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          if (_availableSeats > 0) ...[ 
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Icon(
+                  _availableSeats <= 5 ? Icons.warning_amber_rounded : Icons.event_seat_rounded,
+                  color: _availableSeats <= 5 ? Colors.orange : AppColors.primary,
+                  size: 16,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  _availableSeats <= 5 
+                    ? 'Only $_availableSeats seats remaining!'
+                    : '$_availableSeats seats available',
+                  style: GoogleFonts.inter(
+                    color: _availableSeats <= 5 ? Colors.orange : AppColors.textSecondary,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ] else if (widget.event.totalSeats > 0) ...[ 
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                const Icon(Icons.block_rounded, color: Colors.red, size: 16),
+                const SizedBox(width: 8),
+                Text(
+                  'Event is sold out',
+                  style: GoogleFonts.inter(color: Colors.red, fontSize: 12),
+                ),
+              ],
+            ),
+          ],
+        ],
       ),
     );
   }

@@ -1524,99 +1524,111 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     schedule.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.outfit(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
                       fontSize: 18,
                     ),
                   ),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: _gold.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: _gold.withValues(alpha: 0.2)),
+                  const SizedBox(height: 6),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: _gold.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: _gold.withValues(alpha: 0.2)),
+                          ),
+                          child: Text(
+                            schedule.sessionType.toUpperCase(),
+                            style: GoogleFonts.outfit(color: _gold, fontSize: 10, fontWeight: FontWeight.bold),
+                          ),
                         ),
-                        child: Text(
-                          schedule.sessionType.toUpperCase(),
-                          style: GoogleFonts.outfit(color: _gold, fontSize: 10, fontWeight: FontWeight.bold),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${_formatTime(schedule.startTime)} - ${_formatTime(schedule.endTime)}',
+                          style: GoogleFonts.outfit(color: Colors.white38, fontSize: 13),
                         ),
-                      ),
-                      Text(
-                        '${_formatTime(schedule.startTime)} - ${_formatTime(schedule.endTime)}',
-                        style: GoogleFonts.outfit(color: Colors.white38, fontSize: 13),
-                      ),
-                      if (schedule.hall.isNotEmpty)
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.room_rounded, color: Colors.white24, size: 12),
-                            const SizedBox(width: 4),
-                            Text(
-                              schedule.hall,
-                              style: GoogleFonts.outfit(color: Colors.white38, fontSize: 12),
-                            ),
-                          ],
+                        if (schedule.hall.isNotEmpty) ...[
+                          const SizedBox(width: 8),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.room_rounded, color: Colors.white24, size: 12),
+                              const SizedBox(width: 4),
+                              Text(
+                                schedule.hall,
+                                style: GoogleFonts.outfit(color: Colors.white38, fontSize: 12),
+                              ),
+                            ],
+                          ),
+                        ],
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.05),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            eventName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.outfit(color: Colors.white38, fontSize: 11),
+                          ),
                         ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.05),
-                          borderRadius: BorderRadius.circular(8),
+                        const SizedBox(width: 8),
+                        // Status Badge
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: _getStatusColor(schedule.status).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: _getStatusColor(schedule.status).withValues(alpha: 0.2)),
+                          ),
+                          child: Text(
+                            schedule.status.toUpperCase(),
+                            style: GoogleFonts.outfit(color: _getStatusColor(schedule.status), fontSize: 9, fontWeight: FontWeight.bold),
+                          ),
                         ),
-                        child: Text(
-                          eventName,
-                          style: GoogleFonts.outfit(color: Colors.white38, fontSize: 11),
+                        const SizedBox(width: 8),
+                        // Attendance Count
+                        StreamBuilder<int>(
+                          stream: ref.read(adminRepositoryProvider).watchAttendanceCount(schedule.eventId, schedule.id),
+                          builder: (context, snapshot) {
+                            final count = snapshot.data ?? 0;
+                            return Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.blue.withValues(alpha: 0.2)),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.people_outline_rounded, color: Colors.blueAccent, size: 10),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '$count Attended',
+                                    style: GoogleFonts.outfit(color: Colors.blueAccent, fontSize: 10, fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
                         ),
-                      ),
-                      // Status Badge
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: _getStatusColor(schedule.status).withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: _getStatusColor(schedule.status).withValues(alpha: 0.2)),
-                        ),
-                        child: Text(
-                          schedule.status.toUpperCase(),
-                          style: GoogleFonts.outfit(color: _getStatusColor(schedule.status), fontSize: 9, fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                      // Attendance Count
-                      StreamBuilder<int>(
-                        stream: ref.read(adminRepositoryProvider).watchAttendanceCount(schedule.eventId, schedule.id),
-                        builder: (context, snapshot) {
-                          final count = snapshot.data ?? 0;
-                          return Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: Colors.blue.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.blue.withValues(alpha: 0.2)),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.people_outline_rounded, color: Colors.blueAccent, size: 10),
-                                const SizedBox(width: 4),
-                                Text(
-                                  '$count Attended',
-                                  style: GoogleFonts.outfit(color: Colors.blueAccent, fontSize: 10, fontWeight: FontWeight.bold),
-                                ),
-                              ],
-                            ),
-                          );
-                        }
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ],
               ),
