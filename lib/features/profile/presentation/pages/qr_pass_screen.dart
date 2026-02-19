@@ -111,8 +111,6 @@ class _QrPassScreenState extends ConsumerState<QrPassScreen> with TickerProvider
           .collection('users')
           .doc(user.uid)
           .collection('entryPasses')
-          .where('status', whereIn: ['ACTIVE', 'USED']) // Exclude CANCELLED tickets
-          .orderBy('createdAt', descending: true)
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -125,7 +123,11 @@ class _QrPassScreenState extends ConsumerState<QrPassScreen> with TickerProvider
 
         final passes = snapshot.data!.docs
             .map((doc) => EntryPass.fromMap(doc.data() as Map<String, dynamic>, doc.id))
+            .where((pass) => pass.status != 'CANCELLED')
             .toList();
+
+        // Sort in-memory to avoid index requirement
+        passes.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
         return ListView.builder(
           padding: const EdgeInsets.all(24),
@@ -243,7 +245,7 @@ class _QrPassScreenState extends ConsumerState<QrPassScreen> with TickerProvider
   }
 
   Widget _qrView(EntryPass pass, String eventId) {
-    final String qrData = '${pass.eventId}:${pass.userId}:${pass.id}';
+    final String qrData = pass.id;
     final bool isUsed = pass.status == 'USED';
     
     return Stack(

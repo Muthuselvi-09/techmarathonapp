@@ -224,13 +224,20 @@ class ViewAllEventsScreen extends ConsumerStatefulWidget {
 
 class _ViewAllEventsScreenState extends ConsumerState<ViewAllEventsScreen> {
   String selectedCategory = 'All';
+  final TextEditingController _searchController = TextEditingController();
   final List<String> categories = ['All', 'Weddings', 'Concerts', 'Sports', 'Education'];
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final eventsAsync = ref.watch(allEventsStreamProvider);
     final userProfile = ref.watch(profileProvider);
-    final categoriesAsync = ref.watch(categoriesStreamProvider); // Using StreamProvider for AsyncValue compatibility
+    final categoriesAsync = ref.watch(categoriesStreamProvider);
 
     return Scaffold(
       body: Container(
@@ -252,13 +259,15 @@ class _ViewAllEventsScreenState extends ConsumerState<ViewAllEventsScreen> {
                   data: (categories) {
                     return eventsAsync.when(
                       data: (events) {
-                        final filteredEvents = selectedCategory == 'All'
-                            ? events
-                            : events.where((e) {
-                                // Filter by category name (preserving backward compatibility)
-                                // or categoryId if present
-                                return e.category == selectedCategory || e.categoryId == selectedCategory;
-                              }).toList();
+                        final searchQuery = _searchController.text.toLowerCase();
+                        final filteredEvents = events.where((e) {
+                          final matchesCategory = selectedCategory == 'All' || 
+                                               e.category == selectedCategory || 
+                                               e.categoryId == selectedCategory;
+                          final matchesSearch = e.name.toLowerCase().contains(searchQuery) || 
+                                             e.location.toLowerCase().contains(searchQuery);
+                          return matchesCategory && matchesSearch;
+                        }).toList();
 
                         return SingleChildScrollView(
                           physics: const BouncingScrollPhysics(),
@@ -266,39 +275,48 @@ class _ViewAllEventsScreenState extends ConsumerState<ViewAllEventsScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              if (filteredEvents.isNotEmpty)
+                              if (filteredEvents.isNotEmpty && searchQuery.isEmpty)
                                 _buildFeaturedCard(filteredEvents.first),
-                              const SizedBox(height: 32),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    'Trending',
-                                    style: GoogleFonts.outfit(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
+                              if (filteredEvents.isNotEmpty && searchQuery.isEmpty)
+                                const SizedBox(height: 32),
+                              
+                              if (filteredEvents.isNotEmpty) ...[
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      searchQuery.isEmpty ? 'Trending' : 'Search Results',
+                                      style: GoogleFonts.outfit(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                      ),
                                     ),
-                                  ),
-                                  Text(
-                                    'See All',
-                                    style: GoogleFonts.inter(
-                                      fontSize: 12,
-                                      color: Colors.white70,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 16),
-                              if (filteredEvents.isEmpty)
+                                    if (searchQuery.isEmpty)
+                                      Text(
+                                        'See All',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 12,
+                                          color: Colors.white70,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+                                ...filteredEvents.map((e) => _buildTrendingItem(e)),
+                              ] else
                                 const Center(
                                   child: Padding(
-                                    padding: EdgeInsets.only(top: 40),
-                                    child: Text('No events available', style: TextStyle(color: Colors.white38)),
+                                    padding: EdgeInsets.only(top: 80),
+                                    child: Column(
+                                      children: [
+                                        Icon(Icons.search_off_rounded, size: 64, color: Colors.white24),
+                                        SizedBox(height: 16),
+                                        Text('No events found', style: TextStyle(color: Colors.white38)),
+                                      ],
+                                    ),
                                   ),
-                                )
-                              else
-                                ...filteredEvents.skip(1).map((e) => _buildTrendingItem(e)),
+                                ),
                               const SizedBox(height: 100),
                             ],
                           ),
@@ -342,12 +360,15 @@ class _ViewAllEventsScreenState extends ConsumerState<ViewAllEventsScreen> {
             ],
           ),
           Container(
-            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.notifications_none, color: Colors.white, size: 24),
+            child: IconButton(
+              onPressed: () => context.push('/notifications'),
+              padding: const EdgeInsets.all(8),
+              icon: const Icon(Icons.notifications_none, color: Colors.white, size: 24),
+            ),
           ),
         ],
       ),
@@ -372,22 +393,40 @@ class _ViewAllEventsScreenState extends ConsumerState<ViewAllEventsScreen> {
                 children: [
                   const Icon(Icons.search, color: Colors.white70, size: 24),
                   const SizedBox(width: 12),
-                  Text('Search', style: GoogleFonts.inter(color: Colors.white54, fontSize: 16)),
+                  Expanded(
+                    child: TextField(
+                      controller: _searchController,
+                      onChanged: (val) => setState(() {}),
+                      style: GoogleFonts.inter(color: Colors.white, fontSize: 16),
+                      decoration: InputDecoration(
+                        hintText: 'Search',
+                        hintStyle: GoogleFonts.inter(color: Colors.white54, fontSize: 16),
+                        border: InputBorder.none,
+                        isCollapsed: true,
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
           ),
           const SizedBox(width: 12),
-          Container(
-            padding: const EdgeInsets.all(12),
-            height: 56,
-            width: 56,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+          GestureDetector(
+            onTap: () {
+              // Open filter/category selector or just focus search
+              FocusScope.of(context).unfocus();
+            },
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              height: 56,
+              width: 56,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+              ),
+              child: const Icon(Icons.tune, color: Colors.white, size: 24),
             ),
-            child: const Icon(Icons.tune, color: Colors.white, size: 24),
           ),
         ],
       ),

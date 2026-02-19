@@ -1023,3 +1023,136 @@ class EntryPass {
   }
 }
 
+class PersonalEvent {
+  final String id;
+  final String userId;
+  final String title;
+  final bool isAllDay;
+  final DateTime startDate;
+  final DateTime endDate;
+  final String location;
+  final String email;
+  final String reminder;
+  final String repeat;
+  final String notes;
+  final DateTime createdAt;
+
+  PersonalEvent({
+    required this.id,
+    required this.userId,
+    required this.title,
+    this.isAllDay = false,
+    required this.startDate,
+    required this.endDate,
+    this.location = '',
+    this.email = '',
+    this.reminder = '10 mins before',
+    this.repeat = 'Don\'t repeat',
+    this.notes = '',
+    DateTime? createdAt,
+  }) : createdAt = createdAt ?? DateTime.now();
+
+  Map<String, dynamic> toFirestore() {
+    return {
+      'id': id,
+      'userId': userId,
+      'title': title,
+      'isAllDay': isAllDay,
+      'startDate': Timestamp.fromDate(startDate),
+      'endDate': Timestamp.fromDate(endDate),
+      'location': location,
+      'email': email,
+      'reminder': reminder,
+      'repeat': repeat,
+      'notes': notes,
+      'createdAt': Timestamp.fromDate(createdAt),
+    };
+  }
+
+  factory PersonalEvent.fromFirestore(Map<String, dynamic> data) {
+    return PersonalEvent(
+      id: data['id'] ?? '',
+      userId: data['userId'] ?? '',
+      title: data['title'] ?? '',
+      isAllDay: data['isAllDay'] ?? false,
+      startDate: (data['startDate'] as Timestamp).toDate(),
+      endDate: (data['endDate'] as Timestamp).toDate(),
+      location: data['location'] ?? '',
+      email: data['email'] ?? '',
+      reminder: data['reminder'] ?? '10 mins before',
+      repeat: data['repeat'] ?? 'Don\'t repeat',
+      notes: data['notes'] ?? '',
+      createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
+    );
+  }
+}
+
+class LiveFeedItem {
+  final String id;
+  final String eventId;
+  final String type; // 'video', 'image', 'template'
+  final String? contentUrl;
+  final String? templateType; // 'certificate', 'guest', 'invite', 'sponsor', 'intro'
+  final Map<String, dynamic> templateData;
+  final DateTime createdAt;
+  final bool isActive;
+
+  LiveFeedItem({
+    required this.id,
+    required this.eventId,
+    required this.type,
+    this.contentUrl,
+    this.templateType,
+    this.templateData = const {},
+    DateTime? createdAt,
+    this.isActive = true,
+  }) : createdAt = createdAt ?? DateTime.now();
+
+  factory LiveFeedItem.fromMap(Map<String, dynamic> data, String id) {
+    return LiveFeedItem(
+      id: id,
+      eventId: data['eventId'] ?? '',
+      type: data['type'] ?? 'image',
+      contentUrl: data['contentUrl'],
+      templateType: data['templateType'],
+      templateData: Map<String, dynamic>.from(data['templateData'] ?? {}),
+      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      isActive: data['isActive'] ?? true,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'eventId': eventId,
+      'type': type,
+      'contentUrl': contentUrl,
+      'templateType': templateType,
+      'templateData': templateData,
+      'createdAt': Timestamp.fromDate(createdAt),
+      'isActive': isActive,
+    };
+  }
+
+  LiveFeedItem copyWith({
+    String? id,
+    String? eventId,
+    String? type,
+    String? contentUrl,
+    String? templateType,
+    Map<String, dynamic>? templateData,
+    DateTime? createdAt,
+    bool? isActive,
+  }) {
+    return LiveFeedItem(
+      id: id ?? this.id,
+      eventId: eventId ?? this.eventId,
+      type: type ?? this.type,
+      contentUrl: contentUrl ?? this.contentUrl,
+      templateType: templateType ?? this.templateType,
+      templateData: templateData ?? this.templateData,
+      createdAt: createdAt ?? this.createdAt,
+      isActive: isActive ?? this.isActive,
+    );
+  }
+}
+

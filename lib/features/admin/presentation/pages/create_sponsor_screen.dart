@@ -433,7 +433,7 @@ class _CreateSponsorScreenState extends ConsumerState<CreateSponsorScreen> {
                         try {
                            final bytes = await image.readAsBytes();
                            // Assume uploadToCloudinary is available in repository
-                           final url = await ref.read(adminRepositoryProvider).uploadToCloudinary(bytes, folder: 'sponsors/media');
+                           final url = await ref.read(adminRepositoryProvider).uploadToCloudinary(data: bytes, folder: 'sponsors/media');
                            setState(() {
                              _tempMedia.add(url);
                              _isUploadingMedia = false;
@@ -557,7 +557,7 @@ class _CreateSponsorScreenState extends ConsumerState<CreateSponsorScreen> {
                     setDialogState(() => uploading = true);
                     try {
                       final bytes = await selectedImage!.readAsBytes();
-                      url = await ref.read(adminRepositoryProvider).uploadToCloudinary(bytes, folder: 'sponsors/products');
+                      url = await ref.read(adminRepositoryProvider).uploadToCloudinary(data: bytes, folder: 'sponsors/products');
                     } catch (e) {
                       setDialogState(() => uploading = false);
                       return;

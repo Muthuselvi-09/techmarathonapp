@@ -62,6 +62,53 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     }
   }
 
+  Future<void> _handleCancellation(EntryPass pass) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Text('Cancel Ticket?', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold)),
+        content: Text('Are you sure you want to cancel Ticket #${pass.ticketNumber}? This action cannot be undone.', 
+          style: GoogleFonts.inter(color: Colors.white70)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('NO', style: TextStyle(color: AppColors.textDim)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            child: const Text('YES, CANCEL'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      setState(() => _isProcessing = true);
+      try {
+        final userId = FirebaseAuth.instance.currentUser?.uid;
+        if (userId != null) {
+          await ref.read(adminRepositoryProvider).cancelTicket(userId, pass.id, widget.event.id);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Ticket cancelled successfully'), backgroundColor: Colors.green),
+            );
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to cancel ticket: $e'), backgroundColor: Colors.red),
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _isProcessing = false);
+      }
+    }
+  }
+
   void _showSuccessDialog() {
     setState(() => _isProcessing = false); // Stop processing immediately
     
@@ -123,6 +170,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -139,21 +188,42 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (widget.event.isVipEnabled) ...[
-              _buildSectionLabel('SELECT PASS TYPE'),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                   _buildPassTypeTab('STANDARD', false),
+            if (userId != null) 
+              StreamBuilder<List<EntryPass>>(
+                stream: ref.read(adminRepositoryProvider).watchUserEntryPasses(userId, widget.event.id),
+                builder: (context, snapshot) {
+                  final tickets = snapshot.data ?? [];
+                  if (tickets.isEmpty) return const SizedBox.shrink();
+                  
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildSectionLabel('YOUR EXISTING TICKETS'),
+                      const SizedBox(height: 16),
+                      ...tickets.map((pass) => _buildTicketCancellationTile(pass)).toList(),
+                      const SizedBox(height: 32),
+                    ],
+                  );
+                },
+              ),
+
+            // Pass Type Selection (Always show Standard at minimum)
+            _buildSectionLabel('SELECT PASS TYPE'),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                 _buildPassTypeTab('STANDARD', false),
+                 if (widget.event.isVipEnabled) ...[
                    const SizedBox(width: 12),
                    _buildPassTypeTab('VIP PASS', true),
-                ],
-              ),
-              const SizedBox(height: 32),
-            ],
+                 ] else 
+                   const Spacer(), // Balance the row if only one pass
+              ],
+            ),
+            const SizedBox(height: 32),
 
-            // Quantity Selector (only for paid events with seat management)
-            if (!widget.event.isFree && widget.event.totalSeats > 0) ...[ 
+            // Quantity Selector (Show if event manages seats)
+            if (widget.event.totalSeats > 0) ...[ 
               _buildSectionLabel('NUMBER OF TICKETS'),
               const SizedBox(height: 16),
               _buildQuantitySelector(),
@@ -196,8 +266,10 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                     ? const CircularProgressIndicator(color: Colors.black)
                     : Text(
                         (_availableSeats > 0 && _ticketQuantity > _availableSeats)
-                          ? 'NOT ENOUGH SEATS AVAILABLE'
-                          : 'PAY ${widget.event.currency}${_totalAmount.toStringAsFixed(2)}',
+                          ? 'NOT ENOUGH SEATS'
+                          : (_totalAmount == 0 
+                              ? 'CONFIRM BOOKING' 
+                              : 'PAY ${widget.event.currency}${_totalAmount.toStringAsFixed(2)}'),
                         style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: 1),
                       ),
               ),
@@ -208,17 +280,66 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     );
   }
 
+  Widget _buildTicketCancellationTile(EntryPass pass) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.05)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(Icons.confirmation_number_rounded, color: AppColors.primary, size: 20),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Ticket #${pass.ticketNumber}',
+                  style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+                Text(
+                  pass.status,
+                  style: GoogleFonts.inter(fontSize: 11, color: pass.status == 'ACTIVE' ? Colors.green : Colors.orange),
+                ),
+              ],
+            ),
+          ),
+          if (pass.status == 'ACTIVE')
+            TextButton(
+              onPressed: _isProcessing ? null : () => _handleCancellation(pass),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('CANCEL', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildPassTypeTab(String label, bool isVip) {
     final isSelected = _isVipSelected == isVip;
     return Expanded(
       child: GestureDetector(
         onTap: () => setState(() => _isVipSelected = isVip),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 16),
+          padding: const EdgeInsets.symmetric(vertical: 20),
           decoration: BoxDecoration(
             color: isSelected ? AppColors.primary : AppColors.surface,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: isSelected ? AppColors.primary : Colors.white12),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: isSelected ? AppColors.primary : Colors.white.withOpacity(0.05), width: 1.5),
+            boxShadow: isSelected ? [
+              BoxShadow(color: AppColors.primary.withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 8))
+            ] : null,
           ),
           child: Column(
             children: [
@@ -226,14 +347,18 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                 label,
                 style: GoogleFonts.outfit(
                   color: isSelected ? Colors.black : Colors.white,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 16,
+                  letterSpacing: 0.5,
                 ),
               ),
+              const SizedBox(height: 4),
               Text(
-                '${widget.event.currency}${isVip ? widget.event.vipPrice : widget.event.entryFee}',
-                style: TextStyle(
-                  color: isSelected ? Colors.black87 : AppColors.textDim,
-                  fontSize: 12,
+                '${widget.event.currency}${isVip ? widget.event.vipPrice.toStringAsFixed(0) : widget.event.entryFee.toStringAsFixed(0)}',
+                style: GoogleFonts.inter(
+                  color: isSelected ? Colors.black.withOpacity(0.7) : AppColors.textDim,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
             ],

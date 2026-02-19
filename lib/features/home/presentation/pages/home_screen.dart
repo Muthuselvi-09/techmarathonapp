@@ -30,6 +30,7 @@ import 'speaker_details_screen.dart';
 import 'schedule_details_screen.dart';
 import 'event_info_screen.dart';
 import 'food_course_screen.dart';
+import 'live_feed_screen.dart';
 import '../../../chat/presentation/pages/admin_chat_page.dart';
 import 'view_all_screens.dart'; // Import ViewAll screens
 
@@ -726,7 +727,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 } else if (index == 1) {
                   destination = const ScheduleDetailsScreen(); // SCHEDULE
                 } else {
-                  destination = const FoodCourseScreen(); // LIVE FEED -> Food/Course
+                  destination = const LiveFeedScreen(); // LIVE FEED
                 }
                 Navigator.push(
                   context,

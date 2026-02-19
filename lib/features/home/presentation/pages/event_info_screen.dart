@@ -30,26 +30,7 @@ class _EventInfoScreenState extends ConsumerState<EventInfoScreen> {
       return;
     }
 
-    if (!event.isFree) {
-      context.push('/payment', extra: event);
-      return;
-    }
-
-    setState(() => _isRegistering = true);
-    try {
-      await ref.read(profileRepositoryProvider).registerEvent(user.uid, event.id);
-      if (mounted) {
-        _showSuccessDialog(event.name);
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Registration failed: $e')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isRegistering = false);
-    }
+    context.push('/payment', extra: event);
   }
 
   void _showSuccessDialog(String eventName) {

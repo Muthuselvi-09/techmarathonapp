@@ -204,34 +204,9 @@ class _EventOverviewScreenState extends ConsumerState<EventOverviewScreen> {
                     builder: (context) {
                       final isSoldOut = event.totalSeats > 0 && event.availableSeats <= 0;
                       return ElevatedButton(
-                        onPressed: (isRegistered || isSoldOut) ? null : () async {
+                        onPressed: (isRegistered || isSoldOut) ? null : () {
                           if (userId != null) {
-                            if (!event.isFree) {
-                              context.push('/payment', extra: event);
-                              return;
-                            }
-
-                            await ref.read(profileRepositoryProvider).registerEvent(userId, event.id);
-                            final userName = FirebaseAuth.instance.currentUser?.displayName ?? 'Attendee';
-                            await ref.read(adminRepositoryProvider).createEntryPass(event.id, userId, userName);
-                            // 6. Push Notifications - Schedule reminders for joined event
-                            final schedules = await ref.read(adminRepositoryProvider).getSchedulesForEvent(event.id);
-                            await notificationService.scheduleAllSessionReminders(
-                              sessions: schedules.map((s) => {
-                                'id': s.id,
-                                'title': s.title,
-                                'startTime': s.startTime,
-                              }).toList(),
-                              eventName: event.name,
-                            );
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(event.isFree ? 'Successfully joined event!' : 'Ticket purchased successfully!'),
-                                  backgroundColor: Colors.green,
-                                ),
-                              );
-                            }
+                            context.push('/payment', extra: event);
                           }
                         },
                         style: ElevatedButton.styleFrom(

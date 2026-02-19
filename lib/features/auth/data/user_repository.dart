@@ -6,6 +6,10 @@ final userRepositoryProvider = Provider<UserRepository>((ref) {
   return UserRepository(FirebaseFirestore.instance);
 });
 
+final personalEventsStreamProvider = StreamProvider.family<List<PersonalEvent>, String>((ref, userId) {
+  return ref.watch(userRepositoryProvider).watchPersonalEvents(userId);
+});
+
 class UserRepository {
   final FirebaseFirestore _firestore;
 
@@ -107,5 +111,40 @@ class UserRepository {
 
   Future<void> deleteMember(String id) async {
     await _usersCollection.doc(id).delete();
+  }
+
+  // Personal Events
+  Future<void> savePersonalEvent(PersonalEvent event) async {
+    final docRef = event.id.isEmpty 
+        ? _usersCollection.doc(event.userId).collection('personalEvents').doc()
+        : _usersCollection.doc(event.userId).collection('personalEvents').doc(event.id);
+    
+    final eventWithId = PersonalEvent(
+      id: docRef.id,
+      userId: event.userId,
+      title: event.title,
+      isAllDay: event.isAllDay,
+      startDate: event.startDate,
+      endDate: event.endDate,
+      location: event.location,
+      email: event.email,
+      reminder: event.reminder,
+      repeat: event.repeat,
+      notes: event.notes,
+      createdAt: event.createdAt,
+    );
+
+    await docRef.set(eventWithId.toFirestore());
+  }
+
+  Stream<List<PersonalEvent>> watchPersonalEvents(String userId) {
+    return _usersCollection
+        .doc(userId)
+        .collection('personalEvents')
+        .orderBy('startDate')
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs.map((doc) => PersonalEvent.fromFirestore(doc.data())).toList();
+    });
   }
 }

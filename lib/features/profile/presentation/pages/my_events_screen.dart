@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -44,7 +45,13 @@ class _MyEventsScreenState extends ConsumerState<MyEventsScreen> {
         centerTitle: true,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppColors.textPrimary),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/home');
+            }
+          },
         ),
       ),
       body: StreamBuilder<List<String>>(
@@ -185,7 +192,10 @@ class _MyEventsScreenState extends ConsumerState<MyEventsScreen> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: isRegistered ? null : () => ref.read(profileRepositoryProvider).registerEvent(userId, eventId),
+              onPressed: isRegistered ? null : () async {
+                final user = FirebaseAuth.instance.currentUser;
+                await ref.read(profileRepositoryProvider).registerEvent(userId, eventId, userName: user?.displayName);
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: isRegistered ? AppColors.textDim : AppColors.primary,
                 foregroundColor: Colors.black,
@@ -341,101 +351,153 @@ class _MyEventsScreenState extends ConsumerState<MyEventsScreen> {
     required String eventDate,
     required String location,
   }) async {
-    final user = FirebaseAuth.instance.currentUser;
-    final userName = user?.displayName ?? 'Valued Member';
-    final userId = user?.uid ?? 'USER-ID';
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      final userName = user?.displayName ?? 'Valued Member';
+      final userId = user?.uid ?? 'USER-ID';
 
-    // Fetch all entry passes for this event
-    final passes = await ref.read(adminRepositoryProvider).getUserEntryPasses(userId, eventId);
-    
-    if (passes.isEmpty) {
-      // Show error - no tickets found
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No tickets found for this event')),
-        );
+      // Fetch all entry passes for this event
+      final passes = await ref.read(adminRepositoryProvider).getUserEntryPasses(userId, eventId);
+      
+      if (passes.isEmpty) {
+        // PROACTIVELY FIX: If registered but no tickets exist (legacy data), create one
+        if (mounted) {
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (dialogContext) => const Center(child: CircularProgressIndicator()),
+          );
+          
+          try {
+            // Pass full userName if available
+            await ref.read(adminRepositoryProvider).createEntryPass(eventId, userId, userName);
+            
+            if (mounted) {
+              // Use root navigator to pop the dialog only
+              Navigator.of(context, rootNavigator: true).pop(); 
+              
+              // Allow state to update
+              await Future.delayed(const Duration(milliseconds: 500));
+              
+              // Refresh passes
+              final newPasses = await ref.read(adminRepositoryProvider).getUserEntryPasses(userId, eventId);
+              if (newPasses.isNotEmpty && mounted) {
+                _showTicketModal(
+                  eventId: eventId, 
+                  eventName: eventName, 
+                  eventDate: eventDate, 
+                  location: location,
+                );
+                return;
+              }
+            }
+          } catch (e) {
+            debugPrint('❌ Ticket recovery failed: $e');
+            if (mounted) {
+               Navigator.of(context, rootNavigator: true).pop();
+            }
+          }
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('No tickets found. Please contact support.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
       }
-      return;
-    }
 
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.75,
-        decoration: const BoxDecoration(
-          color: AppColors.background,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-        ),
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          children: [
-            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2))),
-            const SizedBox(height: 32),
-            Text(
-              'YOUR EVENT TICKET${passes.length > 1 ? 'S' : ''}',
-              style: GoogleFonts.outfit(
-                fontSize: 12,
-                fontWeight: FontWeight.w900,
-                color: AppColors.primary,
-                letterSpacing: 2,
+      if (!mounted) return;
+
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        isScrollControlled: true,
+        builder: (context) => Container(
+          height: MediaQuery.of(context).size.height * 0.75,
+          decoration: const BoxDecoration(
+            color: AppColors.background,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+          ),
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            children: [
+              Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2))),
+              const SizedBox(height: 32),
+              Text(
+                'YOUR EVENT TICKET${passes.length > 1 ? 'S' : ''}',
+                style: GoogleFonts.outfit(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.primary,
+                  letterSpacing: 2,
+                ),
               ),
-            ),
-            const SizedBox(height: 24),
-            Expanded(
-              child: PageView.builder(
-                itemCount: passes.length,
-                itemBuilder: (context, index) {
-                  final pass = passes[index];
-                  return _buildTicketPage(
-                    pass: pass,
-                    eventName: eventName,
-                    eventDate: eventDate,
-                    userName: userName,
-                    userId: userId,
-                  );
-                },
+              const SizedBox(height: 24),
+              Expanded(
+                child: PageView.builder(
+                  itemCount: passes.length,
+                  itemBuilder: (context, index) {
+                    final pass = passes[index];
+                    return _buildTicketPage(
+                      pass: pass,
+                      eventName: eventName,
+                      eventDate: eventDate,
+                      userName: userName,
+                      userId: userId,
+                    );
+                  },
+                ),
               ),
-            ),
-            if (passes.length > 1) ...[
-              const SizedBox(height: 16),
-              // Page indicator
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(
-                  passes.length,
-                  (index) => Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                    width: 8,
-                    height: 8,
-                    decoration: const BoxDecoration(
-                      color: AppColors.primary,
-                      shape: BoxShape.circle,
+              if (passes.length > 1) ...[
+                const SizedBox(height: 16),
+                // Page indicator
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(
+                    passes.length,
+                    (index) => Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                      width: 8,
+                      height: 8,
+                      decoration: const BoxDecoration(
+                        color: AppColors.primary,
+                        shape: BoxShape.circle,
+                      ),
                     ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.download_rounded),
+                  label: const Text('SAVE TO DEVICE'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.black,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   ),
                 ),
               ),
             ],
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.download_rounded),
-                label: const Text('SAVE TO DEVICE'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.black,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
-      ),
-    );
+      );
+    } catch (e) {
+      debugPrint('❌ Error in _showTicketModal: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error displaying ticket: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 
   Widget _buildTicketPage({
@@ -576,14 +638,14 @@ class _MyEventsScreenState extends ConsumerState<MyEventsScreen> {
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: QrImageView(
-                    data: 'PASS-${pass.id}',
+                    data: pass.id,
                     version: QrVersions.auto,
                     size: 150.0,
                   ),
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'ID: ${pass.id.substring(0, 8).toUpperCase()}',
+                  'ID: ${pass.id.substring(pass.id.length - 8).toUpperCase()}',
                   style: GoogleFonts.robotoMono(
                     color: AppColors.textDim,
                     fontSize: 10,
@@ -609,7 +671,7 @@ Ticket: ${pass.ticketNumber} of ${pass.totalTickets}
 Status: ${pass.status}
 
 Ticket ID: ${pass.id}
-QR Code: PASS-${pass.id}
+QR Code: ${pass.id}
 
 ⚠️ Important: Each ticket has a unique ID and QR code. This ticket can only be used once for entry. Share this with someone if you cannot attend.
     ''';

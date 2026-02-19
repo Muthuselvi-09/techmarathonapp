@@ -24,22 +24,33 @@ class AdminRepository {
   final String _uploadPreset = 'event_upload';
 
   /// STRICT implementation for Cloudinary Upload
-  Future<String> uploadToCloudinary(Uint8List data, {String folder = 'events'}) async {
+  Future<String> uploadToCloudinary({Uint8List? data, String? filePath, String folder = 'events', String resourceType = 'image'}) async {
     try {
-      debugPrint('☁️ Uploading to Cloudinary (${(data.lengthInBytes/1024).toStringAsFixed(1)} KB) to folder "$folder"...');
+      final size = data != null ? data.lengthInBytes : (filePath != null ? File(filePath).lengthSync() : 0);
+      debugPrint('☁️ Uploading to Cloudinary (${(size/1024).toStringAsFixed(1)} KB) to folder "$folder" ($resourceType)...');
 
-      final url = Uri.parse('https://api.cloudinary.com/v1_1/$_cloudName/image/upload');
+      final url = Uri.parse('https://api.cloudinary.com/v1_1/$_cloudName/$resourceType/upload');
       
       final request = http.MultipartRequest('POST', url)
         ..fields['upload_preset'] = _uploadPreset
-        ..fields['folder'] = folder
-        ..files.add(http.MultipartFile.fromBytes(
+        ..fields['folder'] = folder;
+
+      if (filePath != null) {
+        request.files.add(await http.MultipartFile.fromPath(
+          'file',
+          filePath,
+        ));
+      } else if (data != null) {
+        request.files.add(http.MultipartFile.fromBytes(
           'file',
           data,
-          filename: 'upload_${DateTime.now().millisecondsSinceEpoch}.jpg',
+          filename: 'upload_${DateTime.now().millisecondsSinceEpoch}.${resourceType == 'video' ? 'mp4' : 'jpg'}',
         ));
+      } else {
+        throw 'Either data or filePath must be provided';
+      }
 
-      final response = await request.send().timeout(const Duration(seconds: 60));
+      final response = await request.send().timeout(const Duration(minutes: 10)); // Even longer for videos
       final responseData = await response.stream.bytesToString();
       
       if (response.statusCode == 200 || response.statusCode == 201) {
@@ -171,7 +182,7 @@ class AdminRepository {
       // Upload image if provided
       if (imageFile != null) {
         final bytes = await imageFile.readAsBytes();
-        finalImageUrl = await uploadToCloudinary(bytes, folder: 'events');
+        finalImageUrl = await uploadToCloudinary(data: bytes, folder: 'events');
       }
 
       final eventData = event.toMap();
@@ -202,7 +213,7 @@ class AdminRepository {
       // Upload image if provided
       if (imageFile != null) {
         final bytes = await imageFile.readAsBytes();
-        finalPhotoUrl = await uploadToCloudinary(bytes, folder: 'speakers');
+        finalPhotoUrl = await uploadToCloudinary(data: bytes, folder: 'speakers');
       }
 
       // Sync the selected eventId into the speaker model
@@ -251,7 +262,7 @@ class AdminRepository {
 
       if (imageFile != null) {
         final bytes = await imageFile.readAsBytes();
-        finalPhotoUrl = await uploadToCloudinary(bytes, folder: 'speakers');
+        finalPhotoUrl = await uploadToCloudinary(data: bytes, folder: 'speakers');
       }
 
       final speakerToSave = speaker.copyWith(imageUrl: finalPhotoUrl);
@@ -287,13 +298,13 @@ class AdminRepository {
       // Upload logo if provided
       if (logoFile != null) {
         final bytes = await logoFile.readAsBytes();
-        finalLogoUrl = await uploadToCloudinary(bytes, folder: 'sponsors/logos');
+        finalLogoUrl = await uploadToCloudinary(data: bytes, folder: 'sponsors/logos');
       }
 
       // Upload banner if provided
       if (bannerFile != null) {
         final bytes = await bannerFile.readAsBytes();
-        finalBannerUrl = await uploadToCloudinary(bytes, folder: 'sponsors/banners');
+        finalBannerUrl = await uploadToCloudinary(data: bytes, folder: 'sponsors/banners');
       }
 
       // Sync the selected eventId into the sponsor model
@@ -587,17 +598,26 @@ class AdminRepository {
 
   /// Fetch all entry passes for a user and event
   Future<List<EntryPass>> getUserEntryPasses(String userId, String eventId) async {
-    final snapshot = await _firestore
-        .collection('users')
-        .doc(userId)
-        .collection('entryPasses')
-        .where('eventId', isEqualTo: eventId)
-        .orderBy('ticketNumber')
-        .get();
-    
-    return snapshot.docs
-        .map((doc) => EntryPass.fromMap(doc.data(), doc.id))
-        .toList();
+    try {
+      final snapshot = await _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('entryPasses')
+          .where('eventId', isEqualTo: eventId)
+          .get();
+      
+      final passes = snapshot.docs
+          .map((doc) => EntryPass.fromMap(doc.data(), doc.id))
+          .toList();
+
+      // Sort in-memory to avoid composite index requirement
+      passes.sort((a, b) => a.ticketNumber.compareTo(b.ticketNumber));
+      
+      return passes;
+    } catch (e) {
+      debugPrint('❌ Error fetching user passes: $e');
+      return [];
+    }
   }
 
   /// Stream version for real-time updates
@@ -608,7 +628,6 @@ class AdminRepository {
         .collection('entryPasses')
         .where('eventId', isEqualTo: eventId)
         .where('status', whereIn: ['ACTIVE', 'USED']) // Exclude cancelled
-        .orderBy('ticketNumber')
         .snapshots()
         .map((snapshot) => snapshot.docs
             .map((doc) => EntryPass.fromMap(doc.data(), doc.id))
@@ -705,5 +724,44 @@ class AdminRepository {
         .get();
         
     return snap.docs.map((doc) => doc.data()).toList();
+  }
+
+  // --- LIVE FEED METHODS ---
+
+  Stream<List<LiveFeedItem>> watchLiveFeedItems(String eventId) {
+    return _firestore
+        .collection('events')
+        .doc(eventId)
+        .collection('liveFeed')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs
+          .map((doc) => LiveFeedItem.fromMap(doc.data(), doc.id))
+          .toList();
+    });
+  }
+
+  Future<void> saveLiveFeedItem(LiveFeedItem item) async {
+    final docId = item.id.isEmpty 
+        ? _firestore.collection('events').doc(item.eventId).collection('liveFeed').doc().id 
+        : item.id;
+    
+    final data = item.toMap();
+    if (item.id.isEmpty) {
+      data['createdAt'] = FieldValue.serverTimestamp();
+      await _firestore.collection('events').doc(item.eventId).collection('liveFeed').doc(docId).set(data);
+    } else {
+      await _firestore.collection('events').doc(item.eventId).collection('liveFeed').doc(docId).update(data);
+    }
+  }
+
+  Future<void> deleteLiveFeedItem(String eventId, String itemId) async {
+    await _firestore
+        .collection('events')
+        .doc(eventId)
+        .collection('liveFeed')
+        .doc(itemId)
+        .delete();
   }
 }

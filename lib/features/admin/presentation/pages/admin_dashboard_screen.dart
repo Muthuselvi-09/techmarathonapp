@@ -8,6 +8,8 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../../../core/utils/app_icons.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'add_video_feed_screen.dart';
+import 'add_image_feed_screen.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../features/auth/presentation/widgets/auth_widgets.dart';
 import '../../../home/domain/event_models.dart';
@@ -129,6 +131,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
     else if (q.contains('schedule') || q.contains('session')) setState(() => _currentTab = 5);
     else if (q.contains('chat')) setState(() => _currentTab = 6);
     else if (q.contains('brand')) setState(() => _currentTab = 7);
+    else if (q.contains('live') || q.contains('feed')) setState(() => _currentTab = 8);
+    else if (q.contains('profile')) setState(() => _currentTab = 9);
   }
 
   @override
@@ -287,7 +291,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
       case 5: return 'Schedules';
       case 6: return 'Chat';
       case 7: return 'Branding';
-      case 8: return 'Profile';
+      case 8: return 'Live Feed';
+      case 9: return 'Profile';
       default: return 'Admin Panel';
     }
   }
@@ -318,7 +323,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
       case 5: return _buildSchedulesSection(isNarrow);
       case 6: return _buildChatSection(isNarrow);
       case 7: return _buildBrandingSection(isNarrow);
-      case 8: return _buildProfileSection(isNarrow);
+      case 8: return _buildLiveFeedSection(isNarrow);
+      case 9: return _buildProfileSection(isNarrow);
       default: return _buildOverview(isNarrow);
     }
   }
@@ -359,6 +365,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
     return ListView(
       padding: EdgeInsets.symmetric(horizontal: isNarrow ? 20 : 32, vertical: 24),
       children: [
+        _buildIntegratedSearch(isNarrow),
+        const SizedBox(height: 32),
         if (isNarrow) ...[
           _buildHeroModule(isNarrow),
           const SizedBox(height: 24),
@@ -448,17 +456,236 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                 ],
               ),
               const SizedBox(height: 32),
-              Row(
-                children: [
-                  _statBadge(Icons.confirmation_number_outlined, '$totalEvents Active Events', Colors.blueAccent),
-                  const SizedBox(width: 16),
-                  _statBadge(Icons.analytics_outlined, '4.2k Attendees', Colors.purpleAccent),
-                ],
+              const SizedBox(height: 32),
+              StreamBuilder<List<CodingEvent>>(
+                stream: adminRepo.watchEvents(),
+                builder: (context, eventSnap) {
+                  final events = eventSnap.data ?? [];
+                  int totalSeats = 0;
+                  int bookedSeats = 0;
+                  for (var e in events) {
+                    totalSeats += e.totalSeats;
+                    bookedSeats += e.bookedSeats;
+                  }
+                  final available = totalSeats - bookedSeats;
+
+                  return Column(
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildLargeStatCard(
+                              title: 'Active Events',
+                              value: '$totalEvents',
+                              icon: Icons.confirmation_number_outlined,
+                              color: Colors.blueAccent,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: _buildLargeStatCard(
+                              title: 'Attendees',
+                              value: '4.2k',
+                              icon: Icons.analytics_outlined,
+                              color: Colors.purpleAccent,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildLargeStatCard(
+                              title: 'Booked',
+                              value: '$bookedSeats',
+                              icon: Icons.event_seat_rounded,
+                              color: Colors.orangeAccent,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: _buildLargeStatCard(
+                              title: 'Available',
+                              value: '$available',
+                              icon: Icons.chair_alt_rounded,
+                              color: Colors.greenAccent,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  );
+                },
               ),
             ],
           ),
         );
       },
+    );
+  }
+
+  Widget _buildLargeStatCard({
+    required String title,
+    required String value,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: color, size: 24),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            value,
+            style: GoogleFonts.outfit(
+              color: Colors.white,
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            title,
+            style: GoogleFonts.inter(
+              color: Colors.white60,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+
+  }
+
+  Widget _buildIntegratedSearch(bool isNarrow) {
+    return _GlassCard(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: _searchController,
+            style: const TextStyle(color: Colors.white),
+            onChanged: (val) {
+              setState(() => _searchQuery = val.trim());
+            },
+            onSubmitted: _handleSearch,
+            decoration: InputDecoration(
+              hintText: 'Search menu, attendees (Name, Email, Mobile)...',
+              hintStyle: const TextStyle(color: Colors.white38, fontSize: 14),
+              prefixIcon: const Icon(Icons.search, color: AppColors.primary, size: 22),
+              border: InputBorder.none,
+              suffixIcon: _searchQuery.isNotEmpty 
+                  ? IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white38, size: 18),
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() => _searchQuery = '');
+                      },
+                    )
+                  : null,
+            ),
+          ),
+          if (_searchQuery.isNotEmpty) ...[
+            const Divider(color: Colors.white10, height: 24),
+            _buildSearchResults(isNarrow),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchResults(bool isNarrow) {
+    final q = _searchQuery.toLowerCase();
+    
+    // 1. Menu Matches
+    final menuItems = [
+      {'title': 'Events Management', 'tab': 1, 'icon': Icons.event},
+      {'title': 'Participant Directory', 'tab': 2, 'icon': Icons.people},
+      {'title': 'Speaker Management', 'tab': 3, 'icon': Icons.mic},
+      {'title': 'Sponsor Directory', 'tab': 4, 'icon': Icons.business},
+      {'title': 'Schedule Builder', 'tab': 5, 'icon': Icons.calendar_today},
+      {'title': 'Admin Chat', 'tab': 6, 'icon': Icons.chat},
+      {'title': 'Branding Settings', 'tab': 7, 'icon': Icons.brush},
+      {'title': 'Live Feed Management', 'tab': 8, 'icon': Icons.sensors_rounded},
+    ];
+
+    final matchedMenu = menuItems.where((m) => (m['title'] as String).toLowerCase().contains(q)).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (matchedMenu.isNotEmpty) ...[
+          Text('MENU OPTIONS', style: GoogleFonts.outfit(color: AppColors.primary, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)),
+          const SizedBox(height: 8),
+          ...matchedMenu.map((m) => ListTile(
+            leading: Icon(m['icon'] as IconData, color: Colors.white70, size: 18),
+            title: Text(m['title'] as String, style: const TextStyle(color: Colors.white, fontSize: 14)),
+            dense: true,
+            onTap: () {
+              setState(() {
+                _currentTab = m['tab'] as int;
+                _searchQuery = '';
+                _searchController.clear();
+              });
+            },
+          )),
+          const SizedBox(height: 16),
+        ],
+        
+        // 2. Attendee Matches (Streaming from members)
+        Text('ATTENDEES', style: GoogleFonts.outfit(color: AppColors.primary, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)),
+        const SizedBox(height: 8),
+        StreamBuilder<List<Participant>>(
+          stream: ref.watch(userRepositoryProvider).getRealTimeMembers(),
+          builder: (context, snapshot) {
+            if (!snapshot.hasData) return const SizedBox.shrink();
+            final matches = snapshot.data!.where((p) => 
+               p.name.toLowerCase().contains(q) || 
+               p.email.toLowerCase().contains(q) || 
+               p.mobile.contains(q)
+            ).take(5).toList();
+
+            if (matches.isEmpty) return const Text('No attendees found', style: TextStyle(color: Colors.white24, fontSize: 12));
+
+            return Column(
+              children: matches.map((p) => ListTile(
+                leading: CircleAvatar(
+                  radius: 14,
+                  backgroundColor: AppColors.primary.withValues(alpha: 0.2),
+                  child: Text(p.name[0].toUpperCase(), style: const TextStyle(color: AppColors.primary, fontSize: 10, fontWeight: FontWeight.bold)),
+                ),
+                title: Text(p.name, style: const TextStyle(color: Colors.white, fontSize: 14)),
+                subtitle: Text('${p.email} • ${p.mobile}', style: const TextStyle(color: Colors.white38, fontSize: 11)),
+                dense: true,
+                onTap: () {
+                  setState(() {
+                    _currentTab = 2; // Members tab
+                    _searchQuery = p.email; // Seed the members list search
+                    _searchController.text = p.email;
+                  });
+                },
+              )).toList(),
+            );
+          },
+        ),
+      ],
     );
   }
 
@@ -1007,7 +1234,11 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
 
                 final filteredMembers = _searchQuery.isEmpty 
                     ? members 
-                    : members.where((m) => m.name.toLowerCase().contains(_searchQuery.toLowerCase()) || m.email.toLowerCase().contains(_searchQuery.toLowerCase())).toList();
+                    : members.where((m) => 
+                        m.name.toLowerCase().contains(_searchQuery.toLowerCase()) || 
+                        m.email.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+                        m.mobile.contains(_searchQuery)
+                      ).toList();
 
                 if (filteredMembers.isEmpty && _searchQuery.isNotEmpty) {
                    return _emptySection(Icons.search_off, 'No participants found matching "$_searchQuery"');
@@ -2356,7 +2587,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                          final adminRepo = ref.read(adminRepositoryProvider);
                          String? logoUrl = branding.companyLogoUrl;
                          if (_brandingLogoBytes != null) {
-                           logoUrl = await adminRepo.uploadToCloudinary(_brandingLogoBytes!, folder: 'branding');
+                           logoUrl = await adminRepo.uploadToCloudinary(data: _brandingLogoBytes!, folder: 'branding');
                          }
                          await adminRepo.saveBranding(branding.copyWith(
                            companyName: _brandingNameController.text,
@@ -2560,6 +2791,362 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
 
 
   // --- 8. PROFILE APP SECTION ---
+  Widget _buildLiveFeedSection(bool isNarrow) {
+    final adminRepo = ref.watch(adminRepositoryProvider);
+    final eventsAsync = adminRepo.watchEvents();
+
+    return StreamBuilder<List<CodingEvent>>(
+      stream: eventsAsync,
+      builder: (context, eventSnap) {
+        if (!eventSnap.hasData) return const Center(child: CircularProgressIndicator());
+        final events = eventSnap.data!;
+        if (events.isEmpty) return _emptySection(Icons.live_tv_rounded, 'Create an event first to manage Live Feed');
+        
+        final activeEvent = events.first;
+
+        return SingleChildScrollView(
+          padding: EdgeInsets.symmetric(horizontal: isNarrow ? 20 : 40, vertical: 32),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'LIVE FEED HUB',
+                style: GoogleFonts.outfit(
+                  color: Colors.white30,
+                  fontSize: 12,
+                  letterSpacing: 4,
+                  fontWeight: FontWeight.w900,
+                ),
+              ).animate().fadeIn(duration: 400.ms).slideX(begin: -0.2, end: 0),
+              const SizedBox(height: 12),
+              Text(
+                'Broadcast live moments and\nupdates to your attendees',
+                style: GoogleFonts.outfit(
+                  color: Colors.white,
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  height: 1.1,
+                ),
+              ).animate().fadeIn(duration: 500.ms, delay: 100.ms).slideX(begin: -0.1, end: 0),
+              
+              const SizedBox(height: 48),
+              
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildActionCard(
+                      title: 'ADD VIDEO',
+                      subtitle: 'Broadcast live recordings',
+                      icon: Icons.videocam_rounded,
+                      color: _gold,
+                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => AddVideoFeedScreen(eventId: activeEvent.id))),
+                    ).animate().fadeIn(duration: 400.ms, delay: 200.ms).slideY(begin: 0.2, end: 0),
+                  ),
+                  const SizedBox(width: 20),
+                  Expanded(
+                    child: _buildActionCard(
+                      title: 'ADD IMAGE',
+                      subtitle: 'Share certificates & guests',
+                      icon: Icons.add_photo_alternate_rounded,
+                      color: Colors.blueAccent,
+                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => AddImageFeedScreen(eventId: activeEvent.id))),
+                    ).animate().fadeIn(duration: 400.ms, delay: 300.ms).slideY(begin: 0.2, end: 0),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 56),
+              
+              Text(
+                'RECENT UPDATES',
+                style: GoogleFonts.outfit(
+                  color: Colors.white24,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 2,
+                ),
+              ),
+              const SizedBox(height: 24),
+              
+              StreamBuilder<List<LiveFeedItem>>(
+                stream: adminRepo.watchLiveFeedItems(activeEvent.id),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+                  final items = snapshot.data!;
+                  if (items.isEmpty) {
+                    return Container(
+                      height: 300,
+                      alignment: Alignment.center,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.sensors_rounded, color: Colors.white.withValues(alpha: 0.05), size: 100),
+                          const SizedBox(height: 24),
+                          Text(
+                            'Your live feed is empty',
+                            style: GoogleFonts.outfit(color: Colors.white30, fontSize: 18, fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            'Post your first update to engage with attendees',
+                            style: GoogleFonts.inter(color: Colors.white10, fontSize: 14),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  return ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: items.length,
+                    itemBuilder: (context, index) {
+                      final item = items[index];
+                      return _buildLiveFeedItemRow(activeEvent.id, item);
+                    },
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildActionCard({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(24),
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: color.withValues(alpha: 0.1), width: 1.5),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color, size: 28),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              title,
+              style: GoogleFonts.outfit(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              style: GoogleFonts.inter(
+                color: Colors.white38,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+
+  Widget _buildLiveFeedItemRow(String eventId, LiveFeedItem item) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      child: _GlassCard(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(12),
+                image: (item.type == 'image' && item.contentUrl != null) 
+                  ? DecorationImage(image: NetworkImage(item.contentUrl!), fit: BoxFit.cover)
+                  : null,
+              ),
+              child: item.type == 'video' 
+                ? const Icon(Icons.play_circle_outline_rounded, color: AppColors.primary, size: 30)
+                : item.type == 'template'
+                  ? const Icon(Icons.article_outlined, color: AppColors.primary, size: 30)
+                  : (item.contentUrl == null ? const Icon(Icons.image_outlined, color: Colors.white24, size: 30) : null),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: (item.type == 'video' ? Colors.redAccent : _gold).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          item.type.toUpperCase(),
+                          style: TextStyle(color: item.type == 'video' ? Colors.redAccent : _gold, fontSize: 10, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      if (item.templateType != null)
+                        Text(
+                          item.templateType!.toUpperCase(),
+                          style: const TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    item.templateData['title'] ?? item.templateData['name'] ?? 'Interactive Update',
+                    style: GoogleFonts.outfit(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  Text(
+                    'Posted ${TimeOfDay.fromDateTime(item.createdAt).format(context)}',
+                    style: GoogleFonts.inter(color: Colors.white38, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 20),
+              onPressed: () => _confirmDeleteLiveFeed(eventId, item.id),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _confirmDeleteLiveFeed(String eventId, String itemId) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text('Delete Feed Item?', style: TextStyle(color: Colors.white)),
+        content: const Text('This update will be removed from the public live feed.', style: TextStyle(color: Colors.white70)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () async {
+              await ref.read(adminRepositoryProvider).deleteLiveFeedItem(eventId, itemId);
+              if (mounted) Navigator.pop(context);
+            },
+            child: const Text('Delete', style: TextStyle(color: Colors.redAccent)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showLiveFeedDialog(String eventId, {String type = 'video'}) {
+    // Basic implementation for now, will expand with templates
+    String templateType = 'certificate';
+    final controllers = <String, TextEditingController>{
+      'title': TextEditingController(),
+      'name': TextEditingController(),
+      'message': TextEditingController(),
+      'url': TextEditingController(),
+    };
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: AppColors.surface,
+          title: Text('Add ${type.toUpperCase()}', style: const TextStyle(color: Colors.white)),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (type == 'video') ...[
+                  TextField(
+                    controller: controllers['url'],
+                    style: const TextStyle(color: Colors.white),
+                    decoration: const InputDecoration(labelText: 'Video URL (mp4 or YouTube)', labelStyle: TextStyle(color: Colors.white38)),
+                  ),
+                  TextField(
+                    controller: controllers['title'],
+                    style: const TextStyle(color: Colors.white),
+                    decoration: const InputDecoration(labelText: 'Caption/Title', labelStyle: TextStyle(color: Colors.white38)),
+                  ),
+                ] else ...[
+                  DropdownButtonFormField<String>(
+                    value: templateType,
+                    dropdownColor: AppColors.surface,
+                    style: const TextStyle(color: Colors.white),
+                    items: ['certificate', 'guest', 'invite', 'sponsor', 'intro'].map((t) => DropdownMenuItem(value: t, child: Text(t.toUpperCase()))).toList(),
+                    onChanged: (val) => setDialogState(() => templateType = val!),
+                    decoration: const InputDecoration(labelText: 'Select Template', labelStyle: TextStyle(color: Colors.white38)),
+                  ),
+                  const SizedBox(height: 16),
+                  if (templateType == 'certificate') ...[
+                    TextField(controller: controllers['name'], style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'Awarded To', labelStyle: TextStyle(color: Colors.white38))),
+                    TextField(controller: controllers['message'], style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'Award Description', labelStyle: TextStyle(color: Colors.white38))),
+                  ] else if (templateType == 'guest') ...[
+                    TextField(controller: controllers['name'], style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'Guest Name', labelStyle: TextStyle(color: Colors.white38))),
+                    TextField(controller: controllers['message'], style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'Designation', labelStyle: TextStyle(color: Colors.white38))),
+                  ] else if (templateType == 'invite') ...[
+                    TextField(controller: controllers['title'], style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'Event Name', labelStyle: TextStyle(color: Colors.white38))),
+                    TextField(controller: controllers['message'], style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'Venue/Time', labelStyle: TextStyle(color: Colors.white38))),
+                  ] else if (templateType == 'sponsor') ...[
+                    TextField(controller: controllers['name'], style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'Company Name', labelStyle: TextStyle(color: Colors.white38))),
+                    TextField(controller: controllers['message'], style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'Thank You Message', labelStyle: TextStyle(color: Colors.white38))),
+                  ] else ...[
+                    TextField(controller: controllers['title'], style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'Intro Heading', labelStyle: TextStyle(color: Colors.white38))),
+                    TextField(controller: controllers['message'], style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'Key Highlights', labelStyle: TextStyle(color: Colors.white38))),
+                  ],
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () async {
+                final item = LiveFeedItem(
+                  id: '',
+                  eventId: eventId,
+                  type: type,
+                  contentUrl: controllers['url']?.text,
+                  templateType: type == 'template' ? templateType : null,
+                  templateData: {
+                    'title': controllers['title']?.text,
+                    'name': controllers['name']?.text,
+                    'message': controllers['message']?.text,
+                  },
+                );
+                await ref.read(adminRepositoryProvider).saveLiveFeedItem(item);
+                if (mounted) Navigator.pop(context);
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: _gold),
+              child: const Text('POST UPDATE', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildProfileSection(bool isNarrow) {
     final adminRepo = ref.watch(adminRepositoryProvider);
  

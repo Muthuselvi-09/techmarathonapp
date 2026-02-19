@@ -285,12 +285,39 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
                   children: [
                     Expanded(
                       flex: 2,
-                      child: _buildTextField(_currencyController, 'Currency'),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Currency', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                          const SizedBox(height: 8),
+                          DropdownButtonFormField<String>(
+                            value: _currencyController.text.isEmpty ? '₹' : _currencyController.text,
+                            dropdownColor: AppColors.surface,
+                            style: const TextStyle(color: Colors.white),
+                            decoration: _inputDecoration(''),
+                            items: const [
+                              DropdownMenuItem(value: '₹', child: Text('₹ (INR)')),
+                              DropdownMenuItem(value: '\$', child: Text('\$ (USD)')),
+                              DropdownMenuItem(value: '€', child: Text('€ (EUR)')),
+                              DropdownMenuItem(value: '£', child: Text('£ (GBP)')),
+                              DropdownMenuItem(value: '¥', child: Text('¥ (JPY)')),
+                              DropdownMenuItem(value: 'AED', child: Text('AED')),
+                              DropdownMenuItem(value: 'SAR', child: Text('SAR')),
+                            ],
+                            onChanged: (val) {
+                              if (val != null) setState(() => _currencyController.text = val);
+                            },
+                          ),
+                        ],
+                      ),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
                       flex: 3,
-                      child: _buildTextField(_feeController, 'Entry Fee', keyboardType: TextInputType.number),
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 20), // Align with dropdown
+                        child: _buildTextField(_feeController, 'Entry Fee', keyboardType: TextInputType.number),
+                      ),
                     ),
                   ],
                 ),

@@ -137,16 +137,39 @@ class ProfileRepository {
 
   // --- 1. Ticket Tracking & 2. Personal Agenda ---
   
-  Future<void> registerEvent(String userId, String eventId) async {
+  Future<void> registerEvent(String userId, String eventId, {String? userName}) async {
     await _usersCollection.doc(userId).collection('registered_events').doc(eventId).set({
       'eventId': eventId,
       'registeredAt': FieldValue.serverTimestamp(),
       'hasCertificate': false,
     });
 
-    // Also increment participant count for the event (optional but good for UI)
+    // Also increment participant count for the event
     await _firestore.collection('events').doc(eventId).update({
       'participantCount': FieldValue.increment(1),
+    });
+
+    // Automatically create a free entry pass for registration
+    // We import admin_repository via ref standardly, but since this is a repo, we might just use Firestore directly 
+    // or use the logic from AdminRepository. 
+    // For consistency, let's look at what's available.
+    
+    // Create the ticket immediately
+    final docRef = _usersCollection
+        .doc(userId)
+        .collection('entryPasses')
+        .doc();
+    
+    await docRef.set({
+      'id': docRef.id,
+      'eventId': eventId,
+      'userId': userId,
+      'userName': userName ?? 'Attendee',
+      'status': 'ACTIVE',
+      'createdAt': FieldValue.serverTimestamp(),
+      'transactionId': 'FREE-${DateTime.now().millisecondsSinceEpoch}',
+      'ticketNumber': 1,
+      'totalTickets': 1,
     });
   }
 
