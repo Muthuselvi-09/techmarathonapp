@@ -39,19 +39,20 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     final brandingAsync = ref.watch(brandingProvider);
+    final onboardingAsync = ref.watch(onboardingScreensProvider);
 
     return Scaffold(
-      body: brandingAsync.when(
-        data: (branding) => _buildOnboardingContent(branding),
-        loading: () => _buildOnboardingContent(null), // Show default while loading
-        error: (_, __) => _buildOnboardingContent(null), // Show default on error
+      body: onboardingAsync.when(
+        data: (screens) => _buildOnboardingContent(screens, brandingAsync.valueOrNull),
+        loading: () => _buildOnboardingContent([], null),
+        error: (_, __) => _buildOnboardingContent([], null),
       ),
     );
   }
 
-  Widget _buildOnboardingContent(BrandingInfo? branding) {
-    final List<OnboardingData> pages = (branding != null && branding.onboardingPages.isNotEmpty)
-        ? branding.onboardingPages
+  Widget _buildOnboardingContent(List<OnboardingPageData> screens, BrandingInfo? branding) {
+    final List<OnboardingData> pages = screens.isNotEmpty
+        ? screens
             .map((p) => OnboardingData(
                   title: p.title,
                   description: p.description,

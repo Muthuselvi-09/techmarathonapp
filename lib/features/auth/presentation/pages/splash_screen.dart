@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:lottie/lottie.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../providers/auth_provider.dart';
 import '../../../../features/profile/presentation/providers/profile_provider.dart';
@@ -40,29 +41,70 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   Widget build(BuildContext context) {
     final brandingAsync = ref.watch(brandingProvider);
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: brandingAsync.when(
-        data: (branding) => _buildSplashContent(branding),
-        loading: () => _buildDefaultSplash(), // Show default while loading
-        error: (_, __) => _buildDefaultSplash(), // Show default on error
+    return brandingAsync.when(
+      data: (branding) => Scaffold(
+        body: Container(
+          decoration: _buildBackgroundDecoration(branding),
+          child: _buildSplashContent(branding),
+        ),
       ),
+      loading: () => Scaffold(backgroundColor: AppColors.background, body: _buildDefaultSplash()),
+      error: (_, __) => Scaffold(backgroundColor: AppColors.background, body: _buildDefaultSplash()),
     );
+  }
+
+  BoxDecoration _buildBackgroundDecoration(BrandingInfo branding) {
+    if (branding.splashBackgroundType == 'color') {
+      return BoxDecoration(
+        color: _parseHexColor(branding.splashGradientStart ?? '#121212'),
+      );
+    } else if (branding.splashBackgroundType == 'image' && branding.splashImageUrl != null) {
+      return BoxDecoration(
+        image: DecorationImage(
+          image: CachedNetworkImageProvider(branding.splashImageUrl!),
+          fit: BoxFit.cover,
+        ),
+      );
+    } else {
+      // Default to gradient
+      return BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            _parseHexColor(branding.splashGradientStart ?? '#121212'),
+            _parseHexColor(branding.splashGradientEnd ?? '#000000'),
+          ],
+        ),
+      );
+    }
+  }
+
+  Color _parseHexColor(String hex) {
+    try {
+      final buffer = StringBuffer();
+      if (hex.length == 6 || hex.length == 7) buffer.write('ff');
+      buffer.write(hex.replaceFirst('#', ''));
+      return Color(int.parse(buffer.toString(), radix: 16));
+    } catch (e) {
+      return Colors.black;
+    }
   }
 
   Widget _buildSplashContent(BrandingInfo branding) {
     final splashText = branding.splashText ?? 'TECH MARATHON';
-    final splashImageUrl = branding.splashImageUrl;
+    final logoUrl = branding.splashLogoUrl ?? branding.logoUrl;
     final animationType = branding.splashAnimationType;
 
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          _buildAnimatedAsset(splashImageUrl, animationType),
+          _buildAnimatedAsset(logoUrl, animationType),
           const SizedBox(height: 32),
           Text(
             splashText,
+            textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.displayMedium?.copyWith(
                   letterSpacing: 4,
                   fontWeight: FontWeight.bold,

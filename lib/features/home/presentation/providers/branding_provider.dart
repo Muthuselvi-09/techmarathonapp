@@ -7,6 +7,14 @@ final brandingProvider = StreamProvider<BrandingInfo>((ref) {
   final repo = ref.watch(adminRepositoryProvider);
   return repo.watchBranding().handleError((error) {
     debugPrint('⚠️ Branding Stream Error: $error');
-    return BrandingInfo(companyName: 'Event App');
+    return BrandingInfo(appName: 'Event App');
+  });
+});
+
+final onboardingScreensProvider = StreamProvider<List<OnboardingPageData>>((ref) {
+  final repo = ref.watch(adminRepositoryProvider);
+  return repo.watchOnboardingScreens().handleError((error) {
+    debugPrint('⚠️ Onboarding Stream Error: $error');
+    return <OnboardingPageData>[];
   });
 });

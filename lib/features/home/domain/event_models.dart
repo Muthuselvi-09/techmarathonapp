@@ -775,24 +775,33 @@ class CourseModel {
 }
 
 class OnboardingPageData {
+  final String id;
   final String title;
   final String description;
   final String? imageUrl;
-  final String? iconName; // Fallback if no image
+  final String? imagePath;
+  final int order;
+  final bool isActive;
 
   OnboardingPageData({
+    required this.id,
     required this.title,
     required this.description,
     this.imageUrl,
-    this.iconName,
+    this.imagePath,
+    this.order = 0,
+    this.isActive = true,
   });
 
-  factory OnboardingPageData.fromMap(Map<String, dynamic> data) {
+  factory OnboardingPageData.fromMap(Map<String, dynamic> data, [String id = '']) {
     return OnboardingPageData(
+      id: id,
       title: data['title'] ?? '',
       description: data['description'] ?? '',
-      imageUrl: data['imageUrl'],
-      iconName: data['iconName'],
+      imageUrl: data['image_url'] ?? data['imageUrl'],
+      imagePath: data['image_path'] ?? data['imagePath'],
+      order: data['order'] ?? 0,
+      isActive: data['isActive'] ?? true,
     );
   }
 
@@ -800,26 +809,51 @@ class OnboardingPageData {
     return {
       'title': title,
       'description': description,
-      'imageUrl': imageUrl,
-      'iconName': iconName,
+      'image_url': imageUrl,
+      'image_path': imagePath,
+      'order': order,
+      'isActive': isActive,
     };
   }
 }
 
 class BrandingInfo {
-  final String companyName;
-  final String? companyLogoUrl;
+  final String appName;
+  final String? logoUrl;
+  final String? logoPath;
+  
+  // Splash Screen
+  final String? splashLogoUrl;
+  final String? splashLogoPath;
+  final String splashBackgroundType; // 'color', 'gradient', 'image'
+  final String? splashColor;         // Hex color for background
+  final String? splashGradientStart; // Hex color
+  final String? splashGradientEnd;   // Hex color
   final String? splashImageUrl;
+  final String? splashImagePath;
   final String? splashText;
   final String splashAnimationType; // 'fade', 'scale', 'slide', 'rotate'
+  
   final List<OnboardingPageData> onboardingPages;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
+  // Maintaining companyName for backward compatibility if needed in UI
+  String get companyName => appName;
+  String? get companyLogoUrl => logoUrl;
+
   BrandingInfo({
-    required this.companyName,
-    this.companyLogoUrl,
+    required this.appName,
+    this.logoUrl,
+    this.logoPath,
+    this.splashLogoUrl,
+    this.splashLogoPath,
+    this.splashBackgroundType = 'gradient',
+    this.splashColor,
+    this.splashGradientStart,
+    this.splashGradientEnd,
     this.splashImageUrl,
+    this.splashImagePath,
     this.splashText,
     this.splashAnimationType = 'scale',
     this.onboardingPages = const [],
@@ -829,15 +863,23 @@ class BrandingInfo {
 
   factory BrandingInfo.fromMap(Map<String, dynamic> data) {
     return BrandingInfo(
-      companyName: data['companyName'] ?? 'Event App',
-      companyLogoUrl: data['companyLogoUrl'],
-      splashImageUrl: data['splashImageUrl'],
-      splashText: data['splashText'],
-      splashAnimationType: data['splashAnimationType'] ?? 'scale',
-      onboardingPages: (data['onboardingPages'] as List?)
-              ?.map((p) => OnboardingPageData.fromMap(Map<String, dynamic>.from(p)))
-              .toList() ??
-          [],
+      appName: data['app_name'] ?? data['companyName'] ?? 'Event App',
+      logoUrl: data['logo_url'] ?? data['companyLogoUrl'],
+      logoPath: data['logo_path'],
+      splashLogoUrl: data['splash_logo_url'],
+      splashLogoPath: data['splash_logo_path'],
+      splashBackgroundType: data['splash_background_type'] ?? 'gradient',
+      splashColor: data['splash_color'],
+      splashGradientStart: data['splash_gradient_start'],
+      splashGradientEnd: data['splash_gradient_end'],
+      splashImageUrl: data['splash_image_url'],
+      splashImagePath: data['splash_image_path'],
+      splashText: data['splash_text'] ?? data['splashText'],
+      splashAnimationType: data['splash_animation_type'] ?? data['splashAnimationType'] ?? 'scale',
+      onboardingPages: (data['onboarding_pages'] as List?)
+              ?.map((p) => OnboardingPageData.fromMap(p as Map<String, dynamic>))
+              .toList() ?? 
+          [], 
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
     );
@@ -845,21 +887,37 @@ class BrandingInfo {
 
   Map<String, dynamic> toMap() {
     return {
-      'companyName': companyName,
-      'companyLogoUrl': companyLogoUrl,
-      'splashImageUrl': splashImageUrl,
-      'splashText': splashText,
-      'splashAnimationType': splashAnimationType,
-      'onboardingPages': onboardingPages.map((p) => p.toMap()).toList(),
+      'app_name': appName,
+      'logo_url': logoUrl,
+      'logo_path': logoPath,
+      'splash_logo_url': splashLogoUrl,
+      'splash_logo_path': splashLogoPath,
+      'splash_background_type': splashBackgroundType,
+      'splash_color': splashColor,
+      'splash_gradient_start': splashGradientStart,
+      'splash_gradient_end': splashGradientEnd,
+      'splash_image_url': splashImageUrl,
+      'splash_image_path': splashImagePath,
+      'splash_text': splashText,
+      'splash_animation_type': splashAnimationType,
+      'onboarding_pages': onboardingPages.map((p) => p.toMap()).toList(),
       'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     };
   }
 
   BrandingInfo copyWith({
-    String? companyName,
-    String? companyLogoUrl,
+    String? appName,
+    String? logoUrl,
+    String? logoPath,
+    String? splashLogoUrl,
+    String? splashLogoPath,
+    String? splashBackgroundType,
+    String? splashColor,
+    String? splashGradientStart,
+    String? splashGradientEnd,
     String? splashImageUrl,
+    String? splashImagePath,
     String? splashText,
     String? splashAnimationType,
     List<OnboardingPageData>? onboardingPages,
@@ -867,9 +925,17 @@ class BrandingInfo {
     DateTime? updatedAt,
   }) {
     return BrandingInfo(
-      companyName: companyName ?? this.companyName,
-      companyLogoUrl: companyLogoUrl ?? this.companyLogoUrl,
+      appName: appName ?? this.appName,
+      logoUrl: logoUrl ?? this.logoUrl,
+      logoPath: logoPath ?? this.logoPath,
+      splashLogoUrl: splashLogoUrl ?? this.splashLogoUrl,
+      splashLogoPath: splashLogoPath ?? this.splashLogoPath,
+      splashBackgroundType: splashBackgroundType ?? this.splashBackgroundType,
+      splashColor: splashColor ?? this.splashColor,
+      splashGradientStart: splashGradientStart ?? this.splashGradientStart,
+      splashGradientEnd: splashGradientEnd ?? this.splashGradientEnd,
       splashImageUrl: splashImageUrl ?? this.splashImageUrl,
+      splashImagePath: splashImagePath ?? this.splashImagePath,
       splashText: splashText ?? this.splashText,
       splashAnimationType: splashAnimationType ?? this.splashAnimationType,
       onboardingPages: onboardingPages ?? this.onboardingPages,

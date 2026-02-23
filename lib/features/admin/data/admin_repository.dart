@@ -11,13 +11,18 @@ import 'package:flutter/foundation.dart' hide Category;
 import 'package:tech_marathon_app/data/models/schedule.dart' as new_schedule;
 import 'package:tech_marathon_app/core/providers.dart';
 
-final adminRepositoryProvider = Provider((ref) => AdminRepository(ref));
+final adminRepositoryProvider = Provider((ref) => AdminRepository(
+  ref,
+  FirebaseFirestore.instance, 
+  FirebaseStorage.instance,
+));
 
 class AdminRepository {
   final Ref ref;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseFirestore _firestore;
+  final FirebaseStorage _storage;
 
-  AdminRepository(this.ref);
+  AdminRepository(this.ref, this._firestore, this._storage);
 
   // --- CLOUDINARY INTEGRATION ---
   final String _cloudName = 'dzn6tkc2v';
@@ -70,14 +75,52 @@ class AdminRepository {
 
   // --- BRANDING METHODS ---
 
+  Future<String> uploadToFirebaseStorage({required Uint8List data, required String path}) async {
+    try {
+      final sizeString = (data.length / 1024).toStringAsFixed(1);
+      debugPrint('🔥 Starting Firebase Storage Upload: $path ($sizeString KB)');
+      
+      final ref = _storage.ref().child(path);
+      
+      final UploadTask uploadTask = ref.putData(
+        data, 
+        SettableMetadata(contentType: 'image/png')
+      );
+      
+      // Monitor progress for better debugging
+      uploadTask.snapshotEvents.listen((event) {
+        final progress = 100 * (event.bytesTransferred / event.totalBytes);
+        debugPrint('📊 Upload Progress ($path): ${progress.toStringAsFixed(1)}%');
+      });
+
+      final TaskSnapshot snapshot = await uploadTask;
+      final String url = await snapshot.ref.getDownloadURL();
+      debugPrint('✅ Firebase Storage Success: $url');
+      return url;
+    } catch (e) {
+      debugPrint('❌ Firebase Storage Error ($path): $e');
+      throw 'Firebase upload failed: $e';
+    }
+  }
+
+  Future<void> deleteFromFirebaseStorage(String path) async {
+    try {
+      debugPrint('🔥 Deleting from Firebase Storage: $path');
+      await _storage.ref().child(path).delete();
+      debugPrint('✅ Deleted from Firebase Storage');
+    } catch (e) {
+      debugPrint('⚠️ Firebase Delete Error (Ignored): $e');
+    }
+  }
+
   Stream<BrandingInfo> watchBranding() {
     return _firestore
         .collection('branding')
-        .doc('current')
+        .doc('main')
         .snapshots()
         .map((snapshot) {
       if (!snapshot.exists || snapshot.data() == null) {
-        return BrandingInfo(companyName: 'Event App');
+        return BrandingInfo(appName: 'Event App');
       }
       return BrandingInfo.fromMap(snapshot.data()!);
     });
@@ -86,12 +129,52 @@ class AdminRepository {
   Future<void> saveBranding(BrandingInfo info) async {
     await _firestore
         .collection('branding')
-        .doc('current')
+        .doc('main')
         .set(info.toMap(), SetOptions(merge: true));
   }
 
   Future<void> deleteBranding() async {
-    await _firestore.collection('branding').doc('current').delete();
+    // Note: We might want to delete images from storage too if fully resetting
+    await _firestore.collection('branding').doc('main').delete();
+  }
+
+  // --- ONBOARDING SCREENS ---
+
+  Stream<List<OnboardingPageData>> watchOnboardingScreens() {
+    return _firestore
+        .collection('branding')
+        .doc('main')
+        .collection('onboarding_screens')
+        .orderBy('order')
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs
+          .map((doc) => OnboardingPageData.fromMap(doc.data(), doc.id))
+          .toList();
+    });
+  }
+
+  Future<void> saveOnboardingScreen(OnboardingPageData screen) async {
+    final docId = screen.id.isEmpty ? _firestore.collection('branding').doc('main').collection('onboarding_screens').doc().id : screen.id;
+    final data = screen.toMap();
+    await _firestore
+        .collection('branding')
+        .doc('main')
+        .collection('onboarding_screens')
+        .doc(docId)
+        .set(data, SetOptions(merge: true));
+  }
+
+  Future<void> deleteOnboardingScreen(String id, String? imagePath) async {
+    if (imagePath != null) {
+      await deleteFromFirebaseStorage(imagePath);
+    }
+    await _firestore
+        .collection('branding')
+        .doc('main')
+        .collection('onboarding_screens')
+        .doc(id)
+        .delete();
   }
 
   // --- CATEGORY METHODS ---

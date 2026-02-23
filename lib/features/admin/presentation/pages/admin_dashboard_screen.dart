@@ -10,6 +10,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'add_video_feed_screen.dart';
 import 'add_image_feed_screen.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../features/auth/presentation/widgets/auth_widgets.dart';
 import '../../../home/domain/event_models.dart';
@@ -81,11 +82,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
   bool _isDeletingBranding = false;
   final TextEditingController _brandingNameController = TextEditingController();
 
-  // Splash Screen state
-  final TextEditingController _splashTextController = TextEditingController();
-  String _splashAnimationType = 'scale';
-  XFile? _splashImage;
-  Uint8List? _splashImageBytes;
+  // No longer needed: Splash Screen state
 
   // Search State
   String _searchQuery = '';
@@ -111,7 +108,6 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
   @override
   void dispose() {
     _brandingNameController.dispose();
-    _splashTextController.dispose();
     super.dispose();
   }
 
@@ -2456,8 +2452,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: isNarrow ? 20 : 40, vertical: 32),
       child: brandingAsync.when(
-        loading: () => _buildBrandingForm(BrandingInfo(companyName: 'Event App'), isNarrow),
-        error: (error, _) => _buildBrandingForm(BrandingInfo(companyName: 'Event App'), isNarrow),
+        loading: () => _buildBrandingForm(BrandingInfo(appName: 'Event App'), isNarrow),
+        error: (error, _) => _buildBrandingForm(BrandingInfo(appName: 'Event App'), isNarrow),
         data: (branding) => _buildBrandingForm(branding, isNarrow),
       ),
     );
@@ -2577,6 +2573,11 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                   ),
                 ),
                 const SizedBox(height: 40),
+              ],
+            ),
+          ),
+          const SizedBox(height: 48),
+                const SizedBox(height: 48),
                 SizedBox(
                   width: double.infinity,
                   height: 64,
@@ -2585,14 +2586,36 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                       setState(() => _isSavingBranding = true);
                       try {
                          final adminRepo = ref.read(adminRepositoryProvider);
-                         String? logoUrl = branding.companyLogoUrl;
-                         if (_brandingLogoBytes != null) {
-                           logoUrl = await adminRepo.uploadToCloudinary(data: _brandingLogoBytes!, folder: 'branding');
+                         
+                         String? logoUrl = branding.logoUrl;
+                         String? logoPath = branding.logoPath;
+
+                         // Helper function for compression and upload to Cloudinary
+                         Future<Map<String, String?>> uploadImage(Uint8List bytes, String folder) async {
+                           // Max 2MB check
+                           if (bytes.length > 2 * 1024 * 1024) throw 'Image size exceeds 2MB limit';
+                           
+                           debugPrint('☁️ Uploading to Cloudinary (folder: $folder)...');
+                           final url = await adminRepo.uploadToCloudinary(
+                             data: bytes, 
+                             folder: 'branding/$folder',
+                           ).timeout(const Duration(seconds: 45), onTimeout: () => throw 'Cloudinary upload ($folder) is taking too long.');
+                           
+                           return {'url': url, 'path': url}; // Using URL as path for Cloudinary for now
                          }
+
+                         if (_brandingLogoBytes != null) {
+                           final res = await uploadImage(_brandingLogoBytes!, 'main');
+                           logoUrl = res['url'];
+                           logoPath = res['path'];
+                         }
+
                          await adminRepo.saveBranding(branding.copyWith(
-                           companyName: _brandingNameController.text,
-                           companyLogoUrl: logoUrl,
-                         ));
+                           appName: _brandingNameController.text,
+                           logoUrl: logoUrl,
+                           logoPath: logoPath,
+                         )).timeout(const Duration(seconds: 15), onTimeout: () => throw 'Branding save timed out. Please try again.');
+
                          if (mounted) {
                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Branding saved successfully!'), backgroundColor: Colors.green));
                            ref.invalidate(brandingProvider);
@@ -2669,14 +2692,225 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                     ),
                   ),
                 ),
-                const SizedBox(height: 60),
-              ],
-            ),
-          ),
+          const SizedBox(height: 60),
         ],
       ),
     );
   }
+  Widget _buildChoiceChip(String label, String value, String current, Function(String) onSelected) {
+    final bool isSelected = current == value;
+    return ChoiceChip(
+      label: Text(label),
+      selected: isSelected,
+      onSelected: (selected) => onSelected(value),
+      backgroundColor: Colors.white.withValues(alpha: 0.05),
+      selectedColor: _gold,
+      labelStyle: TextStyle(color: isSelected ? Colors.black : Colors.white70, fontSize: 12, fontWeight: FontWeight.bold),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      side: BorderSide.none,
+      showCheckmark: false,
+    );
+  }
+
+  Widget _buildTextField(String label, TextEditingController controller, String hint) {
+    if (controller.text.isEmpty && hint != '#000000') controller.text = hint;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+        const SizedBox(height: 8),
+        TextField(
+          controller: controller,
+          style: const TextStyle(color: Colors.white, fontSize: 14),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.2)),
+            filled: true,
+            fillColor: Colors.white.withValues(alpha: 0.05),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildImagePicker({Uint8List? bytes, String? url, required String label, required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: _isSavingBranding ? null : onTap,
+      child: Container(
+        width: 100,
+        height: 100,
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (bytes != null)
+                Image.memory(bytes, fit: BoxFit.cover)
+              else if (url != null)
+                CachedNetworkImage(
+                  imageUrl: url,
+                  fit: BoxFit.cover,
+                  placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
+                  errorWidget: (context, url, error) => const Icon(Icons.error),
+                )
+              else
+                const Icon(Icons.add_photo_alternate_outlined, color: Colors.white24, size: 32),
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Colors.transparent, Colors.black.withValues(alpha: 0.7)],
+                  ),
+                ),
+              ),
+              Positioned(
+                bottom: 6,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: Text(
+                    label,
+                    style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 1),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _deleteOnboardingScreen(OnboardingPageData screen) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text('Delete Screen?', style: TextStyle(color: Colors.white)),
+        content: Text('Are you sure you want to delete "${screen.title}"?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context, true), style: TextButton.styleFrom(foregroundColor: Colors.redAccent), child: const Text('Delete')),
+        ],
+      ),
+    );
+    if (confirm == true) {
+      await ref.read(adminRepositoryProvider).deleteOnboardingScreen(screen.id, screen.imagePath);
+    }
+  }
+
+  void _showOnboardingDialog(OnboardingPageData? screen) {
+    final titleController = TextEditingController(text: screen?.title);
+    final descController = TextEditingController(text: screen?.description);
+    Uint8List? imageBytes;
+    XFile? pickedFile;
+    bool isSavingLocal = false;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setStateDialog) => AlertDialog(
+          backgroundColor: AppColors.surface,
+          title: Text(screen == null ? 'Add Screen' : 'Edit Screen', style: const TextStyle(color: Colors.white)),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildImagePicker(
+                  bytes: imageBytes,
+                  url: screen?.imageUrl,
+                  label: 'PICK IMAGE',
+                  onTap: () async {
+                    final picker = ImagePicker();
+                    final image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
+                    if (image != null) {
+                      final bytes = await image.readAsBytes();
+                      setStateDialog(() {
+                        pickedFile = image;
+                        imageBytes = bytes;
+                      });
+                    }
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: titleController,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: const InputDecoration(labelText: 'Title', labelStyle: TextStyle(color: Colors.white70)),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: descController,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: const InputDecoration(labelText: 'Description', labelStyle: TextStyle(color: Colors.white70)),
+                  maxLines: 3,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: isSavingLocal ? null : () async {
+                if (titleController.text.isEmpty) return;
+                setStateDialog(() => isSavingLocal = true);
+                try {
+                  final adminRepo = ref.read(adminRepositoryProvider);
+                  String? imageUrl = screen?.imageUrl;
+                  String? imagePath = screen?.imagePath;
+
+                  if (imageBytes != null) {
+                    if (imageBytes!.length > 2 * 1024 * 1024) throw 'Image size exceeds 2MB limit';
+                    
+                    debugPrint('☁️ Uploading onboarding image to Cloudinary...');
+                    imageUrl = await adminRepo.uploadToCloudinary(
+                      data: imageBytes!,
+                      folder: 'branding/onboarding',
+                    ).timeout(const Duration(seconds: 45), onTimeout: () => throw 'Cloudinary upload timed out. Please check your connection.');
+                    
+                    imagePath = imageUrl; // Using URL as path for Cloudinary
+                  }
+
+                  await adminRepo.saveOnboardingScreen(OnboardingPageData(
+                    id: screen?.id ?? '',
+                    title: titleController.text,
+                    description: descController.text,
+                    imageUrl: imageUrl,
+                    imagePath: imagePath,
+                    order: screen?.order ?? 0,
+                  )).timeout(const Duration(seconds: 15), onTimeout: () => throw 'Firestore save timed out.');
+
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(screen == null ? 'Screen added!' : 'Screen updated!'), backgroundColor: Colors.green),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+                    setStateDialog(() => isSavingLocal = false);
+                  }
+                }
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: _gold, foregroundColor: Colors.black),
+              child: isSavingLocal ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black)) : const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
 // --- CATEGORIES SECTION (Refactored to Dialog) ---
   // The Categories section is now managed via _showManageCategoriesDialog() 
   // accessed from the Manage Events header.
