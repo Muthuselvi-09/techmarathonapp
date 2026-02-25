@@ -20,10 +20,10 @@ class AdminSidebar extends StatelessWidget {
     return Container(
       width: 280,
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: AppColors.saasSidebarBg,
         border: Border(
           right: BorderSide(
-            color: Colors.white.withValues(alpha: 0.1),
+            color: AppColors.saasBorder,
             width: 1,
           ),
         ),
@@ -65,16 +65,16 @@ class AdminSidebar extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppColors.codingRimPrimary.withValues(alpha: 0.1),
+              gradient: AppColors.saasGradient.withOpacity(0.1),
               shape: BoxShape.circle,
               border: Border.all(
-                color: AppColors.codingRimPrimary.withValues(alpha: 0.2),
+                color: AppColors.saasPrimary.withValues(alpha: 0.2),
                 width: 2,
               ),
             ),
             child: const Icon(
               Icons.admin_panel_settings_rounded,
-              color: AppColors.codingRimPrimary,
+              color: AppColors.saasPrimary,
               size: 32,
             ),
           ),
@@ -85,7 +85,7 @@ class AdminSidebar extends StatelessWidget {
               fontSize: 18,
               fontWeight: FontWeight.w900,
               letterSpacing: 2,
-              color: AppColors.codingRimPrimary,
+              color: AppColors.saasPrimary,
             ),
           ),
         ],
@@ -103,17 +103,24 @@ class AdminSidebar extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.codingRimPrimary : Colors.transparent,
+          gradient: isSelected ? AppColors.saasGradient : null,
+          color: isSelected ? null : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
           boxShadow: isSelected 
-            ? [BoxShadow(color: AppColors.codingRimPrimary.withValues(alpha: 0.2), blurRadius: 10, offset: const Offset(0, 4))] 
+            ? [
+                BoxShadow(
+                  color: AppColors.saasPrimary.withValues(alpha: 0.3),
+                  blurRadius: 15,
+                  offset: const Offset(0, 4),
+                )
+              ] 
             : [],
         ),
         child: Row(
           children: [
             Icon(
               icon,
-              color: isSelected ? Colors.black : Colors.white70,
+              color: isSelected ? Colors.white : AppColors.saasTextSecondary,
               size: 22,
             ),
             const SizedBox(width: 16),
@@ -121,7 +128,7 @@ class AdminSidebar extends StatelessWidget {
               child: Text(
                 label,
                 style: GoogleFonts.outfit(
-                  color: isSelected ? Colors.black : Colors.white70,
+                  color: isSelected ? Colors.white : AppColors.saasTextSecondary,
                   fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                   fontSize: 15,
                 ),

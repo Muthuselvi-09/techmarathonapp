@@ -33,7 +33,7 @@ class _CreateSpeakerScreenState extends ConsumerState<CreateSpeakerScreen> {
   String? _currentPhotoUrl;
   bool _isSaving = false;
 
-  final Color _gold = const Color(0xFFFFD700);
+  // No longer using local _gold
 
   @override
   void initState() {
@@ -98,9 +98,10 @@ class _CreateSpeakerScreenState extends ConsumerState<CreateSpeakerScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: AppColors.saasSidebarBg,
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: AppColors.saasSidebarBg,
+        elevation: 0,
         title: Text(
           widget.speaker == null ? 'Add Speaker' : 'Edit Speaker',
           style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold),
@@ -144,7 +145,7 @@ class _CreateSpeakerScreenState extends ConsumerState<CreateSpeakerScreen> {
                         : (_currentPhotoUrl != null && _currentPhotoUrl!.isNotEmpty)
                           ? DecorationImage(image: NetworkImage(_currentPhotoUrl!), fit: BoxFit.cover)
                           : null,
-                      border: Border.all(color: _gold.withValues(alpha: 0.5), width: 2),
+                      border: Border.all(color: AppColors.saasPrimary.withValues(alpha: 0.5), width: 2),
                     ),
                     child: _selectedImage == null && (_currentPhotoUrl == null || _currentPhotoUrl!.isEmpty)
                       ? const Icon(Icons.add_a_photo, color: Colors.white54, size: 40)
@@ -166,7 +167,7 @@ class _CreateSpeakerScreenState extends ConsumerState<CreateSpeakerScreen> {
                 builder: (context, snapshot) {
                   return DropdownButtonFormField<String>(
                     value: (snapshot.data ?? []).any((e) => e.id == _selectedEventId) ? _selectedEventId : null,
-                    dropdownColor: AppColors.surface,
+                    dropdownColor: AppColors.saasCardBg,
                     style: const TextStyle(color: Colors.white),
                     decoration: _inputDecoration('Select Event (Optional)'),
                     items: (snapshot.data ?? []).map((e) => DropdownMenuItem(
@@ -204,22 +205,26 @@ class _CreateSpeakerScreenState extends ConsumerState<CreateSpeakerScreen> {
         height: 100,
         padding: const EdgeInsets.only(bottom: 24),
         child: Center(
-          child: SizedBox(
-            width: 150,
-            height: 48,
-            child: ElevatedButton(
-              onPressed: _isSaving ? null : _saveSpeaker,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _gold,
-                foregroundColor: Colors.black,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                elevation: 0,
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: AppColors.saasGradient,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: AppColors.saasShadow,
               ),
-              child: _isSaving 
-                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2))
-                : Text('SAVE', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+              child: ElevatedButton(
+                onPressed: _isSaving ? null : _saveSpeaker,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  foregroundColor: Colors.white,
+                  shadowColor: Colors.transparent,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 0,
+                ),
+                child: _isSaving 
+                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : Text('SAVE SPEAKER', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+              ),
             ),
-          ),
         ),
       ),
     );
@@ -231,7 +236,7 @@ class _CreateSpeakerScreenState extends ConsumerState<CreateSpeakerScreen> {
       child: Text(
         title,
         style: GoogleFonts.outfit(
-          color: _gold,
+          color: AppColors.saasPrimary,
           fontSize: 12,
           fontWeight: FontWeight.bold,
           letterSpacing: 1.5,
@@ -266,7 +271,7 @@ class _CreateSpeakerScreenState extends ConsumerState<CreateSpeakerScreen> {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: _gold),
+        borderSide: const BorderSide(color: AppColors.saasPrimary),
       ),
     );
   }

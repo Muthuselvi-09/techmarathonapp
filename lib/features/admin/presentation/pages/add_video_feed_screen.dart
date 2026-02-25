@@ -87,9 +87,9 @@ class _AddVideoFeedScreenState extends ConsumerState<AddVideoFeedScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: AppColors.saasSidebarBg,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: AppColors.saasSidebarBg,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
@@ -108,13 +108,7 @@ class _AddVideoFeedScreenState extends ConsumerState<AddVideoFeedScreen> {
       body: Container(
         height: MediaQuery.of(context).size.height,
         width: double.infinity,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Colors.black, AppColors.surface.withValues(alpha: 0.8), Colors.black],
-          ),
-        ),
+        color: AppColors.saasSidebarBg,
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
           child: Column(
@@ -274,18 +268,8 @@ class _AddVideoFeedScreenState extends ConsumerState<AddVideoFeedScreen> {
                   height: 56,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(20),
-                    gradient: const LinearGradient(
-                      colors: [AppColors.codingRimPrimary, Color(0xFFD4AF37)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.codingRimPrimary.withValues(alpha: 0.3),
-                        blurRadius: 20,
-                        offset: const Offset(0, 10),
-                      ),
-                    ],
+                    gradient: AppColors.saasGradient,
+                    boxShadow: AppColors.saasShadow,
                   ),
                   child: ElevatedButton(
                     onPressed: (_isUploading || _selectedVideo == null) ? null : _uploadVideo,
@@ -299,11 +283,11 @@ class _AddVideoFeedScreenState extends ConsumerState<AddVideoFeedScreen> {
                         ? const SizedBox(
                             height: 24,
                             width: 24,
-                            child: CircularProgressIndicator(color: Colors.black, strokeWidth: 3),
+                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3),
                           )
                         : Text(
-                            'PUBLISH TO FEED',
-                            style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: 1.5),
+                            'PUBLISH UPDATE',
+                            style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: 1.5, color: Colors.white),
                           ),
                   ),
                 ),

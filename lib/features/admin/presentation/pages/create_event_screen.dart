@@ -42,7 +42,7 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
   bool _isVipEnabled = false;
   bool _isSaving = false;
 
-  final Color _gold = const Color(0xFFFFD700);
+  // No longer using local _gold, using AppColors.saasPrimary instead
 
   @override
   void initState() {
@@ -149,9 +149,10 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: AppColors.saasSidebarBg,
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: AppColors.saasSidebarBg,
+        elevation: 0,
         title: Text(
           widget.event == null ? 'New Event' : 'Edit Event',
           style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold),
@@ -199,7 +200,7 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
                     ? Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(Icons.add_photo_alternate_rounded, color: Colors.white54, size: 48),
+                          const Icon(Icons.add_photo_alternate_rounded, color: AppColors.saasPrimary, size: 48),
                           const SizedBox(height: 8),
                           Text('Add Cover Image', style: GoogleFonts.outfit(color: Colors.white54, fontSize: 14)),
                         ],
@@ -225,7 +226,7 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
                 builder: (context, snapshot) {
                   return DropdownButtonFormField<String>(
                     value: (snapshot.data ?? []).any((c) => c.id == _selectedCategoryId) ? _selectedCategoryId : null,
-                    dropdownColor: AppColors.surface,
+                    dropdownColor: AppColors.saasCardBg,
                     style: const TextStyle(color: Colors.white),
                     decoration: _inputDecoration('Select Category'),
                     items: (snapshot.data ?? []).where((c) => c.isEnabled).map((cat) => DropdownMenuItem<String>(
@@ -255,8 +256,8 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
                     Switch(
                       value: _isFree,
                       onChanged: (val) => setState(() => _isFree = val),
-                      activeColor: _gold,
-                      activeTrackColor: _gold.withValues(alpha: 0.3),
+                      activeColor: AppColors.saasPrimary,
+                      activeTrackColor: AppColors.saasPrimary.withValues(alpha: 0.3),
                     ),
                   ],
                 ),
@@ -274,7 +275,7 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
                           const SizedBox(height: 8),
                           DropdownButtonFormField<String>(
                             value: ['₹', '\$', '€', '£', '¥', 'AED', 'SAR'].contains(_currencyController.text) ? _currencyController.text : '₹',
-                            dropdownColor: AppColors.surface,
+                            dropdownColor: AppColors.saasCardBg,
                             style: const TextStyle(color: Colors.white),
                             decoration: _inputDecoration(''),
                             items: const [
@@ -323,8 +324,8 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
                     Switch(
                       value: _isVipEnabled,
                       onChanged: (val) => setState(() => _isVipEnabled = val),
-                      activeColor: _gold,
-                      activeTrackColor: _gold.withValues(alpha: 0.3),
+                      activeColor: AppColors.saasPrimary,
+                      activeTrackColor: AppColors.saasPrimary.withValues(alpha: 0.3),
                     ),
                   ],
                 ),
@@ -357,8 +358,8 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
                   Text('Rules & Instructions', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
                   TextButton.icon(
                     onPressed: () => setState(() => _rules.add('')),
-                    icon: Icon(Icons.add_circle_outline, color: _gold, size: 18),
-                    label: Text('Add Rule', style: TextStyle(color: _gold)),
+                    icon: const Icon(Icons.add_circle_outline, color: AppColors.saasPrimary, size: 18),
+                    label: const Text('Add Rule', style: TextStyle(color: AppColors.saasPrimary)),
                   ),
                 ],
               ),
@@ -395,22 +396,26 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
         height: 100,
         padding: const EdgeInsets.only(bottom: 24),
         child: Center(
-          child: SizedBox(
-            width: 150,
-            height: 48,
-            child: ElevatedButton(
-              onPressed: _isSaving ? null : _saveEvent,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _gold,
-                foregroundColor: Colors.black,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                elevation: 0,
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: AppColors.saasGradient,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: AppColors.saasShadow,
               ),
-              child: _isSaving 
-                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2))
-                : Text('SAVE', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+              child: ElevatedButton(
+                onPressed: _isSaving ? null : _saveEvent,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  foregroundColor: Colors.white,
+                  shadowColor: Colors.transparent,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 0,
+                ),
+                child: _isSaving 
+                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : Text('SAVE EVENT', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+              ),
             ),
-          ),
         ),
       ),
     );
@@ -422,7 +427,7 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
       child: Text(
         title,
         style: GoogleFonts.outfit(
-          color: _gold,
+          color: AppColors.saasPrimary,
           fontSize: 12,
           fontWeight: FontWeight.bold,
           letterSpacing: 1.5,
@@ -458,7 +463,7 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: _gold),
+        borderSide: const BorderSide(color: AppColors.saasPrimary),
       ),
     );
   }

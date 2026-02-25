@@ -18,6 +18,8 @@ import '../../../home/domain/event_models.dart';
 import '../../data/admin_repository.dart';
 import '../providers/optimistic_state_provider.dart'; // Import optimistic state
 import '../../../chat/data/chat_repository.dart';
+import 'admin_settings_screen.dart';
+import '../../../auth/data/user_repository.dart';
 import '../../../../features/auth/data/user_repository.dart';
 import '../../../../data/models/schedule.dart' as new_schedule; // Alias for Schedule
 // Removed unused mock data import (non-existent package path)
@@ -39,14 +41,22 @@ import 'package:tech_marathon_app/features/admin/presentation/pages/attendee_ins
 import 'package:tech_marathon_app/features/home/presentation/providers/event_stream_providers.dart';
 
 Widget _buildHeaderAction({required String label, required IconData icon, required VoidCallback onPressed}) {
-  return ElevatedButton.icon(
-    onPressed: onPressed,
-    icon: Icon(icon, size: 16, color: Colors.black),
-    label: Text(label, style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black)),
-    style: ElevatedButton.styleFrom(
-      backgroundColor: const Color(0xFFFFD700),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+  return Container(
+    decoration: BoxDecoration(
+      gradient: AppColors.saasGradient,
+      borderRadius: BorderRadius.circular(12),
+      boxShadow: AppColors.saasShadow,
+    ),
+    child: ElevatedButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 16, color: Colors.white),
+      label: Text(label, style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.transparent,
+        shadowColor: Colors.transparent,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
     ),
   );
 }
@@ -61,14 +71,21 @@ class AdminDashboardScreen extends ConsumerStatefulWidget {
 
 class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> with SingleTickerProviderStateMixin {
   Widget _buildHeaderAction({required String label, required IconData icon, required VoidCallback onPressed}) {
-    return ElevatedButton.icon(
-      onPressed: onPressed,
-      icon: Icon(icon, size: 16, color: Colors.black),
-      label: Text(label, style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black)),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFFFFD700),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+    return Container(
+      decoration: BoxDecoration(
+        gradient: AppColors.saasGradient,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: ElevatedButton.icon(
+        onPressed: onPressed,
+        icon: Icon(icon, size: 16, color: Colors.white),
+        label: Text(label, style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
       ),
     );
   }
@@ -112,9 +129,15 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
     super.dispose();
   }
 
-  // Gold + Black Theme Constants
-  final Color _gold = const Color(0xFFFFD700);
-  final Color _darkBg = const Color(0xFF121212); // Deep Black/Grey
+  // SaaS Theme Constants
+  final Color _primary = AppColors.saasPrimary;
+  final Color _darkBg = AppColors.saasMainBg;
+  final Color _sidebarBg = AppColors.saasSidebarBg;
+  final Color _cardBg = AppColors.saasCardBg;
+  final Color _secondaryText = AppColors.saasTextSecondary;
+  final Color _borderColor = AppColors.saasBorder;
+
+  final Color _gold = AppColors.saasPrimary; // Map legacy gold to SaaS Primary for quick compatibility
 
   void _handleSearch(String query) {
     if (query.isEmpty) return;
@@ -140,10 +163,10 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
         
         return Scaffold(
           key: _scaffoldKey,
-          backgroundColor: Colors.black,
+          backgroundColor: _darkBg,
           drawer: isNarrow ? Drawer(
             width: 280,
-            backgroundColor: Colors.black,
+            backgroundColor: _sidebarBg,
             child: AdminSidebar(
               currentIndex: _currentTab,
               onTabSelected: (index) {
@@ -274,6 +297,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
             ),
             const SizedBox(width: 24),
           ],
+          _iconButton(Icons.settings_outlined, () => _openSettings()),
+          const SizedBox(width: 16),
           _iconButton(Icons.notifications_none_rounded, () {}),
           const SizedBox(width: 16),
           GestureDetector(
@@ -286,7 +311,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
               ),
               child: CircleAvatar(
                 radius: isNarrow ? 18 : 22,
-                backgroundColor: AppColors.surface,
+                backgroundColor: AppColors.saasCardBg,
                 child: Icon(Icons.person, size: isNarrow ? 20 : 24, color: Colors.white),
               ),
             ),
@@ -344,19 +369,27 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
     }
   }
 
+  void _openSettings() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const AdminSettingsScreen()),
+    );
+  }
+
   void _showAdminProfile() {
     final user = FirebaseAuth.instance.currentUser;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surface,
+        backgroundColor: AppColors.saasCardBg,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Admin Profile', style: TextStyle(color: Colors.white)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const CircleAvatar(
               radius: 30,
-              backgroundColor: AppColors.codingRimPrimary,
+              backgroundColor: AppColors.saasPrimary,
               child: Icon(Icons.person, size: 30, color: Colors.black),
             ),
             const SizedBox(height: 16),
@@ -457,14 +490,14 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                     style: GoogleFonts.outfit(
                       fontSize: 48,
                       fontWeight: FontWeight.w800,
-                      color: _gold,
+                      color: AppColors.saasPrimary,
                     ),
                   ),
                   const SizedBox(width: 12),
                   Text(
                     'total earnings',
                     style: GoogleFonts.outfit(
-                      color: Colors.white24,
+                      color: AppColors.saasTextSecondary,
                       fontSize: 14,
                     ),
                   ),
@@ -493,7 +526,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                               title: 'Active Events',
                               value: '$totalEvents',
                               icon: Icons.confirmation_number_outlined,
-                              color: Colors.blueAccent,
+                              color: AppColors.saasInfo,
                             ),
                           ),
                           const SizedBox(width: 16),
@@ -502,7 +535,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                               title: 'Attendees',
                               value: '4.2k',
                               icon: Icons.analytics_outlined,
-                              color: Colors.purpleAccent,
+                              color: AppColors.saasPrimary,
                             ),
                           ),
                         ],
@@ -524,7 +557,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                               title: 'Available',
                               value: '$available',
                               icon: Icons.chair_alt_rounded,
-                              color: Colors.greenAccent,
+                              color: AppColors.saasSuccess,
                             ),
                           ),
                         ],
@@ -549,9 +582,10 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: AppColors.saasCardBg,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: AppColors.saasBorder),
+        boxShadow: AppColors.saasShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -603,8 +637,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
             onSubmitted: _handleSearch,
             decoration: InputDecoration(
               hintText: 'Search menu, attendees (Name, Email, Mobile)...',
-              hintStyle: const TextStyle(color: Colors.white38, fontSize: 14),
-              prefixIcon: const Icon(Icons.search, color: AppColors.primary, size: 22),
+              hintStyle: const TextStyle(color: AppColors.saasTextSecondary, fontSize: 14),
+              prefixIcon: const Icon(Icons.search, color: AppColors.saasPrimary, size: 22),
               border: InputBorder.none,
               suffixIcon: _searchQuery.isNotEmpty 
                   ? IconButton(
@@ -647,7 +681,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (matchedMenu.isNotEmpty) ...[
-          Text('MENU OPTIONS', style: GoogleFonts.outfit(color: AppColors.primary, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)),
+          Text('MENU OPTIONS', style: GoogleFonts.outfit(color: AppColors.saasPrimary, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)),
           const SizedBox(height: 8),
           ...matchedMenu.map((m) => ListTile(
             leading: Icon(m['icon'] as IconData, color: Colors.white70, size: 18),
@@ -665,7 +699,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
         ],
         
         // 2. Attendee Matches (Streaming from members)
-        Text('ATTENDEES', style: GoogleFonts.outfit(color: AppColors.primary, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)),
+        Text('ATTENDEES', style: GoogleFonts.outfit(color: AppColors.saasPrimary, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)),
         const SizedBox(height: 8),
         StreamBuilder<List<Participant>>(
           stream: ref.watch(userRepositoryProvider).getRealTimeMembers(),
@@ -683,8 +717,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
               children: matches.map((p) => ListTile(
                 leading: CircleAvatar(
                   radius: 14,
-                  backgroundColor: AppColors.primary.withValues(alpha: 0.2),
-                  child: Text(p.name[0].toUpperCase(), style: const TextStyle(color: AppColors.primary, fontSize: 10, fontWeight: FontWeight.bold)),
+                  backgroundColor: AppColors.saasPrimary.withValues(alpha: 0.2),
+                  child: Text(p.name[0].toUpperCase(), style: const TextStyle(color: AppColors.saasPrimary, fontSize: 10, fontWeight: FontWeight.bold)),
                 ),
                 title: Text(p.name, style: const TextStyle(color: Colors.white, fontSize: 14)),
                 subtitle: Text('${p.email} • ${p.mobile}', style: const TextStyle(color: Colors.white38, fontSize: 11)),
@@ -709,7 +743,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _moduleHeader('Live Presence', Icons.sensors_rounded, const Color(0xFF00FF94)),
+        _moduleHeader('Live Presence', Icons.sensors_rounded, AppColors.saasSuccess),
         const SizedBox(height: 16),
         StreamBuilder<int>(
           stream: userRepo.watchOnlineUsersCount(),
@@ -744,7 +778,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                           ),
                         ],
                       ),
-                      const Icon(Icons.trending_up_rounded, color: Color(0xFF00FF94), size: 24),
+                      const Icon(Icons.trending_up_rounded, color: AppColors.saasSuccess, size: 24),
                     ],
                   ),
                   const SizedBox(height: 24),
@@ -962,15 +996,10 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                     ),
-                    ElevatedButton.icon(
+                    _buildHeaderAction(
+                      label: 'NEW EVENT',
+                      icon: Icons.add_rounded,
                       onPressed: () => _showEventDialog(),
-                      icon: const Icon(Icons.add_rounded, size: 20),
-                      label: Text('NEW EVENT', style: GoogleFonts.outfit(fontWeight: FontWeight.w700, letterSpacing: 1, color: Colors.black)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _gold,
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
                     ),
                   ],
                 ),
@@ -1013,21 +1042,16 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                         icon: const Icon(Icons.category_outlined, size: 18),
                         label: Text('CATEGORIES', style: GoogleFonts.outfit(fontWeight: FontWeight.w700, letterSpacing: 1)),
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: _gold,
-                          side: BorderSide(color: _gold.withValues(alpha: 0.3)),
+                          foregroundColor: AppColors.saasPrimary,
+                          side: BorderSide(color: AppColors.saasPrimary.withValues(alpha: 0.3)),
                           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
                       ),
-                      ElevatedButton.icon(
+                      _buildHeaderAction(
+                        label: 'NEW EVENT',
+                        icon: Icons.add_rounded,
                         onPressed: () => _showEventDialog(),
-                        icon: const Icon(Icons.add_rounded, size: 20),
-                        label: Text('NEW EVENT', style: GoogleFonts.outfit(fontWeight: FontWeight.w700, letterSpacing: 1, color: Colors.black)),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _gold,
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
                       ),
                     ],
                   ),
@@ -1073,20 +1097,16 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surface,
+        backgroundColor: AppColors.saasCardBg,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             const Text('Manage Categories', style: TextStyle(color: Colors.white)),
-            ElevatedButton.icon(
+            _buildHeaderAction(
+              label: 'Add',
+              icon: Icons.add,
               onPressed: () => _showCategoryDialog(),
-              icon: const Icon(Icons.add, size: 16),
-              label: const Text('Add', style: TextStyle(fontSize: 12)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _gold,
-                foregroundColor: Colors.black,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-              ),
             ),
           ],
         ),
@@ -1096,9 +1116,9 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
           child: StreamBuilder<List<Category>>(
             stream: ref.watch(adminRepositoryProvider).watchCategories(),
             builder: (context, snapshot) {
-              if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+              if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: AppColors.saasPrimary));
               final categories = snapshot.data!;
-              if (categories.isEmpty) return const Center(child: Text('No categories found', style: TextStyle(color: Colors.white38)));
+              if (categories.isEmpty) return const Center(child: Text('No categories found', style: TextStyle(color: AppColors.saasTextSecondary)));
 
               return ListView.builder(
                 itemCount: categories.length,
@@ -1113,7 +1133,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
+            child: const Text('Close', style: TextStyle(color: AppColors.saasTextSecondary)),
           ),
         ],
       ),
@@ -1131,8 +1151,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
               width: 64,
               height: 64,
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(16),
+                color: AppColors.saasSidebarBg,
+                borderRadius: BorderRadius.circular(12),
                 image: event.imageUrl.isNotEmpty
                   ? DecorationImage(
                       image: NetworkImage(event.imageUrl),
@@ -1141,7 +1161,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                   : null,
               ),
               child: event.imageUrl.isEmpty 
-                ? const Icon(Icons.event_available_rounded, color: AppColors.codingRimPrimary, size: 24) 
+                ? const Icon(Icons.event_available_rounded, color: AppColors.saasPrimary, size: 24) 
                 : null,
             ),
             const SizedBox(width: 20),
@@ -1237,7 +1257,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
             child: StreamBuilder<List<Participant>>(
               stream: userRepo.getRealTimeMembers(),
               builder: (context, snapshot) {
-                if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: AppColors.codingRimPrimary));
+                if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: AppColors.saasPrimary));
                 
                 final members = snapshot.data!;
                 if (members.isEmpty) {
@@ -1309,15 +1329,10 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                 ),
                 const SizedBox(width: 16),
                 Flexible(
-                  child: ElevatedButton.icon(
+                  child: _buildHeaderAction(
+                    label: 'ADD SPEAKER',
+                    icon: Icons.add_rounded,
                     onPressed: () => _showSpeakerDialog(),
-                    icon: const Icon(Icons.add_rounded, size: 20),
-                    label: Text('ADD SPEAKER', style: GoogleFonts.outfit(fontWeight: FontWeight.w700, letterSpacing: 1, color: Colors.black)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _gold,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
                   ),
                 ),
               ],
@@ -1327,7 +1342,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
             child: StreamBuilder<List<Speaker>>(
               stream: adminRepo.watchAllSpeakers(),
               builder: (context, snapshot) {
-                if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: AppColors.codingRimPrimary));
+                if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: AppColors.saasPrimary));
                 if (snapshot.data!.isEmpty) return _emptySection(Icons.mic_none_rounded, 'No speakers added yet');
                 
                 return ListView.builder(
@@ -1358,8 +1373,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
               width: 56,
               height: 56,
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(16),
+                color: AppColors.saasSidebarBg,
+                borderRadius: BorderRadius.circular(12),
                 image: speaker.photoUrl.isNotEmpty
                   ? DecorationImage(
                       image: NetworkImage(speaker.photoUrl),
@@ -1368,7 +1383,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                   : null,
               ),
               child: speaker.photoUrl.isEmpty 
-                ? const Icon(Icons.mic_none_rounded, color: AppColors.codingRimPrimary, size: 24) 
+                ? const Icon(Icons.mic_none_rounded, color: AppColors.saasPrimary, size: 24) 
                 : null,
             ),
             const SizedBox(width: 20),
@@ -1445,15 +1460,10 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
               children: [
                 _sectionHeader('SPONSOR PARTNERS', 'Maintain and organize platform sponsors'),
                 const SizedBox(height: 20),
-                ElevatedButton.icon(
+                _buildHeaderAction(
                   onPressed: () => _showSponsorDialog(),
-                  icon: const Icon(Icons.add_rounded, size: 20),
-                  label: Text('ADD SPONSOR', style: GoogleFonts.outfit(fontWeight: FontWeight.w700, letterSpacing: 1, color: Colors.black)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _gold,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
+                  icon: Icons.add_rounded,
+                  label: 'ADD SPONSOR',
                 ),
               ],
             )
@@ -1466,15 +1476,10 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                 ),
                 const SizedBox(width: 16),
                 Flexible(
-                  child: ElevatedButton.icon(
+                  child: _buildHeaderAction(
                     onPressed: () => _showSponsorDialog(),
-                    icon: const Icon(Icons.add_rounded, size: 20),
-                    label: Text('ADD SPONSOR', style: GoogleFonts.outfit(fontWeight: FontWeight.w700, letterSpacing: 1, color: Colors.black)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _gold,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
+                    icon: Icons.add_rounded,
+                    label: 'ADD SPONSOR',
                   ),
                 ),
               ],
@@ -1484,7 +1489,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
             child: StreamBuilder<List<Sponsor>>(
               stream: adminRepo.watchAllSponsors(),
               builder: (context, snapshot) {
-                 if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: AppColors.codingRimPrimary));
+                 if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: AppColors.saasPrimary));
                  
                  final allSponsors = snapshot.data!;
                  if (allSponsors.isEmpty) {
@@ -1526,7 +1531,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
               height: 64,
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(12),
                 image: sponsor.logoUrl.isNotEmpty
                   ? DecorationImage(
                       image: NetworkImage(sponsor.logoUrl),
@@ -1535,7 +1540,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                   : null,
               ),
               child: sponsor.logoUrl.isEmpty 
-                ? const Icon(Icons.business_outlined, color: Colors.black54, size: 24) 
+                ? const Icon(Icons.business_outlined, color: AppColors.saasBorder, size: 24) 
                 : null,
             ),
             const SizedBox(width: 20),
@@ -1609,15 +1614,10 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
               children: [
                 _sectionHeader('EVENT SCHEDULES', 'Organize and manage session timings'),
                 const SizedBox(height: 20),
-                ElevatedButton.icon(
+                _buildHeaderAction(
                   onPressed: () => _showScheduleDialog(),
-                  icon: const Icon(Icons.event_available_rounded, size: 20),
-                  label: Text('NEW SESSION', style: GoogleFonts.outfit(fontWeight: FontWeight.w700, letterSpacing: 1, color: Colors.black)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _gold,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
+                  icon: Icons.event_available_rounded,
+                  label: 'NEW SESSION',
                 ),
               ],
             )
@@ -1629,18 +1629,13 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                   child: _sectionHeader('SCHEDULE DASHBOARD', 'Manage session timings, tracks, and speakers'),
                 ),
                 const SizedBox(width: 16),
-                _statBadge(Icons.verified_rounded, 'No Conflicts', Colors.green),
+                _statBadge(Icons.verified_rounded, 'No Conflicts', AppColors.saasSuccess),
                 const SizedBox(width: 16),
                 Flexible(
-                  child: ElevatedButton.icon(
+                  child: _buildHeaderAction(
                     onPressed: () => _showScheduleDialog(),
-                    icon: const Icon(Icons.event_available_rounded, size: 20),
-                    label: Text('NEW SESSION', style: GoogleFonts.outfit(fontWeight: FontWeight.w700, letterSpacing: 1, color: Colors.black)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _gold,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
+                    icon: Icons.event_available_rounded,
+                    label: 'NEW SESSION',
                   ),
                 ),
               ],
@@ -1673,7 +1668,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                 return StreamBuilder<List<new_schedule.Schedule>>(
                   stream: adminRepo.watchAllSchedules(),
                   builder: (context, snapshot) {
-                    if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: AppColors.codingRimPrimary));
+                    if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: AppColors.saasPrimary));
                     
                     var filteredSchedules = snapshot.data!;
                     
@@ -1732,14 +1727,16 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
         margin: const EdgeInsets.only(right: 12),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         decoration: BoxDecoration(
-          color: isSelected ? (isWarning ? Colors.orange.withValues(alpha: 0.2) : _gold.withValues(alpha: 0.1)) : Colors.white.withValues(alpha: 0.05),
+          gradient: isSelected ? AppColors.saasGradient : null,
+          color: isSelected ? null : AppColors.saasSidebarBg,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: isSelected ? (isWarning ? Colors.orange : _gold) : Colors.white12),
+          border: Border.all(color: isSelected ? Colors.transparent : AppColors.saasBorder),
+          boxShadow: isSelected ? AppColors.saasShadow : [],
         ),
         child: Text(
           label,
           style: GoogleFonts.outfit(
-            color: isSelected ? (isWarning ? Colors.orange : _gold) : Colors.white60,
+            color: isSelected ? Colors.white : AppColors.saasTextSecondary,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
             fontSize: 13,
           ),
@@ -1758,10 +1755,10 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(16),
+                color: AppColors.saasSidebarBg,
+                borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(Icons.schedule_rounded, color: AppColors.codingRimPrimary, size: 24),
+              child: const Icon(Icons.schedule_rounded, color: AppColors.saasPrimary, size: 24),
             ),
             const SizedBox(width: 20),
             Expanded(
@@ -1787,13 +1784,13 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            color: _gold.withValues(alpha: 0.1),
+                            color: AppColors.saasPrimary.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: _gold.withValues(alpha: 0.2)),
+                            border: Border.all(color: AppColors.saasPrimary.withValues(alpha: 0.2)),
                           ),
                           child: Text(
                             schedule.sessionType.toUpperCase(),
-                            style: GoogleFonts.outfit(color: _gold, fontSize: 10, fontWeight: FontWeight.bold),
+                            style: GoogleFonts.outfit(color: AppColors.saasPrimary, fontSize: 10, fontWeight: FontWeight.bold),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -1939,10 +1936,10 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
             TabBar(
               isScrollable: true,
               tabAlignment: TabAlignment.start,
-              indicatorColor: _gold,
-              labelColor: _gold,
-              unselectedLabelColor: Colors.white38,
-              dividerColor: Colors.white.withValues(alpha: 0.05),
+              indicatorColor: AppColors.saasPrimary,
+              labelColor: AppColors.saasPrimary,
+              unselectedLabelColor: AppColors.saasTextSecondary,
+              dividerColor: AppColors.saasBorder,
               labelStyle: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 1),
               unselectedLabelStyle: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 1),
               tabs: const [
@@ -1962,7 +1959,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                   return StreamBuilder<List<Map<String, dynamic>>>(
                     stream: chatRepo.watchAllChats(),
                     builder: (context, chatSnap) {
-                      if (!chatSnap.hasData) return const Center(child: CircularProgressIndicator(color: AppColors.codingRimPrimary));
+                      if (!chatSnap.hasData) return const Center(child: CircularProgressIndicator(color: AppColors.saasPrimary));
                       final chats = chatSnap.data!;
                       
                       return TabBarView(
@@ -1999,65 +1996,102 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
       return _emptySection(Icons.chat_bubble_outline_rounded, msg);
     }
 
-    return ListView.builder(
-      itemCount: filtered.length,
-      itemBuilder: (context, index) {
-        final chat = filtered[index];
-        return _chatThreadItem(chat);
+    return StreamBuilder<List<Participant>>(
+      stream: ref.watch(userRepositoryProvider).getRealTimeMembers(),
+      builder: (context, userSnapshot) {
+        final usersList = userSnapshot.data ?? [];
+        return ListView.builder(
+          itemCount: filtered.length,
+          itemBuilder: (context, index) {
+            final chat = filtered[index];
+            final participant = usersList.firstWhere(
+              (u) => u.id == chat['userId'],
+              orElse: () => Participant(id: '', name: chat['userName'] ?? 'User', email: '', mobile: ''),
+            );
+            return _chatThreadItem(chat, participant.name);
+          },
+        );
       },
     );
   }
 
-  Widget _chatThreadItem(Map<String, dynamic> chat) {
+  Widget _chatThreadItem(Map<String, dynamic> chat, String resolvedName) {
     final bool hasUnread = chat['unreadByAdmin'] ?? false;
+    final String userId = chat['userId'];
     
-    return Container(
-      margin: const EdgeInsets.only(bottom: 20),
-      child: _GlassCard(
-        padding: const EdgeInsets.all(12),
-        borderColor: hasUnread ? _gold.withValues(alpha: 0.3) : Colors.transparent,
-        child: ListTile(
-          onTap: () => _openAdminChatRoom(chat['userId'], chat['userName'] ?? 'User'),
-          leading: Container(
-            padding: const EdgeInsets.all(2),
+    return StatefulBuilder(
+      builder: (context, setState) {
+        bool isHovered = false;
+        return MouseRegion(
+          onEnter: (_) => setState(() => isHovered = true),
+          onExit: (_) => setState(() => isHovered = false),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            margin: const EdgeInsets.only(bottom: 20),
             decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: hasUnread ? _gold : Colors.white12, width: 2),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: isHovered || hasUnread ? _gold.withValues(alpha: 0.5) : Colors.transparent,
+                width: 2,
+              ),
+              boxShadow: isHovered ? [
+                BoxShadow(
+                  color: _gold.withValues(alpha: 0.1),
+                  blurRadius: 15,
+                  spreadRadius: 2,
+                )
+              ] : [],
             ),
-            child: CircleAvatar(
-              backgroundColor: Colors.white.withValues(alpha: 0.05),
-              child: Text(
-                chat['userName']?[0] ?? 'U',
-                style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold),
+            child: _GlassCard(
+              padding: const EdgeInsets.all(4),
+              child: ListTile(
+                onTap: () => _openAdminChatRoom(userId, resolvedName),
+                leading: Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: isHovered || hasUnread ? _gold : Colors.white12, 
+                      width: 2,
+                    ),
+                  ),
+                  child: CircleAvatar(
+                    backgroundColor: Colors.white.withValues(alpha: 0.05),
+                    child: Text(
+                      resolvedName.isNotEmpty ? resolvedName[0].toUpperCase() : 'U',
+                      style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+                title: Text(
+                  resolvedName,
+                  style: GoogleFonts.outfit(
+                    color: Colors.white,
+                    fontWeight: isHovered || hasUnread ? FontWeight.w900 : FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+                subtitle: Text(
+                  chat['lastMessage'] ?? '',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.outfit(
+                    color: isHovered || hasUnread ? Colors.white60 : Colors.white38,
+                    fontSize: 13,
+                  ),
+                ),
+                trailing: hasUnread 
+                  ? Container(
+                      width: 12,
+                      height: 12,
+                      decoration: BoxDecoration(color: _gold, shape: BoxShape.circle),
+                    ) 
+                  : const Icon(Icons.chevron_right_rounded, color: Colors.white24),
               ),
             ),
           ),
-          title: Text(
-            chat['userName'] ?? 'User',
-            style: GoogleFonts.outfit(
-              color: Colors.white,
-              fontWeight: hasUnread ? FontWeight.w900 : FontWeight.bold,
-              fontSize: 16,
-            ),
-          ),
-          subtitle: Text(
-            chat['lastMessage'] ?? '',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.outfit(
-              color: hasUnread ? Colors.white60 : Colors.white38,
-              fontSize: 13,
-            ),
-          ),
-          trailing: hasUnread 
-            ? Container(
-                width: 12,
-                height: 12,
-                decoration: BoxDecoration(color: _gold, shape: BoxShape.circle),
-              ) 
-            : const Icon(Icons.chevron_right_rounded, color: Colors.white24),
-        ),
-      ),
+        );
+      }
     );
   }
 
@@ -2503,7 +2537,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surface,
+        backgroundColor: AppColors.saasCardBg,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text('Edit Message', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold)),
         content: TextField(
           controller: controller,
@@ -2788,14 +2823,15 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                   }
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: _gold,
-                  foregroundColor: Colors.black,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  backgroundColor: AppColors.saasPrimary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   elevation: 0,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
                 child: _isSavingBranding 
-                  ? const CircularProgressIndicator(color: Colors.black)
-                  : Text('SAVE', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: 1.5)),
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : Text('SAVE BRANDING', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 14, letterSpacing: 1.5)),
               ),
             ),
           ),
@@ -2806,7 +2842,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                       final confirm = await showDialog<bool>(
                         context: context,
                         builder: (context) => AlertDialog(
-                          backgroundColor: AppColors.surface,
+                          backgroundColor: AppColors.saasCardBg,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                           title: const Text('Reset Branding?', style: TextStyle(color: Colors.white)),
                           content: const Text(
                             'This will reset the Company Name and Logo to the default "EVENT APP". This action cannot be undone.',
@@ -2956,7 +2993,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surface,
+        backgroundColor: AppColors.saasCardBg,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Delete Screen?', style: TextStyle(color: Colors.white)),
         content: Text('Are you sure you want to delete "${screen.title}"?'),
         actions: [
@@ -2981,7 +3019,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setStateDialog) => AlertDialog(
-          backgroundColor: AppColors.surface,
+          backgroundColor: AppColors.saasCardBg,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Text(screen == null ? 'Add Screen' : 'Edit Screen', style: const TextStyle(color: Colors.white)),
           content: SingleChildScrollView(
             child: Column(
@@ -3064,8 +3103,14 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                   }
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: _gold, foregroundColor: Colors.black),
-              child: isSavingLocal ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black)) : const Text('Save'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.saasPrimary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: isSavingLocal 
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) 
+                : const Text('Save Screen'),
             ),
           ],
         ),
@@ -3140,7 +3185,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
-          backgroundColor: AppColors.surface,
+          backgroundColor: AppColors.saasCardBg,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Text(category == null ? 'New Category' : 'Edit Category', style: const TextStyle(color: Colors.white)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -3437,7 +3483,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surface,
+        backgroundColor: AppColors.saasCardBg,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Delete Feed Item?', style: TextStyle(color: Colors.white)),
         content: const Text('This update will be removed from the public live feed.', style: TextStyle(color: Colors.white70)),
         actions: [
@@ -3468,7 +3515,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          backgroundColor: AppColors.surface,
+          backgroundColor: AppColors.saasCardBg,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Text('Add ${type.toUpperCase()}', style: const TextStyle(color: Colors.white)),
           content: SingleChildScrollView(
             child: Column(
@@ -3611,15 +3659,10 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
                       ),
-                      ElevatedButton.icon(
+                      _buildHeaderAction(
                         onPressed: () => _showProfileItemDialog(),
-                        icon: const Icon(Icons.add_rounded, size: 16),
-                        label: Text('NEW TILE', style: GoogleFonts.outfit(fontWeight: FontWeight.w700, letterSpacing: 0.5, color: Colors.black, fontSize: 11)),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _gold,
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        ),
+                        icon: Icons.add_rounded,
+                        label: 'NEW TILE',
                       ),
                     ],
                   ),
@@ -3631,7 +3674,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
             child: StreamBuilder<List<ProfileItem>>(
               stream: adminRepo.watchProfileItems(),
               builder: (context, snapshot) {
-                if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: AppColors.codingRimPrimary));
+                if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: AppColors.saasPrimary));
                 
                 final items = snapshot.data!;
                 if (items.isEmpty) {
@@ -3751,7 +3794,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          backgroundColor: AppColors.surface,
+          backgroundColor: AppColors.saasCardBg,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Text(item == null ? 'New Profile Tile' : 'Edit Profile Tile', style: const TextStyle(color: Colors.white)),
           content: SingleChildScrollView(
             child: Column(
@@ -3839,7 +3883,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surface,
+        backgroundColor: AppColors.saasCardBg,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Delete Tile', style: TextStyle(color: Colors.white)),
         content: Text('Are you sure you want to delete "${item.title}" from the profile?', style: const TextStyle(color: Colors.white70)),
         actions: [
@@ -3884,12 +3929,12 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
   InputDecoration _adminInputDecoration(String label, IconData icon) {
     return InputDecoration(
       labelText: label,
-      prefixIcon: Icon(icon, color: _gold, size: 20),
-      labelStyle: const TextStyle(color: Colors.white70),
-      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Colors.white10)),
-      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: _gold)),
+      prefixIcon: Icon(icon, color: AppColors.saasPrimary, size: 20),
+      labelStyle: const TextStyle(color: AppColors.saasTextSecondary),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.saasBorder)),
+      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.saasPrimary)),
       filled: true,
-      fillColor: Colors.white.withValues(alpha: 0.05),
+      fillColor: AppColors.saasCardBg,
     );
   }
 }
@@ -3906,16 +3951,10 @@ class _GlassCard extends StatelessWidget {
     return Container(
       padding: padding ?? const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(28), // Premium rounded corners matching Event Home
-        border: Border.all(color: borderColor ?? Colors.white.withValues(alpha: 0.08)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        color: AppColors.saasCardBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderColor ?? AppColors.saasBorder),
+        boxShadow: AppColors.saasShadow,
       ),
       child: child,
     );

@@ -77,4 +77,31 @@ class AppColors {
   static const Color textPrimary = Color(0xFFFFFBEB); // Warm White
   static const Color textSecondary = Color(0xFFD6C0B0); // Muted Beige
   static const Color textDim = Color(0xFF8D7B6F); // Warm Grey
+
+  // SaaS Admin Theme
+  static const Color saasMainBg = Color(0xFF0F172A);
+  static const Color saasSidebarBg = Color(0xFF111827);
+  static const Color saasCardBg = Color(0xFF1E293B);
+  static const Color saasPrimary = Color(0xFF7C3AED);
+  static const Color saasHover = Color(0xFF9333EA);
+  static const Color saasTextPrimary = Color(0xFFFFFFFF);
+  static const Color saasTextSecondary = Color(0xFF94A3B8);
+  static const Color saasBorder = Color(0xFF334155);
+  static const Color saasSuccess = Color(0xFF22C55E);
+  static const Color saasDanger = Color(0xFFEF4444);
+  static const Color saasInfo = Color(0xFF3B82F6);
+
+  static const LinearGradient saasGradient = LinearGradient(
+    colors: [Color(0xFF7C3AED), Color(0xFF9333EA)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  static List<BoxShadow> saasShadow = [
+    BoxShadow(
+      color: Colors.black.withValues(alpha: 0.4),
+      blurRadius: 30,
+      offset: const Offset(0, 10),
+    ),
+  ];
 }

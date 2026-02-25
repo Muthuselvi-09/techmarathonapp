@@ -47,7 +47,7 @@ class _CreateSponsorScreenState extends ConsumerState<CreateSponsorScreen> {
   late List<Map<String, dynamic>> _tempProducts;
   late List<String> _tempMedia;
 
-  final Color _gold = const Color(0xFFFFD700);
+  // No longer using local _gold
 
   @override
   void initState() {
@@ -136,9 +136,10 @@ class _CreateSponsorScreenState extends ConsumerState<CreateSponsorScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: AppColors.saasSidebarBg,
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: AppColors.saasSidebarBg,
+        elevation: 0,
         title: Text(
           widget.sponsor == null ? 'Add Sponsor' : 'Edit Sponsor',
           style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold),
@@ -162,7 +163,7 @@ class _CreateSponsorScreenState extends ConsumerState<CreateSponsorScreen> {
                 builder: (context, snapshot) {
                   return DropdownButtonFormField<String>(
                     value: (snapshot.data ?? []).any((e) => e.id == _selectedEventId) ? _selectedEventId : null,
-                    dropdownColor: AppColors.surface,
+                    dropdownColor: AppColors.saasCardBg,
                     style: const TextStyle(color: Colors.white),
                     decoration: _inputDecoration('Select Event'),
                     items: (snapshot.data ?? []).map((e) => DropdownMenuItem(
@@ -176,7 +177,7 @@ class _CreateSponsorScreenState extends ConsumerState<CreateSponsorScreen> {
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
                 value: ['Platinum', 'Gold', 'Silver', 'Bronze'].contains(_tier) ? _tier : 'Gold',
-                dropdownColor: AppColors.surface,
+                dropdownColor: AppColors.saasCardBg,
                 style: const TextStyle(color: Colors.white),
                 decoration: _inputDecoration('Sponsorship Tier'),
                 items: ['Platinum', 'Gold', 'Silver', 'Bronze']
@@ -292,8 +293,8 @@ class _CreateSponsorScreenState extends ConsumerState<CreateSponsorScreen> {
                   _buildSectionHeader('Offers & Deals'),
                   TextButton.icon(
                     onPressed: () => _showAddOfferDialog(),
-                    icon: Icon(Icons.add_circle_outline, size: 16, color: _gold),
-                    label: Text('Add Offer', style: TextStyle(color: _gold)),
+                    icon: const Icon(Icons.add_circle_outline, size: 16, color: AppColors.saasPrimary),
+                    label: const Text('Add Offer', style: TextStyle(color: AppColors.saasPrimary)),
                   ),
                 ],
               ),
@@ -333,8 +334,8 @@ class _CreateSponsorScreenState extends ConsumerState<CreateSponsorScreen> {
                   _buildSectionHeader('Products & Services'),
                   TextButton.icon(
                     onPressed: () => _showAddProductDialog(),
-                    icon: Icon(Icons.add_circle_outline, size: 16, color: _gold),
-                    label: Text('Add Product', style: TextStyle(color: _gold)),
+                    icon: const Icon(Icons.add_circle_outline, size: 16, color: AppColors.saasPrimary),
+                    label: const Text('Add Product', style: TextStyle(color: AppColors.saasPrimary)),
                   ),
                 ],
               ),
@@ -435,7 +436,7 @@ class _CreateSponsorScreenState extends ConsumerState<CreateSponsorScreen> {
                         border: Border.all(color: Colors.white24, style: BorderStyle.solid),
                       ),
                       child: _isUploadingMedia
-                        ? const Center(child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFFFD700)))
+                        ? const Center(child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.saasPrimary))
                         : const Icon(Icons.add_a_photo, color: Colors.white38),
                     ),
                   ),
@@ -451,22 +452,26 @@ class _CreateSponsorScreenState extends ConsumerState<CreateSponsorScreen> {
         height: 100,
         padding: const EdgeInsets.only(bottom: 24),
         child: Center(
-          child: SizedBox(
-            width: 150,
-            height: 48,
-            child: ElevatedButton(
-              onPressed: _isSaving ? null : _saveSponsor,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _gold,
-                foregroundColor: Colors.black,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                elevation: 0,
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: AppColors.saasGradient,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: AppColors.saasShadow,
               ),
-              child: _isSaving 
-                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2))
-                : Text('SAVE', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+              child: ElevatedButton(
+                onPressed: _isSaving ? null : _saveSponsor,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  foregroundColor: Colors.white,
+                  shadowColor: Colors.transparent,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 0,
+                ),
+                child: _isSaving 
+                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : Text('SAVE SPONSOR', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+              ),
             ),
-          ),
         ),
       ),
     );
@@ -479,7 +484,8 @@ class _CreateSponsorScreenState extends ConsumerState<CreateSponsorScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E1E),
+        backgroundColor: AppColors.saasCardBg,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Add Offer', style: TextStyle(color: Colors.white)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -498,7 +504,11 @@ class _CreateSponsorScreenState extends ConsumerState<CreateSponsorScreen> {
               setState(() => _tempOffers.add({'title': titleC.text, 'description': descC.text, 'code': codeC.text}));
               Navigator.pop(ctx);
             },
-            style: ElevatedButton.styleFrom(backgroundColor: _gold, foregroundColor: Colors.black),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.saasPrimary, 
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
             child: const Text('Add'),
           ),
         ],
@@ -517,7 +527,8 @@ class _CreateSponsorScreenState extends ConsumerState<CreateSponsorScreen> {
       barrierDismissible: false,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          backgroundColor: const Color(0xFF1E1E1E),
+          backgroundColor: AppColors.saasCardBg,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Text('Add Product', style: TextStyle(color: Colors.white)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -549,7 +560,7 @@ class _CreateSponsorScreenState extends ConsumerState<CreateSponsorScreen> {
               _buildDialogTextField(nameC, 'Name'),
               const SizedBox(height: 12),
               _buildDialogTextField(descC, 'Short Description'),
-              if (uploading) const Padding(padding: EdgeInsets.only(top: 8), child: LinearProgressIndicator(color: Color(0xFFFFD700))),
+              if (uploading) const Padding(padding: EdgeInsets.only(top: 8), child: LinearProgressIndicator(color: AppColors.saasPrimary)),
             ],
           ),
           actions: [
@@ -571,7 +582,11 @@ class _CreateSponsorScreenState extends ConsumerState<CreateSponsorScreen> {
                  setState(() => _tempProducts.add({'name': nameC.text, 'desc': descC.text, 'image': url}));
                  if (mounted) Navigator.pop(ctx);
               },
-              style: ElevatedButton.styleFrom(backgroundColor: _gold, foregroundColor: Colors.black),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.saasPrimary, 
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
               child: const Text('Add'),
             ),
           ],
@@ -600,7 +615,7 @@ class _CreateSponsorScreenState extends ConsumerState<CreateSponsorScreen> {
       child: Text(
         title,
         style: GoogleFonts.outfit(
-          color: _gold,
+          color: AppColors.saasPrimary,
           fontSize: 12,
           fontWeight: FontWeight.bold,
           letterSpacing: 1.5,
@@ -635,7 +650,7 @@ class _CreateSponsorScreenState extends ConsumerState<CreateSponsorScreen> {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: _gold),
+        borderSide: const BorderSide(color: AppColors.saasPrimary),
       ),
     );
   }

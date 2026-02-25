@@ -135,12 +135,12 @@ class _AddImageFeedScreenState extends ConsumerState<AddImageFeedScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const gold = AppColors.codingRimPrimary;
+    // Using AppColors.saasPrimary directly
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: AppColors.saasSidebarBg,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: AppColors.saasSidebarBg,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
@@ -159,13 +159,7 @@ class _AddImageFeedScreenState extends ConsumerState<AddImageFeedScreen> {
       body: Container(
         height: MediaQuery.of(context).size.height,
         width: double.infinity,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Colors.black, AppColors.surface.withValues(alpha: 0.8), Colors.black],
-          ),
-        ),
+        color: AppColors.saasSidebarBg,
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
           child: Column(
@@ -202,11 +196,11 @@ class _AddImageFeedScreenState extends ConsumerState<AddImageFeedScreen> {
                         margin: const EdgeInsets.only(right: 12),
                         padding: const EdgeInsets.symmetric(horizontal: 24),
                         decoration: BoxDecoration(
-                          color: isSelected ? gold : Colors.white.withValues(alpha: 0.05),
+                          color: isSelected ? AppColors.saasPrimary : Colors.white.withValues(alpha: 0.05),
                           borderRadius: BorderRadius.circular(16),
                           border: isSelected ? null : Border.all(color: Colors.white.withValues(alpha: 0.1)),
                           boxShadow: isSelected ? [
-                            BoxShadow(color: gold.withValues(alpha: 0.3), blurRadius: 15, spreadRadius: -5)
+                            BoxShadow(color: AppColors.saasPrimary.withValues(alpha: 0.3), blurRadius: 15, spreadRadius: -5)
                           ] : [],
                         ),
                         alignment: Alignment.center,
@@ -235,7 +229,7 @@ class _AddImageFeedScreenState extends ConsumerState<AddImageFeedScreen> {
                     color: Colors.white.withValues(alpha: 0.03),
                     borderRadius: BorderRadius.circular(32),
                     border: Border.all(
-                      color: _selectedImage != null ? gold : Colors.white.withValues(alpha: 0.08),
+                      color: _selectedImage != null ? AppColors.saasPrimary : Colors.white.withValues(alpha: 0.08),
                       style: _selectedImage != null ? BorderStyle.solid : BorderStyle.solid,
                       width: 1,
                     ),
@@ -266,11 +260,11 @@ class _AddImageFeedScreenState extends ConsumerState<AddImageFeedScreen> {
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      const Icon(Icons.refresh_rounded, color: gold, size: 20),
+                                      const Icon(Icons.refresh_rounded, color: AppColors.saasPrimary, size: 20),
                                       const SizedBox(width: 8),
                                       Text(
                                         'Tap to change image',
-                                        style: GoogleFonts.outfit(color: gold, fontWeight: FontWeight.bold),
+                                        style: GoogleFonts.outfit(color: AppColors.saasPrimary, fontWeight: FontWeight.bold),
                                       ),
                                     ],
                                   ),
@@ -285,10 +279,10 @@ class _AddImageFeedScreenState extends ConsumerState<AddImageFeedScreen> {
                             Container(
                               padding: const EdgeInsets.all(20),
                               decoration: BoxDecoration(
-                                color: gold.withValues(alpha: 0.1),
+                                color: AppColors.saasPrimary.withValues(alpha: 0.1),
                                 shape: BoxShape.circle,
                               ),
-                              child: const Icon(Icons.add_photo_alternate_rounded, color: gold, size: 40),
+                              child: const Icon(Icons.add_photo_alternate_rounded, color: AppColors.saasPrimary, size: 40),
                             ),
                             const SizedBox(height: 24),
                             Text(
@@ -320,7 +314,7 @@ class _AddImageFeedScreenState extends ConsumerState<AddImageFeedScreen> {
               ).animate().fadeIn(),
               const SizedBox(height: 24),
               
-              ..._buildCategoryFields(gold),
+              ..._buildCategoryFields(AppColors.saasPrimary),
 
               const SizedBox(height: 56),
 
@@ -331,18 +325,8 @@ class _AddImageFeedScreenState extends ConsumerState<AddImageFeedScreen> {
                   height: 56,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(20),
-                    gradient: const LinearGradient(
-                      colors: [gold, Color(0xFFD4AF37)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: gold.withValues(alpha: 0.3),
-                        blurRadius: 20,
-                        offset: const Offset(0, 10),
-                      ),
-                    ],
+                    gradient: AppColors.saasGradient,
+                    boxShadow: AppColors.saasShadow,
                   ),
                   child: ElevatedButton(
                     onPressed: (_isUploading || _selectedImage == null) ? null : _uploadImage,
@@ -356,11 +340,11 @@ class _AddImageFeedScreenState extends ConsumerState<AddImageFeedScreen> {
                         ? const SizedBox(
                             height: 24,
                             width: 24,
-                            child: CircularProgressIndicator(color: Colors.black, strokeWidth: 3),
+                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3),
                           )
                         : Text(
-                            'POST TO LIVE FEED',
-                            style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: 1.5),
+                            'POST UPDATE',
+                            style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: 1.5, color: Colors.white),
                           ),
                   ),
                 ),
@@ -371,7 +355,7 @@ class _AddImageFeedScreenState extends ConsumerState<AddImageFeedScreen> {
       ),
     );
   }
-  List<Widget> _buildCategoryFields(Color gold) {
+  List<Widget> _buildCategoryFields(Color primary) {
     switch (_selectedCategory) {
       case 'Certificate':
         return [

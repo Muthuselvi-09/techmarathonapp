@@ -37,7 +37,7 @@ class _CreateScheduleScreenState extends ConsumerState<CreateScheduleScreen> {
   
   bool _isSaving = false;
 
-  final Color _gold = const Color(0xFFFFD700);
+  // No longer using local _gold
 
   @override
   void initState() {
@@ -115,7 +115,8 @@ class _CreateScheduleScreenState extends ConsumerState<CreateScheduleScreen> {
         final proceed = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            backgroundColor: AppColors.surface,
+            backgroundColor: AppColors.saasCardBg,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: Row(
               children: [
                 const Icon(Icons.warning_amber_rounded, color: Colors.orange),
@@ -131,8 +132,12 @@ class _CreateScheduleScreenState extends ConsumerState<CreateScheduleScreen> {
               ),
               ElevatedButton(
                 onPressed: () => Navigator.pop(context, true),
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-                child: const Text('PROCEED ANYWAY', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.saasPrimary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: const Text('PROCEED ANYWAY', style: TextStyle(fontWeight: FontWeight.bold)),
               ),
             ],
           ),
@@ -161,9 +166,10 @@ class _CreateScheduleScreenState extends ConsumerState<CreateScheduleScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: AppColors.saasSidebarBg,
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: AppColors.saasSidebarBg,
+        elevation: 0,
         title: Text(
           widget.schedule == null ? 'New Session' : 'Edit Session',
           style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold),
@@ -189,7 +195,7 @@ class _CreateScheduleScreenState extends ConsumerState<CreateScheduleScreen> {
                 builder: (context, snapshot) {
                   return DropdownButtonFormField<String>(
                     value: (snapshot.data ?? []).any((e) => e.id == _selectedEventId) ? _selectedEventId : null,
-                    dropdownColor: AppColors.surface,
+                    dropdownColor: AppColors.saasCardBg,
                     style: const TextStyle(color: Colors.white),
                     decoration: _inputDecoration('Select Event'),
                     items: (snapshot.data ?? []).map((e) => DropdownMenuItem(
@@ -232,7 +238,7 @@ class _CreateScheduleScreenState extends ConsumerState<CreateScheduleScreen> {
                       trailing: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(8)),
-                        child: Text('${_sessionDate.day}/${_sessionDate.month}/${_sessionDate.year}', style: TextStyle(color: _gold, fontWeight: FontWeight.bold)),
+                        child: Text('${_sessionDate.day}/${_sessionDate.month}/${_sessionDate.year}', style: const TextStyle(color: AppColors.saasPrimary, fontWeight: FontWeight.bold)),
                       ),
                       onTap: () async {
                         final date = await showDatePicker(
@@ -242,8 +248,8 @@ class _CreateScheduleScreenState extends ConsumerState<CreateScheduleScreen> {
                           lastDate: DateTime(2030),
                           builder: (context, child) => Theme(
                             data: Theme.of(context).copyWith(
-                              colorScheme: ColorScheme.dark(primary: _gold, onPrimary: Colors.black, surface: AppColors.surface),
-                              textButtonTheme: TextButtonThemeData(style: TextButton.styleFrom(foregroundColor: _gold)),
+                              colorScheme: const ColorScheme.dark(primary: AppColors.saasPrimary, onPrimary: Colors.white, surface: AppColors.saasCardBg),
+                              textButtonTheme: TextButtonThemeData(style: TextButton.styleFrom(foregroundColor: AppColors.saasPrimary)),
                             ),
                             child: child!,
                           ),
@@ -259,7 +265,7 @@ class _CreateScheduleScreenState extends ConsumerState<CreateScheduleScreen> {
                       trailing: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(8)),
-                        child: Text('${_startTime.hour.toString().padLeft(2, '0')}:${_startTime.minute.toString().padLeft(2, '0')}', style: TextStyle(color: _gold, fontWeight: FontWeight.bold)),
+                        child: Text('${_startTime.hour.toString().padLeft(2, '0')}:${_startTime.minute.toString().padLeft(2, '0')}', style: const TextStyle(color: AppColors.saasPrimary, fontWeight: FontWeight.bold)),
                       ),
                       onTap: () async {
                         final time = await showTimePicker(
@@ -267,7 +273,7 @@ class _CreateScheduleScreenState extends ConsumerState<CreateScheduleScreen> {
                           initialTime: TimeOfDay.fromDateTime(_startTime),
                           builder: (context, child) => Theme(
                             data: Theme.of(context).copyWith(
-                              colorScheme: ColorScheme.dark(primary: _gold, onPrimary: Colors.black, surface: AppColors.surface),
+                              colorScheme: const ColorScheme.dark(primary: AppColors.saasPrimary, onPrimary: Colors.white, surface: AppColors.saasCardBg),
                             ),
                             child: child!,
                           ),
@@ -283,7 +289,7 @@ class _CreateScheduleScreenState extends ConsumerState<CreateScheduleScreen> {
                       trailing: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(8)),
-                        child: Text('${_endTime.hour.toString().padLeft(2, '0')}:${_endTime.minute.toString().padLeft(2, '0')}', style: TextStyle(color: _gold, fontWeight: FontWeight.bold)),
+                        child: Text('${_endTime.hour.toString().padLeft(2, '0')}:${_endTime.minute.toString().padLeft(2, '0')}', style: const TextStyle(color: AppColors.saasPrimary, fontWeight: FontWeight.bold)),
                       ),
                       onTap: () async {
                         final time = await showTimePicker(
@@ -291,7 +297,7 @@ class _CreateScheduleScreenState extends ConsumerState<CreateScheduleScreen> {
                           initialTime: TimeOfDay.fromDateTime(_endTime),
                           builder: (context, child) => Theme(
                             data: Theme.of(context).copyWith(
-                              colorScheme: ColorScheme.dark(primary: _gold, onPrimary: Colors.black, surface: AppColors.surface),
+                              colorScheme: const ColorScheme.dark(primary: AppColors.saasPrimary, onPrimary: Colors.white, surface: AppColors.saasCardBg),
                             ),
                             child: child!,
                           ),
@@ -313,7 +319,7 @@ class _CreateScheduleScreenState extends ConsumerState<CreateScheduleScreen> {
                   Expanded(
                     child: DropdownButtonFormField<String>(
                       value: ['keynote', 'workshop', 'panel', 'break'].contains(_sessionType) ? _sessionType : 'keynote',
-                      dropdownColor: AppColors.surface,
+                      dropdownColor: AppColors.saasCardBg,
                       style: const TextStyle(color: Colors.white),
                       decoration: _inputDecoration('Session Type'),
                       items: const [
@@ -340,7 +346,7 @@ class _CreateScheduleScreenState extends ConsumerState<CreateScheduleScreen> {
                    Expanded(
                     child: DropdownButtonFormField<String>(
                       value: ['all', 'vip', 'members'].contains(_visibility) ? _visibility : 'all',
-                      dropdownColor: AppColors.surface,
+                      dropdownColor: AppColors.saasCardBg,
                       style: const TextStyle(color: Colors.white),
                       decoration: _inputDecoration('Visibility'),
                       items: const [
@@ -355,7 +361,7 @@ class _CreateScheduleScreenState extends ConsumerState<CreateScheduleScreen> {
                    Expanded(
                     child: DropdownButtonFormField<String>(
                       value: ['published', 'draft', 'cancelled', 'completed'].contains(_status) ? _status : 'published',
-                      dropdownColor: AppColors.surface,
+                      dropdownColor: AppColors.saasCardBg,
                       style: const TextStyle(color: Colors.white),
                       decoration: _inputDecoration('Status'),
                       items: const [
@@ -392,8 +398,8 @@ class _CreateScheduleScreenState extends ConsumerState<CreateScheduleScreen> {
                               value: isSelected,
                               title: Text(speaker.name, style: const TextStyle(color: Colors.white, fontSize: 14)),
                               subtitle: Text(speaker.role, style: const TextStyle(color: Colors.white38, fontSize: 12)),
-                              activeColor: _gold,
-                              checkColor: Colors.black,
+                              activeColor: AppColors.saasPrimary,
+                              checkColor: Colors.white,
                               onChanged: (val) {
                                 setState(() {
                                   if (val == true) {
@@ -423,22 +429,26 @@ class _CreateScheduleScreenState extends ConsumerState<CreateScheduleScreen> {
         height: 100,
         padding: const EdgeInsets.only(bottom: 24),
         child: Center(
-          child: SizedBox(
-            width: 150,
-            height: 48,
-            child: ElevatedButton(
-              onPressed: _isSaving ? null : _saveSchedule,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _gold,
-                foregroundColor: Colors.black,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                elevation: 0,
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: AppColors.saasGradient,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: AppColors.saasShadow,
               ),
-              child: _isSaving 
-                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2))
-                : Text('SAVE', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+              child: ElevatedButton(
+                onPressed: _isSaving ? null : _saveSchedule,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  foregroundColor: Colors.white,
+                  shadowColor: Colors.transparent,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 0,
+                ),
+                child: _isSaving 
+                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : Text('SAVE SESSION', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+              ),
             ),
-          ),
         ),
       ),
     );
@@ -450,7 +460,7 @@ class _CreateScheduleScreenState extends ConsumerState<CreateScheduleScreen> {
       child: Text(
         title,
         style: GoogleFonts.outfit(
-          color: _gold,
+          color: AppColors.saasPrimary,
           fontSize: 12,
           fontWeight: FontWeight.bold,
           letterSpacing: 1.5,
@@ -485,7 +495,7 @@ class _CreateScheduleScreenState extends ConsumerState<CreateScheduleScreen> {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: _gold),
+        borderSide: const BorderSide(color: AppColors.saasPrimary),
       ),
     );
   }
