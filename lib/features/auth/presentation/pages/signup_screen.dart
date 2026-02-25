@@ -17,6 +17,7 @@ class SignupScreen extends ConsumerStatefulWidget {
 class _SignupScreenState extends ConsumerState<SignupScreen> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
+  final _mobileController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   bool _obscurePassword = true;
@@ -25,6 +26,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
+    _mobileController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
@@ -109,6 +111,13 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                       ).animate().fadeIn(delay: 900.ms).slideY(begin: 0.1, end: 0),
                       const SizedBox(height: 16),
                       PremiumTextField(
+                        controller: _mobileController,
+                        hintText: 'Mobile Number',
+                        icon: Icons.phone_android_rounded,
+                        keyboardType: TextInputType.phone,
+                      ).animate().fadeIn(delay: 950.ms).slideY(begin: 0.1, end: 0),
+                      const SizedBox(height: 16),
+                      PremiumTextField(
                         controller: _passwordController,
                         hintText: 'Password',
                         icon: Icons.lock_outline_rounded,
@@ -137,9 +146,25 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                           final email = _emailController.text.trim();
                           final password = _passwordController.text;
                           final confirm = _confirmPasswordController.text;
+                          final name = _nameController.text.trim();
+                          final mobile = _mobileController.text.trim();
                           
-                          if (email.isNotEmpty && password.isNotEmpty && password == confirm) {
-                            await ref.read(authControllerProvider.notifier).signUp(email, password);
+                          if (email.isNotEmpty && password.isNotEmpty && password == confirm && name.isNotEmpty && mobile.isNotEmpty) {
+                            await ref.read(authControllerProvider.notifier).signUp(email, password, name, mobile);
+                            if (mounted && ref.read(authControllerProvider) is! AsyncError) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text("Verification email sent. Please check your inbox."),
+                                  backgroundColor: AppColors.codingRimPrimary,
+                                  duration: Duration(seconds: 5),
+                                ),
+                              );
+                              context.pop(); // Go back to login
+                            }
+                          } else if (name.isEmpty || email.isEmpty || mobile.isEmpty || password.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text("Please fill in all fields")),
+                            );
                           } else if (password != confirm) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(content: Text("Passwords don't match")),

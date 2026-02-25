@@ -26,6 +26,7 @@ class PremiumTextField extends StatelessWidget {
   final bool isPassword;
   final TextEditingController? controller;
   final Widget? suffixIcon;
+  final TextInputType? keyboardType;
 
   const PremiumTextField({
     super.key,
@@ -34,6 +35,7 @@ class PremiumTextField extends StatelessWidget {
     this.isPassword = false,
     this.controller,
     this.suffixIcon,
+    this.keyboardType,
   });
 
   @override
@@ -47,6 +49,7 @@ class PremiumTextField extends StatelessWidget {
       child: TextField(
         controller: controller,
         obscureText: isPassword,
+        keyboardType: keyboardType,
         style: GoogleFonts.inter(color: Colors.white, fontSize: 16),
         decoration: InputDecoration(
           hintText: hintText,

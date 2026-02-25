@@ -31,6 +31,15 @@ class AuthRepository {
     try {
       final credential = await _auth.signInWithEmailAndPassword(email: email, password: password);
       if (credential.user != null) {
+        // Check if email is verified
+        if (!credential.user!.emailVerified) {
+          await _auth.signOut();
+          throw FirebaseAuthException(
+            code: 'email-not-verified',
+            message: 'Please verify your email before logging in.',
+          );
+        }
+
         // Check if this is an Admin login attempt
         final adminDoc = await FirebaseFirestore.instance
             .collection('admins')
@@ -56,18 +65,25 @@ class AuthRepository {
     }
   }
 
-  Future<UserCredential> createUserWithEmailAndPassword(String email, String password) async {
+  Future<UserCredential> createUserWithEmailAndPassword(String email, String password, String name, String mobile) async {
     try {
       final credential = await _auth.createUserWithEmailAndPassword(email: email, password: password);
       if (credential.user != null) {
+        // Send verification email
+        await credential.user!.sendEmailVerification();
+        
         final fcmToken = await FirebaseMessaging.instance.getToken();
         await _userRepository.syncUser(
           credential.user!.uid,
-          name: credential.user!.displayName ?? email.split('@')[0],
+          name: name,
           email: credential.user!.email,
           fcmToken: fcmToken,
-          isOnline: true,
+          mobile: mobile,
+          isOnline: false, // User is not online until verified and logged in
         );
+
+        // Sign out immediately so they have to login after verification
+        await _auth.signOut();
       }
       return credential;
     } on FirebaseAuthException catch (e) {
@@ -82,5 +98,14 @@ class AuthRepository {
       await _userRepository.updateOnlineStatus(uid, false);
     }
     await _auth.signOut();
+  }
+
+  Future<void> sendPasswordResetEmail(String email) async {
+    try {
+      await _auth.sendPasswordResetEmail(email: email);
+    } on FirebaseAuthException catch (e) {
+      debugPrint('FirebaseAuthException [${e.code}]: ${e.message}');
+      rethrow;
+    }
   }
 }

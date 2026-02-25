@@ -100,7 +100,29 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton(
-                    onPressed: () {},
+                    onPressed: () async {
+                      final email = _emailController.text.trim();
+                      if (email.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Please enter your email first'),
+                            backgroundColor: AppColors.error,
+                          ),
+                        );
+                        return;
+                      }
+                      
+                      await ref.read(authControllerProvider.notifier).resetPassword(email);
+                      
+                      if (mounted && !ref.read(authControllerProvider).hasError) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Password reset email sent!'),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      }
+                    },
                     child: const Text(
                       'Forgot Password?',
                       style: TextStyle(color: AppColors.codingRimPrimary, fontSize: 13),

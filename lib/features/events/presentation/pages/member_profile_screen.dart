@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/neon_button.dart';
 import '../../../../features/home/domain/event_models.dart';
+import '../../../../features/auth/presentation/providers/auth_provider.dart';
 
 class MemberProfileScreen extends ConsumerWidget {
   final Participant member;
@@ -100,14 +101,15 @@ class MemberProfileScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(width: 16),
-                Expanded(
-                  child: NeonButton(
-                    text: 'CHAT NOW',
-                    onPressed: () {
-                      context.push('/chat', extra: member);
-                    },
+                if (ref.watch(authStateProvider).value?.uid != member.id)
+                  Expanded(
+                    child: NeonButton(
+                      text: 'CHAT NOW',
+                      onPressed: () {
+                        context.push('/chat', extra: member);
+                      },
+                    ),
                   ),
-                ),
               ],
             ),
           ],

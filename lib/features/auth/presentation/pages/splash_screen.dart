@@ -1,14 +1,11 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:lottie/lottie.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../providers/auth_provider.dart';
-import '../../../../features/profile/presentation/providers/profile_provider.dart';
 import '../../../../features/home/presentation/providers/branding_provider.dart';
-import '../../../../features/home/domain/event_models.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -17,15 +14,27 @@ class SplashScreen extends ConsumerStatefulWidget {
   ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends ConsumerState<SplashScreen> {
+class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerProviderStateMixin {
+  late AnimationController _lineController;
+
   @override
   void initState() {
     super.initState();
+    _lineController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 10),
+    )..repeat();
     _navigateToNext();
   }
 
+  @override
+  void dispose() {
+    _lineController.dispose();
+    super.dispose();
+  }
+
   void _navigateToNext() async {
-    await Future.delayed(const Duration(seconds: 4)); // Slightly longer to appreciate animation
+    await Future.delayed(const Duration(milliseconds: 3000));
     if (!mounted) return;
 
     final user = ref.read(authStateProvider).valueOrNull;
@@ -39,147 +48,155 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final brandingAsync = ref.watch(brandingProvider);
-
-    return brandingAsync.when(
-      data: (branding) => Scaffold(
-        body: Container(
-          decoration: _buildBackgroundDecoration(branding),
-          child: _buildSplashContent(branding),
-        ),
-      ),
-      loading: () => Scaffold(backgroundColor: AppColors.background, body: _buildDefaultSplash()),
-      error: (_, __) => Scaffold(backgroundColor: AppColors.background, body: _buildDefaultSplash()),
-    );
-  }
-
-  BoxDecoration _buildBackgroundDecoration(BrandingInfo branding) {
-    if (branding.splashBackgroundType == 'color') {
-      return BoxDecoration(
-        color: _parseHexColor(branding.splashGradientStart ?? '#121212'),
-      );
-    } else if (branding.splashBackgroundType == 'image' && branding.splashImageUrl != null) {
-      return BoxDecoration(
-        image: DecorationImage(
-          image: CachedNetworkImageProvider(branding.splashImageUrl!),
-          fit: BoxFit.cover,
-        ),
-      );
-    } else {
-      // Default to gradient
-      return BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            _parseHexColor(branding.splashGradientStart ?? '#121212'),
-            _parseHexColor(branding.splashGradientEnd ?? '#000000'),
-          ],
-        ),
-      );
-    }
-  }
-
-  Color _parseHexColor(String hex) {
-    try {
-      final buffer = StringBuffer();
-      if (hex.length == 6 || hex.length == 7) buffer.write('ff');
-      buffer.write(hex.replaceFirst('#', ''));
-      return Color(int.parse(buffer.toString(), radix: 16));
-    } catch (e) {
-      return Colors.black;
-    }
-  }
-
-  Widget _buildSplashContent(BrandingInfo branding) {
-    final splashText = branding.splashText ?? 'TECH MARATHON';
-    final logoUrl = branding.splashLogoUrl ?? branding.logoUrl;
-    final animationType = branding.splashAnimationType;
-
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: Stack(
         children: [
-          _buildAnimatedAsset(logoUrl, animationType),
-          const SizedBox(height: 32),
-          Text(
-            splashText,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                  letterSpacing: 4,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                  fontSize: 28,
-                ),
-          ).animate().fadeIn(delay: 600.ms).slideY(begin: 0.3, end: 0),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDefaultSplash() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          SizedBox(
-            height: 200,
-            width: 200,
-            child: Lottie.network(
-              'https://assets9.lottiefiles.com/packages/lf20_kyu7xb1v.json',
-              fit: BoxFit.contain,
+          // Background Gradient (Softer)
+          Container(
+            decoration: const BoxDecoration(
+              gradient: AppColors.splashGradient,
             ),
-          ).animate().scale(duration: 800.ms, curve: Curves.easeOutBack),
-          const SizedBox(height: 24),
-          Text(
-            'TECH MARATHON',
-            style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                  letterSpacing: 4,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-          ).animate().fadeIn(delay: 400.ms).slideY(begin: 0.2, end: 0),
+          ),
+          
+          // Animated Glowing Lines Painter
+          AnimatedBuilder(
+            animation: _lineController,
+            builder: (context, child) {
+              return CustomPaint(
+                painter: GlowingLinesPainter(_lineController.value),
+                size: Size.infinite,
+              );
+            },
+          ),
+
+          // Central Content
+          Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Logo Reveal (Image-based)
+                Container(
+                  width: 180,
+                  height: 180,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary.withOpacity(0.2),
+                        blurRadius: 40,
+                        spreadRadius: 5,
+                      ),
+                    ],
+                    color: Colors.white,
+                  ),
+                  padding: const EdgeInsets.all(20),
+                  child: Image.asset(
+                    'assets/images/handshake_logo.png',
+                    fit: BoxFit.contain,
+                  ),
+                )
+                .animate()
+                .fadeIn(duration: 800.ms)
+                .scale(begin: const Offset(0.5, 0.5), end: const Offset(1, 1), curve: Curves.easeOutBack, duration: 1000.ms)
+                .shimmer(delay: 1500.ms, duration: 1000.ms),
+
+                const SizedBox(height: 48),
+
+                // App Name
+                const Text(
+                  'EVENT MANAGEMENT',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    letterSpacing: 3,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black45,
+                        blurRadius: 10,
+                        offset: Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                )
+                .animate()
+                .fadeIn(delay: 500.ms, duration: 800.ms)
+                .slideY(begin: 0.5, end: 0, curve: Curves.easeOut),
+
+                const SizedBox(height: 16),
+
+                // Tagline
+                Text(
+                  'Where Ideas Meet Experience',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.white.withOpacity(0.7),
+                    letterSpacing: 2,
+                    fontWeight: FontWeight.w300,
+                  ),
+                )
+                .animate()
+                .fadeIn(delay: 1200.ms, duration: 800.ms),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildAnimatedAsset(String? imageUrl, String animationType) {
+class GlowingLinesPainter extends CustomPainter {
+  final double animationValue;
+  GlowingLinesPainter(this.animationValue);
 
-    Widget child;
-    if (imageUrl != null && imageUrl.isNotEmpty) {
-      child = Container(
-        height: 180,
-        width: 180,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
-          image: DecorationImage(image: NetworkImage(imageUrl), fit: BoxFit.contain),
-        ),
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = AppColors.neonAccent.withOpacity(0.1)
+      ..strokeWidth = 1.0
+      ..style = PaintingStyle.stroke;
+
+    final random = math.Random(42);
+    for (int i = 0; i < 15; i++) {
+      final startX = random.nextDouble() * size.width;
+      final startY = random.nextDouble() * size.height;
+      final length = 100 + random.nextDouble() * 200;
+      final angle = (random.nextDouble() * 360) * (math.pi / 180);
+
+      final endX = startX + math.cos(angle + (animationValue * 0.2)) * length;
+      final endY = startY + math.sin(angle + (animationValue * 0.2)) * length;
+
+      canvas.drawLine(
+        Offset(startX, startY),
+        Offset(endX, endY),
+        paint,
       );
-    } else {
-      child = SizedBox(
-        height: 200,
-        width: 200,
-        child: Lottie.network(
-          'https://assets9.lottiefiles.com/packages/lf20_kyu7xb1v.json',
-          fit: BoxFit.contain,
-        ),
+      
+      // Add a small node at the end
+      canvas.drawCircle(
+        Offset(endX, endY),
+        2,
+        Paint()..color = AppColors.neonAccent.withOpacity(0.2),
       );
     }
-
-    // Apply Admin-configured animation
-    var anim = child.animate();
-    switch (animationType) {
-      case 'fade':
-        return anim.fadeIn(duration: 800.ms);
-      case 'slide':
-        return anim.slideX(begin: -0.5, end: 0, duration: 800.ms).fadeIn();
-      case 'rotate':
-        return anim.rotate(begin: 0.5, end: 0, duration: 800.ms).scale(begin: const Offset(0.5, 0.5), end: const Offset(1, 1)).fadeIn();
-      case 'scale':
-      default:
-        return anim.scale(duration: 800.ms, curve: Curves.easeOutBack).fadeIn();
+    
+    // Abstract grid lines
+    final gridPaint = Paint()
+      ..color = AppColors.electricPurple.withOpacity(0.05)
+      ..strokeWidth = 0.5;
+      
+    double spacing = 40;
+    for (double i = 0; i < size.width; i += spacing) {
+      canvas.drawLine(Offset(i, 0), Offset(i, size.height), gridPaint);
+    }
+    for (double i = 0; i < size.height; i += spacing) {
+      canvas.drawLine(Offset(0, i), Offset(size.width, i), gridPaint);
     }
   }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
 

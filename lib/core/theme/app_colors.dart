@@ -13,6 +13,12 @@ class AppColors {
   static const Color zhaCommercePrimary = Color(0xFF10B981); // Premium Green
   static const Color zhaCommerceSecondary = Color(0xFF059669); // Darker Green
   
+  // Premium Theme Colors
+  static const Color navyBlue = Color(0xFF0A0E21);
+  static const Color electricPurple = Color(0xFF6B4EE6);
+  static const Color neonAccent = Color(0xFF00F2FF);
+  static const Color goldAccent = Color(0xFFFFD700);
+  
   // App Theme Accents
   static const Color primary = Color(0xFFD4AF37);   // Metallic Gold
   static const Color secondary = Color(0xFF8B5A2B); // Bronze/Copper
@@ -27,6 +33,24 @@ class AppColors {
 
   static const LinearGradient mainGradient = LinearGradient(
     colors: [primary, secondary],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+  
+  static const LinearGradient splashGradient = LinearGradient(
+    colors: [Color(0xFF0F0804), Color(0xFF1A120B), Color(0xFF2D1B12)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  static const LinearGradient premiumGradient = LinearGradient(
+    colors: [Color(0xFF1A120B), Color(0xFF0F0804)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+  
+  static const LinearGradient goldGradient = LinearGradient(
+    colors: [goldAccent, Color(0xFFB8860B)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );

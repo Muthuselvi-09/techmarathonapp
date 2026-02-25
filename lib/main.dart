@@ -9,6 +9,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'features/home/domain/event_models.dart';
 import 'core/theme/app_theme.dart';
 import 'core/utils/router.dart';
+import 'core/widgets/chat_notification_overlay.dart';
 import 'firebase_options.dart';
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
@@ -205,11 +206,13 @@ class TechMarathonApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
 
-    return MaterialApp.router(
-      title: 'Event App',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.darkTheme,
-      routerConfig: router,
+    return ChatNotificationOverlay(
+      child: MaterialApp.router(
+        title: 'Event App',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.darkTheme,
+        routerConfig: router,
+      ),
     );
   }
 }

@@ -25,6 +25,7 @@ class UserRepository {
     Map<String, dynamic>? location,
     bool? isOnline,
     String? role,
+    String? mobile,
   }) async {
     final Map<String, dynamic> data = {
       'uid': uid,
@@ -42,6 +43,7 @@ class UserRepository {
       data['lastSeen'] = FieldValue.serverTimestamp();
     }
     if (role != null) data['role'] = role;
+    if (mobile != null) data['mobile'] = mobile;
 
     await _usersCollection.doc(uid).set(data, SetOptions(merge: true));
   }

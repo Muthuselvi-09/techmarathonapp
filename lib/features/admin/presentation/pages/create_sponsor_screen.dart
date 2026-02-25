@@ -147,23 +147,7 @@ class _CreateSponsorScreenState extends ConsumerState<CreateSponsorScreen> {
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => context.pop(),
         ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: TextButton(
-              onPressed: _isSaving ? null : _saveSponsor,
-              style: TextButton.styleFrom(
-                backgroundColor: _gold,
-                foregroundColor: Colors.black,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-              ),
-              child: _isSaving 
-                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black)) 
-                  : Text('Save', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
-            ),
-          ),
-        ],
+        actions: const [],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
@@ -176,13 +160,12 @@ class _CreateSponsorScreenState extends ConsumerState<CreateSponsorScreen> {
               StreamBuilder<List<CodingEvent>>(
                 stream: ref.watch(adminRepositoryProvider).watchEvents(),
                 builder: (context, snapshot) {
-                  final events = snapshot.data ?? [];
                   return DropdownButtonFormField<String>(
-                    value: (events.any((e) => e.id == _selectedEventId)) ? _selectedEventId : null,
+                    value: (snapshot.data ?? []).any((e) => e.id == _selectedEventId) ? _selectedEventId : null,
                     dropdownColor: AppColors.surface,
                     style: const TextStyle(color: Colors.white),
                     decoration: _inputDecoration('Select Event'),
-                    items: events.map((e) => DropdownMenuItem(
+                    items: (snapshot.data ?? []).map((e) => DropdownMenuItem(
                       value: e.id,
                       child: Text(e.name, style: const TextStyle(color: Colors.white)),
                     )).toList(),
@@ -192,7 +175,7 @@ class _CreateSponsorScreenState extends ConsumerState<CreateSponsorScreen> {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
-                value: _tier,
+                value: ['Platinum', 'Gold', 'Silver', 'Bronze'].contains(_tier) ? _tier : 'Gold',
                 dropdownColor: AppColors.surface,
                 style: const TextStyle(color: Colors.white),
                 decoration: _inputDecoration('Sponsorship Tier'),
@@ -461,6 +444,28 @@ class _CreateSponsorScreenState extends ConsumerState<CreateSponsorScreen> {
 
               const SizedBox(height: 40),
             ],
+          ),
+        ),
+      ),
+      bottomNavigationBar: Container(
+        height: 100,
+        padding: const EdgeInsets.only(bottom: 24),
+        child: Center(
+          child: SizedBox(
+            width: 150,
+            height: 48,
+            child: ElevatedButton(
+              onPressed: _isSaving ? null : _saveSponsor,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _gold,
+                foregroundColor: Colors.black,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 0,
+              ),
+              child: _isSaving 
+                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2))
+                : Text('SAVE', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+            ),
           ),
         ),
       ),

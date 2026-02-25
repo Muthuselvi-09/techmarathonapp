@@ -288,28 +288,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   style: GoogleFonts.outfit(
                     color: AppColors.textPrimary,
                     fontWeight: FontWeight.bold,
-                    fontSize: 16,
+                    fontSize: 14, // Slightly smaller for narrow
                   ),
                 ),
                 Text(
-                  'Unlock full networking features',
+                  'Unlock networking features', // Shortened
                   style: GoogleFonts.inter(
                     color: AppColors.textDim,
-                    fontSize: 12,
+                    fontSize: 11, // Slightly smaller
                   ),
                 ),
               ],
             ),
           ),
-          ElevatedButton(
-            onPressed: () => context.push('/profile-completion'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.black,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          const SizedBox(width: 12),
+          SizedBox(
+            height: 36,
+            child: ElevatedButton(
+              onPressed: () => context.push('/profile-completion'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.black,
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+              ),
+              child: const Text('Complete', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)), // Shortened text
             ),
-            child: const Text('Complete Profile', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -575,6 +580,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               }
               return ListView.builder(
                 scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 itemCount: events.length,
                 itemBuilder: (context, index) {

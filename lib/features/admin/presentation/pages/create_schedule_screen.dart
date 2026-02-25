@@ -172,23 +172,7 @@ class _CreateScheduleScreenState extends ConsumerState<CreateScheduleScreen> {
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => context.pop(),
         ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: TextButton(
-              onPressed: _isSaving ? null : _saveSchedule,
-              style: TextButton.styleFrom(
-                backgroundColor: _gold,
-                foregroundColor: Colors.black,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-              ),
-              child: _isSaving 
-                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black)) 
-                  : Text('Save', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
-            ),
-          ),
-        ],
+        actions: const [],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
@@ -203,13 +187,12 @@ class _CreateScheduleScreenState extends ConsumerState<CreateScheduleScreen> {
               StreamBuilder<List<CodingEvent>>(
                 stream: ref.read(adminRepositoryProvider).watchEvents(),
                 builder: (context, snapshot) {
-                  final events = snapshot.data ?? [];
                   return DropdownButtonFormField<String>(
-                    value: (events.any((e) => e.id == _selectedEventId)) ? _selectedEventId : null,
+                    value: (snapshot.data ?? []).any((e) => e.id == _selectedEventId) ? _selectedEventId : null,
                     dropdownColor: AppColors.surface,
                     style: const TextStyle(color: Colors.white),
                     decoration: _inputDecoration('Select Event'),
-                    items: events.map((e) => DropdownMenuItem(
+                    items: (snapshot.data ?? []).map((e) => DropdownMenuItem(
                       value: e.id,
                       child: Text(
                         e.name, 
@@ -221,7 +204,7 @@ class _CreateScheduleScreenState extends ConsumerState<CreateScheduleScreen> {
                     onChanged: (val) => setState(() => _selectedEventId = val),
                     validator: (v) => v == null ? 'Required' : null,
                   );
-                }
+                },
               ),
               const SizedBox(height: 24),
 
@@ -329,7 +312,7 @@ class _CreateScheduleScreenState extends ConsumerState<CreateScheduleScreen> {
                 children: [
                   Expanded(
                     child: DropdownButtonFormField<String>(
-                      value: _sessionType,
+                      value: ['keynote', 'workshop', 'panel', 'break'].contains(_sessionType) ? _sessionType : 'keynote',
                       dropdownColor: AppColors.surface,
                       style: const TextStyle(color: Colors.white),
                       decoration: _inputDecoration('Session Type'),
@@ -356,7 +339,7 @@ class _CreateScheduleScreenState extends ConsumerState<CreateScheduleScreen> {
                 children: [
                    Expanded(
                     child: DropdownButtonFormField<String>(
-                      value: _visibility,
+                      value: ['all', 'vip', 'members'].contains(_visibility) ? _visibility : 'all',
                       dropdownColor: AppColors.surface,
                       style: const TextStyle(color: Colors.white),
                       decoration: _inputDecoration('Visibility'),
@@ -369,9 +352,9 @@ class _CreateScheduleScreenState extends ConsumerState<CreateScheduleScreen> {
                     ),
                   ),
                   const SizedBox(width: 16),
-                  Expanded(
+                   Expanded(
                     child: DropdownButtonFormField<String>(
-                      value: _status,
+                      value: ['published', 'draft', 'cancelled', 'completed'].contains(_status) ? _status : 'published',
                       dropdownColor: AppColors.surface,
                       style: const TextStyle(color: Colors.white),
                       decoration: _inputDecoration('Status'),
@@ -433,6 +416,28 @@ class _CreateScheduleScreenState extends ConsumerState<CreateScheduleScreen> {
 
               const SizedBox(height: 40),
             ],
+          ),
+        ),
+      ),
+      bottomNavigationBar: Container(
+        height: 100,
+        padding: const EdgeInsets.only(bottom: 24),
+        child: Center(
+          child: SizedBox(
+            width: 150,
+            height: 48,
+            child: ElevatedButton(
+              onPressed: _isSaving ? null : _saveSchedule,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _gold,
+                foregroundColor: Colors.black,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 0,
+              ),
+              child: _isSaving 
+                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2))
+                : Text('SAVE', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+            ),
           ),
         ),
       ),

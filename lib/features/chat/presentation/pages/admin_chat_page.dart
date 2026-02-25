@@ -102,7 +102,7 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                     itemBuilder: (context, index) {
                       final msg = messages[index];
                       final bool isMe = msg['senderRole'] == 'user';
-                      return _chatBubble(msg['message'], isMe);
+                      return _chatBubble(msg, isMe);
                     },
                   );
                 },
@@ -159,28 +159,125 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
     );
   }
 
-  Widget _chatBubble(String text, bool isMe) {
-    return Align(
-      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
-        decoration: BoxDecoration(
-          color: isMe ? AppColors.primary : Colors.white.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(20).copyWith(
-            bottomRight: isMe ? const Radius.circular(0) : const Radius.circular(20),
-            bottomLeft: isMe ? const Radius.circular(20) : const Radius.circular(0),
+  Widget _chatBubble(Map<String, dynamic> msg, bool isMe) {
+    final String text = msg['message'] ?? msg['text'] ?? '';
+    final bool isEdited = msg['isEdited'] ?? false;
+    final bool isDeleted = msg['isDeleted'] ?? false;
+    final String id = msg['id'] ?? '';
+
+    return GestureDetector(
+      onLongPress: isDeleted ? null : () => _showMessageOptions(msg),
+      onDoubleTap: isDeleted ? null : () => _showMessageOptions(msg),
+      child: Align(
+        alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+          decoration: BoxDecoration(
+            color: isMe ? AppColors.primary : Colors.white.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(20).copyWith(
+              bottomRight: isMe ? const Radius.circular(0) : const Radius.circular(20),
+              bottomLeft: isMe ? const Radius.circular(20) : const Radius.circular(0),
+            ),
           ),
-        ),
-        child: Text(
-          text,
-          style: TextStyle(
-            color: isMe ? Colors.black : Colors.white,
-            fontSize: 14,
+          child: Column(
+            crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+            children: [
+              Text(
+                text,
+                style: TextStyle(
+                  color: isMe ? Colors.black : (isDeleted ? Colors.white38 : Colors.white),
+                  fontSize: 14,
+                  fontStyle: isDeleted ? FontStyle.italic : FontStyle.normal,
+                ),
+              ),
+              if (isEdited && !isDeleted) ...[
+                const SizedBox(height: 2),
+                Text(
+                  'edited',
+                  style: TextStyle(
+                    color: isMe ? Colors.black38 : Colors.white38,
+                    fontSize: 10,
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
       ),
     ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1, end: 0);
+  }
+
+  void _showMessageOptions(Map<String, dynamic> msg) {
+    final bool isMe = msg['senderRole'] == 'user';
+    final String text = msg['message'] ?? msg['text'] ?? '';
+    final String msgId = msg['id'] ?? '';
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A1A),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (context) => Container(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+             if (isMe)
+              ListTile(
+                leading: const Icon(Icons.edit_rounded, color: Colors.blueAccent),
+                title: Text('Edit message', style: GoogleFonts.outfit(color: Colors.white)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showEditMessageDialog(msgId, text);
+                },
+              ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
+              title: Text('Delete for everyone', style: GoogleFonts.outfit(color: Colors.white)),
+              onTap: () {
+                Navigator.pop(context);
+                ref.read(adminChatRepositoryProvider).deleteMessage(widget.userId, msgId);
+              },
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showEditMessageDialog(String msgId, String currentText) {
+    final controller = TextEditingController(text: currentText);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: Text('Edit Message', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold)),
+        content: TextField(
+          controller: controller,
+          maxLines: null,
+          style: const TextStyle(color: Colors.white),
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: Colors.white.withValues(alpha: 0.05),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () {
+              if (controller.text.trim().isNotEmpty) {
+                ref.read(adminChatRepositoryProvider).editMessage(widget.userId, msgId, controller.text.trim());
+                Navigator.pop(context);
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.black),
+            child: const Text('SAVE'),
+          ),
+        ],
+      ),
+    );
   }
 }

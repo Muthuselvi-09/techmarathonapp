@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -152,34 +153,50 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
               onBack: () => context.pop(),
             ),
           ) : null,
-          body: Row(
-            children: [
-              if (!isNarrow)
-                AdminSidebar(
-                  currentIndex: _currentTab,
-                  onTabSelected: (index) => setState(() => _currentTab = index),
-                  onBack: () => context.pop(),
-                ),
-              Expanded(
-                child: Column(
-                  children: [
-                    _buildTopBar(isNarrow),
-                    Expanded(
-                      child: AnimatedSwitcher(
-                        duration: 400.ms,
-                        switchInCurve: Curves.easeOutCubic,
-                        switchOutCurve: Curves.easeInCubic,
-                        child: KeyedSubtree(
-                          key: ValueKey(_currentTab),
-                          child: _buildCurrentSection(isNarrow),
+          body: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  const Color(0xFF1A1A1A),
+                  Colors.black,
+                  const Color(0xFF0D0D0D),
+                  const Color(0xFF151515),
+                ],
+                stops: const [0.0, 0.3, 0.7, 1.0],
+              ),
+            ),
+            child: Row(
+              children: [
+                if (!isNarrow)
+                  AdminSidebar(
+                    currentIndex: _currentTab,
+                    onTabSelected: (index) => setState(() => _currentTab = index),
+                    onBack: () => context.pop(),
+                  ),
+                Expanded(
+                  child: Column(
+                    children: [
+                      _buildTopBar(isNarrow),
+                      Expanded(
+                        child: AnimatedSwitcher(
+                          duration: 400.ms,
+                          switchInCurve: Curves.easeOutCubic,
+                          switchOutCurve: Curves.easeInCubic,
+                          child: KeyedSubtree(
+                            key: ValueKey(_currentTab),
+                            child: _buildCurrentSection(isNarrow),
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
+          ).animate(onPlay: (controller) => controller.repeat(reverse: true))
+           .shimmer(duration: 5.seconds, color: Colors.white.withValues(alpha: 0.03)),
         );
       },
     );
@@ -187,9 +204,14 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
 
   Widget _buildTopBar(bool isNarrow) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: isNarrow ? 20 : 32, vertical: isNarrow ? 16 : 24),
+      padding: EdgeInsets.fromLTRB(
+        isNarrow ? 20 : 32, 
+        isNarrow ? 50 : 24, // More top padding for mobile comfort
+        isNarrow ? 20 : 32, 
+        20
+      ),
       decoration: BoxDecoration(
-        color: Colors.black,
+        color: Colors.transparent,
         border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05))),
       ),
       child: Row(
@@ -208,7 +230,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                 Text(
                   _getTabTitle(_currentTab),
                   style: GoogleFonts.outfit(
-                    fontSize: isNarrow ? 20 : 24,
+                    fontSize: isNarrow ? 22 : 28,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
                   ),
@@ -219,20 +241,19 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                   Text(
                     'Manage your tech marathon platform',
                     style: GoogleFonts.outfit(
-                      fontSize: 13,
+                      fontSize: 14,
                       color: Colors.white38,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ],
-                  ), // Closing Column
-                ), // Closing Expanded
+            ),
+          ),
           // Search Bar
           if (!isNarrow) ...[
             Container(
               width: 300,
-              height: 48,
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(12),
@@ -243,18 +264,16 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                 style: const TextStyle(color: Colors.white),
                 onSubmitted: _handleSearch,
                 onChanged: (val) => setState(() => _searchQuery = val.trim()),
-                decoration: InputDecoration(
-                  hintText: 'Search attendees, menu...',
-                  hintStyle: const TextStyle(color: Colors.white38, fontSize: 13),
-                  prefixIcon: const Icon(Icons.search, color: Colors.white38, size: 20),
+                decoration: const InputDecoration(
+                  hintText: 'Search...',
+                  hintStyle: TextStyle(color: Colors.white38, fontSize: 14),
+                  prefixIcon: Icon(Icons.search, color: Colors.white38, size: 20),
                   border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 10),
                 ),
               ),
             ),
             const SizedBox(width: 24),
           ],
-          const SizedBox(width: 16),
           _iconButton(Icons.notifications_none_rounded, () {}),
           const SizedBox(width: 16),
           GestureDetector(
@@ -263,12 +282,12 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
               padding: const EdgeInsets.all(2),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(color: _gold, width: 1.5),
+                border: Border.all(color: _gold, width: 2),
               ),
               child: CircleAvatar(
-                radius: isNarrow ? 16 : 18,
+                radius: isNarrow ? 18 : 22,
                 backgroundColor: AppColors.surface,
-                child: Icon(Icons.person, size: isNarrow ? 18 : 20, color: Colors.white),
+                child: Icon(Icons.person, size: isNarrow ? 20 : 24, color: Colors.white),
               ),
             ),
           ),
@@ -840,19 +859,16 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                                   ),
                                 ),
                               ),
-                              _buildHeaderAction(
-                                label: 'ANALYTICS',
-                                icon: Icons.analytics_rounded,
-                                onPressed: () {
-                                  final currentEvent = ref.read(currentEventStreamProvider).value;
-                                  if (currentEvent != null) {
+                                _buildHeaderAction(
+                                  label: 'ANALYTICS',
+                                  icon: Icons.analytics_rounded,
+                                  onPressed: () {
                                     Navigator.push(
                                       context,
-                                      MaterialPageRoute(builder: (context) => AttendeeInsightsScreen(eventId: currentEvent.id)),
+                                      MaterialPageRoute(builder: (context) => AttendeeInsightsScreen(eventId: event.id)),
                                     );
-                                  }
-                                },
-                              ),
+                                  },
+                                ),
                             ],
                           ),
 
@@ -1909,33 +1925,86 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
   // --- 6. CHAT SECTION (Real-time Admin List View) ---
   Widget _buildChatSection(bool isNarrow) {
     final chatRepo = ref.watch(adminChatRepositoryProvider);
+    final usersStream = ref.watch(userRepositoryProvider).getRealTimeMembers();
     
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: isNarrow ? 20 : 40, vertical: 32),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sectionHeader('USER INQUIRIES', 'Communicate with platform users in real-time'),
-          const SizedBox(height: 40),
-          Expanded(
-            child: StreamBuilder<List<Map<String, dynamic>>>(
-              stream: chatRepo.watchAllChats(),
-              builder: (context, snapshot) {
-                if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: AppColors.codingRimPrimary));
-                if (snapshot.data!.isEmpty) return _emptySection(Icons.chat_bubble_outline_rounded, 'No active chats');
-                
-                return ListView.builder(
-                  itemCount: snapshot.data!.length,
-                  itemBuilder: (context, index) {
-                    final chat = snapshot.data![index];
-                    return _chatThreadItem(chat);
-                  },
-                );
-              },
+    return DefaultTabController(
+      length: 4,
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: isNarrow ? 20 : 40, vertical: 32),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _sectionHeader('USER INQUIRIES', 'Communicate with platform users in real-time'),
+            const SizedBox(height: 24),
+            TabBar(
+              isScrollable: true,
+              tabAlignment: TabAlignment.start,
+              indicatorColor: _gold,
+              labelColor: _gold,
+              unselectedLabelColor: Colors.white38,
+              dividerColor: Colors.white.withValues(alpha: 0.05),
+              labelStyle: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 1),
+              unselectedLabelStyle: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 1),
+              tabs: const [
+                Tab(text: 'PARTICIPANTS'),
+                Tab(text: 'ADMINS'),
+                Tab(text: 'MANAGERS'),
+                Tab(text: 'TEAM'),
+              ],
             ),
-          ),
-        ],
+            const SizedBox(height: 32),
+            Expanded(
+              child: StreamBuilder<List<Participant>>(
+                stream: usersStream,
+                builder: (context, userSnap) {
+                  final users = userSnap.data ?? [];
+                  
+                  return StreamBuilder<List<Map<String, dynamic>>>(
+                    stream: chatRepo.watchAllChats(),
+                    builder: (context, chatSnap) {
+                      if (!chatSnap.hasData) return const Center(child: CircularProgressIndicator(color: AppColors.codingRimPrimary));
+                      final chats = chatSnap.data!;
+                      
+                      return TabBarView(
+                        children: [
+                          _filteredChatList(chats, users, 'user'),
+                          _filteredChatList(chats, users, 'admin'),
+                          _filteredChatList(chats, users, 'organizer'),
+                          _filteredChatList(chats, users, 'team'),
+                        ],
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
+    );
+  }
+
+  Widget _filteredChatList(List<Map<String, dynamic>> chats, List<Participant> users, String role) {
+    final filtered = chats.where((chat) {
+      final user = users.firstWhere((u) => u.id == chat['userId'], orElse: () => Participant(id: '', name: '', email: '', mobile: ''));
+      // Default to 'user' for participants, 'organizer' for managers
+      return user.role == role;
+    }).toList();
+
+    if (filtered.isEmpty) {
+      String msg = 'No active chats';
+      if (role == 'admin') msg = 'No admin inquiries';
+      if (role == 'organizer') msg = 'No manager inquiries';
+      if (role == 'team') msg = 'No team messages';
+      return _emptySection(Icons.chat_bubble_outline_rounded, msg);
+    }
+
+    return ListView.builder(
+      itemCount: filtered.length,
+      itemBuilder: (context, index) {
+        final chat = filtered[index];
+        return _chatThreadItem(chat);
+      },
     );
   }
 
@@ -2271,9 +2340,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
           itemBuilder: (context, index) {
             final msg = snapshot.data![index];
             final bool isMe = msg['senderRole'] == 'admin';
-            // FIX: Handle both 'message' and 'text' keys
-            final String text = msg['message'] ?? msg['text'] ?? '';
-            return _chatBubble(text, isMe);
+            return _chatBubble(msg, isMe, userId);
           },
         );
       },
@@ -2328,45 +2395,140 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
     );
   }
 
-  Widget _chatBubble(String text, bool isMe) {
-    return Align(
-      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
-        decoration: BoxDecoration(
-          color: isMe ? const Color(0xFF005C4B) : const Color(0xFF202C33), // WhatsApp Dark colors
-          borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(12),
-            topRight: const Radius.circular(12),
-            bottomLeft: isMe ? const Radius.circular(12) : const Radius.circular(0),
-            bottomRight: isMe ? const Radius.circular(0) : const Radius.circular(12),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
-              blurRadius: 2,
-              offset: const Offset(0, 1),
-            )
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(
-              text,
-              style: const TextStyle(color: Colors.white, fontSize: 15),
+  Widget _chatBubble(Map<String, dynamic> msg, bool isMe, String userId) {
+    final String text = msg['message'] ?? msg['text'] ?? '';
+    final bool isEdited = msg['isEdited'] ?? false;
+    final bool isDeleted = msg['isDeleted'] ?? false;
+    final String id = msg['id'] ?? '';
+    final timestamp = msg['timestamp'] as Timestamp?;
+
+    return GestureDetector(
+      onLongPress: isDeleted ? null : () => _showMessageOptions(msg, userId),
+      onDoubleTap: isDeleted ? null : () => _showMessageOptions(msg, userId),
+      child: Align(
+        alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+          decoration: BoxDecoration(
+            color: isMe ? const Color(0xFF005C4B) : const Color(0xFF202C33), // WhatsApp Dark colors
+            borderRadius: BorderRadius.only(
+              topLeft: const Radius.circular(12),
+              topRight: const Radius.circular(12),
+              bottomLeft: isMe ? const Radius.circular(12) : const Radius.circular(0),
+              bottomRight: isMe ? const Radius.circular(0) : const Radius.circular(12),
             ),
-             const SizedBox(height: 2),
-             // Mock time for now, can be real if message object has timestamp
-             Text(
-               DateFormat('HH:mm').format(DateTime.now()), 
-               style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 10),
-             ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.1),
+                blurRadius: 2,
+                offset: const Offset(0, 1),
+              )
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                text,
+                style: TextStyle(
+                  color: isDeleted ? Colors.white38 : Colors.white, 
+                  fontSize: 15,
+                  fontStyle: isDeleted ? FontStyle.italic : FontStyle.normal,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (isEdited && !isDeleted)
+                    Text(
+                      'edited  ',
+                      style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 10),
+                    ),
+                  Text(
+                    timestamp != null ? DateFormat('HH:mm').format(timestamp.toDate()) : DateFormat('HH:mm').format(DateTime.now()), 
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 10),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ).animate().fadeIn(duration: 300.ms).slideY(begin: 0.1, end: 0),
+      ),
+    );
+  }
+
+  void _showMessageOptions(Map<String, dynamic> msg, String userId) {
+    final bool isMe = msg['senderRole'] == 'admin';
+    final String text = msg['message'] ?? msg['text'] ?? '';
+    final String msgId = msg['id'] ?? '';
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A1A),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (context) => Container(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+             if (isMe)
+              ListTile(
+                leading: const Icon(Icons.edit_rounded, color: Colors.blueAccent),
+                title: Text('Edit message', style: GoogleFonts.outfit(color: Colors.white)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showEditMessageDialog(userId, msgId, text);
+                },
+              ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
+              title: Text('Delete for everyone', style: GoogleFonts.outfit(color: Colors.white)),
+              onTap: () {
+                Navigator.pop(context);
+                ref.read(adminChatRepositoryProvider).deleteMessage(userId, msgId);
+              },
+            ),
+            const SizedBox(height: 20),
           ],
         ),
-      ).animate().fadeIn(duration: 300.ms).slideY(begin: 0.1, end: 0),
+      ),
+    );
+  }
+
+  void _showEditMessageDialog(String userId, String msgId, String currentText) {
+    final controller = TextEditingController(text: currentText);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: Text('Edit Message', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold)),
+        content: TextField(
+          controller: controller,
+          maxLines: null,
+          style: const TextStyle(color: Colors.white),
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: Colors.white.withValues(alpha: 0.05),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () {
+              if (controller.text.trim().isNotEmpty) {
+                ref.read(adminChatRepositoryProvider).editMessage(userId, msgId, controller.text.trim());
+                Navigator.pop(context);
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: _gold, foregroundColor: Colors.black),
+            child: const Text('SAVE'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -2577,67 +2739,67 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
             ),
           ),
           const SizedBox(height: 48),
-                const SizedBox(height: 48),
-                SizedBox(
-                  width: double.infinity,
-                  height: 64,
-                  child: ElevatedButton(
-                    onPressed: _isSavingBranding ? null : () async {
-                      setState(() => _isSavingBranding = true);
-                      try {
-                         final adminRepo = ref.read(adminRepositoryProvider);
-                         
-                         String? logoUrl = branding.logoUrl;
-                         String? logoPath = branding.logoPath;
+          Center(
+            child: SizedBox(
+              width: 220,
+              height: 50,
+              child: ElevatedButton(
+                onPressed: _isSavingBranding ? null : () async {
+                  setState(() => _isSavingBranding = true);
+                  try {
+                    final adminRepo = ref.read(adminRepositoryProvider);
+                    
+                    String? logoUrl = branding.logoUrl;
+                    String? logoPath = branding.logoPath;
 
-                         // Helper function for compression and upload to Cloudinary
-                         Future<Map<String, String?>> uploadImage(Uint8List bytes, String folder) async {
-                           // Max 2MB check
-                           if (bytes.length > 2 * 1024 * 1024) throw 'Image size exceeds 2MB limit';
-                           
-                           debugPrint('☁️ Uploading to Cloudinary (folder: $folder)...');
-                           final url = await adminRepo.uploadToCloudinary(
-                             data: bytes, 
-                             folder: 'branding/$folder',
-                           ).timeout(const Duration(seconds: 45), onTimeout: () => throw 'Cloudinary upload ($folder) is taking too long.');
-                           
-                           return {'url': url, 'path': url}; // Using URL as path for Cloudinary for now
-                         }
+                    // Helper function for compression and upload to Cloudinary
+                    Future<Map<String, String?>> uploadImage(Uint8List bytes, String folder) async {
+                      if (bytes.length > 2 * 1024 * 1024) throw 'Image size exceeds 2MB limit';
+                      
+                      debugPrint('☁️ Uploading to Cloudinary (folder: $folder)...');
+                      final url = await adminRepo.uploadToCloudinary(
+                        data: bytes, 
+                        folder: 'branding/$folder',
+                      ).timeout(const Duration(seconds: 45), onTimeout: () => throw 'Cloudinary upload ($folder) is taking too long.');
+                      
+                      return {'url': url, 'path': url};
+                    }
 
-                         if (_brandingLogoBytes != null) {
-                           final res = await uploadImage(_brandingLogoBytes!, 'main');
-                           logoUrl = res['url'];
-                           logoPath = res['path'];
-                         }
+                    if (_brandingLogoBytes != null) {
+                      final res = await uploadImage(_brandingLogoBytes!, 'main');
+                      logoUrl = res['url'];
+                      logoPath = res['path'];
+                    }
 
-                         await adminRepo.saveBranding(branding.copyWith(
-                           appName: _brandingNameController.text,
-                           logoUrl: logoUrl,
-                           logoPath: logoPath,
-                         )).timeout(const Duration(seconds: 15), onTimeout: () => throw 'Branding save timed out. Please try again.');
+                    await adminRepo.saveBranding(branding.copyWith(
+                      appName: _brandingNameController.text,
+                      logoUrl: logoUrl,
+                      logoPath: logoPath,
+                    )).timeout(const Duration(seconds: 15), onTimeout: () => throw 'Branding save timed out.');
 
-                         if (mounted) {
-                           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Branding saved successfully!'), backgroundColor: Colors.green));
-                           ref.invalidate(brandingProvider);
-                         }
-                      } catch (e) {
-                         if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
-                      } finally {
-                         if (mounted) setState(() => _isSavingBranding = false);
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _gold,
-                      foregroundColor: Colors.black,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      elevation: 0,
-                    ),
-                    child: _isSavingBranding 
-                      ? const CircularProgressIndicator(color: Colors.black)
-                      : Text('SAVE BRANDING', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, letterSpacing: 2)),
-                  ),
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Branding saved successfully!'), backgroundColor: Colors.green));
+                      ref.invalidate(brandingProvider);
+                    }
+                  } catch (e) {
+                    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+                  } finally {
+                    if (mounted) setState(() => _isSavingBranding = false);
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _gold,
+                  foregroundColor: Colors.black,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  elevation: 0,
                 ),
-                const SizedBox(height: 16),
+                child: _isSavingBranding 
+                  ? const CircularProgressIndicator(color: Colors.black)
+                  : Text('SAVE', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: 1.5)),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
                 Center(
                   child: TextButton.icon(
                     onPressed: _isDeletingBranding ? null : () async {
@@ -3401,23 +3563,23 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                   children: [
                      OutlinedButton.icon(
                       onPressed: () => _seedInitialProfileTiles(),
-                      icon: const Icon(Icons.auto_awesome_rounded, size: 18),
-                      label: Text('SEED DEFAULT', style: GoogleFonts.outfit(fontWeight: FontWeight.w700, letterSpacing: 1)),
+                      icon: const Icon(Icons.auto_awesome_rounded, size: 14),
+                      label: Text('SEED DEFAULT', style: GoogleFonts.outfit(fontWeight: FontWeight.w700, letterSpacing: 0.5, fontSize: 11)),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: _gold,
                         side: BorderSide(color: _gold.withValues(alpha: 0.3)),
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       ),
                     ),
                     ElevatedButton.icon(
                       onPressed: () => _showProfileItemDialog(),
-                      icon: const Icon(Icons.add_rounded, size: 20),
-                      label: Text('NEW TILE', style: GoogleFonts.outfit(fontWeight: FontWeight.w700, letterSpacing: 1, color: Colors.black)),
+                      icon: const Icon(Icons.add_rounded, size: 16),
+                      label: Text('NEW TILE', style: GoogleFonts.outfit(fontWeight: FontWeight.w700, letterSpacing: 0.5, color: Colors.black, fontSize: 11)),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: _gold,
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       ),
                     ),
                   ],
@@ -3440,23 +3602,23 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                     children: [
                        OutlinedButton.icon(
                         onPressed: () => _seedInitialProfileTiles(),
-                        icon: const Icon(Icons.auto_awesome_rounded, size: 18),
-                        label: Text('SEED DEFAULT', style: GoogleFonts.outfit(fontWeight: FontWeight.w700, letterSpacing: 1)),
+                        icon: const Icon(Icons.auto_awesome_rounded, size: 14),
+                        label: Text('SEED DEFAULT', style: GoogleFonts.outfit(fontWeight: FontWeight.w700, letterSpacing: 0.5, fontSize: 11)),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: _gold,
                           side: BorderSide(color: _gold.withValues(alpha: 0.3)),
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
                       ),
                       ElevatedButton.icon(
                         onPressed: () => _showProfileItemDialog(),
-                        icon: const Icon(Icons.add_rounded, size: 20),
-                        label: Text('NEW TILE', style: GoogleFonts.outfit(fontWeight: FontWeight.w700, letterSpacing: 1, color: Colors.black)),
+                        icon: const Icon(Icons.add_rounded, size: 16),
+                        label: Text('NEW TILE', style: GoogleFonts.outfit(fontWeight: FontWeight.w700, letterSpacing: 0.5, color: Colors.black, fontSize: 11)),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _gold,
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
                       ),
                     ],

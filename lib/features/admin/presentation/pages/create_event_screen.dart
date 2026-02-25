@@ -223,14 +223,12 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
               StreamBuilder<List<Category>>(
                 stream: ref.watch(adminRepositoryProvider).watchCategories(),
                 builder: (context, snapshot) {
-                  final categoriesList = snapshot.data ?? [];
-                  final categories = categoriesList.where((c) => c.isEnabled).toList();
                   return DropdownButtonFormField<String>(
-                    value: _selectedCategoryId,
+                    value: (snapshot.data ?? []).any((c) => c.id == _selectedCategoryId) ? _selectedCategoryId : null,
                     dropdownColor: AppColors.surface,
                     style: const TextStyle(color: Colors.white),
                     decoration: _inputDecoration('Select Category'),
-                    items: categories.map((cat) => DropdownMenuItem<String>(
+                    items: (snapshot.data ?? []).where((c) => c.isEnabled).map((cat) => DropdownMenuItem<String>(
                       value: cat.id,
                       child: Text(cat.name),
                     )).toList(),
@@ -275,7 +273,7 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
                           const Text('Currency', style: TextStyle(color: Colors.white70, fontSize: 12)),
                           const SizedBox(height: 8),
                           DropdownButtonFormField<String>(
-                            value: _currencyController.text.isEmpty ? '₹' : _currencyController.text,
+                            value: ['₹', '\$', '€', '£', '¥', 'AED', 'SAR'].contains(_currencyController.text) ? _currencyController.text : '₹',
                             dropdownColor: AppColors.surface,
                             style: const TextStyle(color: Colors.white),
                             decoration: _inputDecoration(''),
@@ -390,6 +388,28 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
               
               const SizedBox(height: 40),
             ],
+          ),
+        ),
+      ),
+      bottomNavigationBar: Container(
+        height: 100,
+        padding: const EdgeInsets.only(bottom: 24),
+        child: Center(
+          child: SizedBox(
+            width: 150,
+            height: 48,
+            child: ElevatedButton(
+              onPressed: _isSaving ? null : _saveEvent,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _gold,
+                foregroundColor: Colors.black,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 0,
+              ),
+              child: _isSaving 
+                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2))
+                : Text('SAVE', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+            ),
           ),
         ),
       ),

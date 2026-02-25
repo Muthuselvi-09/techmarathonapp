@@ -125,4 +125,32 @@ class AdminChatRepository {
 
     await batch.commit();
   }
+
+  Future<void> editMessage(String userId, String messageId, String newText) async {
+    await _firestore
+        .collection('chats')
+        .doc(userId)
+        .collection('messages')
+        .doc(messageId)
+        .update({
+      'message': newText,
+      'isEdited': true,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> deleteMessage(String userId, String messageId) async {
+    // We mask the message instead of full deletion to preserve thread structure if needed
+    // or just delete it if "Delete for Everyone" is intended
+    await _firestore
+        .collection('chats')
+        .doc(userId)
+        .collection('messages')
+        .doc(messageId)
+        .update({
+      'message': '🚫 This message was deleted',
+      'isDeleted': true,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
 }
