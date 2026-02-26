@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../theme/app_colors.dart';
 import '../../features/auth/presentation/providers/auth_provider.dart';
+import 'package:tech_marathon_app/features/auth/data/auth_repository.dart';
 // import '../../features/profile/presentation/providers/profile_provider.dart';
 import 'event_widgets.dart';
 import '../../features/chat/presentation/pages/admin_chat_page.dart';

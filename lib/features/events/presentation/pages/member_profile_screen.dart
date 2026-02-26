@@ -6,6 +6,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/neon_button.dart';
 import '../../../../features/home/domain/event_models.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
+import 'package:tech_marathon_app/features/auth/data/auth_repository.dart';
 
 class MemberProfileScreen extends ConsumerWidget {
   final Participant member;
@@ -101,7 +102,7 @@ class MemberProfileScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(width: 16),
-                if (ref.watch(authStateProvider).value?.uid != member.id)
+                if (ref.watch(authStateProvider).valueOrNull?.uid != member.id)
                   Expanded(
                     child: NeonButton(
                       text: 'CHAT NOW',

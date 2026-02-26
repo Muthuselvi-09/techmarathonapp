@@ -5,6 +5,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../providers/auth_provider.dart';
+import 'package:tech_marathon_app/features/auth/data/auth_repository.dart';
 import '../../../../features/home/presentation/providers/branding_provider.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {

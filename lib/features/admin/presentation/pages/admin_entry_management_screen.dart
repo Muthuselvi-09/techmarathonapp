@@ -22,12 +22,12 @@ class _AdminEntryManagementScreenState extends ConsumerState<AdminEntryManagemen
   @override
   Widget build(BuildContext context) {
     final adminRepo = ref.watch(adminRepositoryProvider);
-    final Color gold = const Color(0xFFFFD700);
+    final Color saasPrimary = AppColors.saasPrimary;
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: AppColors.saasMainBg,
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: Colors.transparent,
         elevation: 0,
         title: Text(
           'ENTRY MANAGEMENT',
@@ -46,9 +46,9 @@ class _AdminEntryManagementScreenState extends ConsumerState<AdminEntryManagemen
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _eventCard(gold),
+                  _eventCard(saasPrimary),
                   const SizedBox(height: 32),
-                  _controlSection(adminRepo, gold),
+                  _controlSection(adminRepo, saasPrimary),
                   const SizedBox(height: 40),
                   Text(
                     'RECENT ENTRY LOGS',
@@ -99,7 +99,7 @@ class _AdminEntryManagementScreenState extends ConsumerState<AdminEntryManagemen
                 delegate: SliverChildBuilderDelegate(
                   (context, index) {
                     final pass = usedPasses[index];
-                    return _logItem(pass, gold);
+                    return _logItem(pass, saasPrimary);
                   },
                   childCount: usedPasses.length,
                 ),
@@ -109,12 +109,12 @@ class _AdminEntryManagementScreenState extends ConsumerState<AdminEntryManagemen
           const SliverPadding(padding: EdgeInsets.only(bottom: 100)),
         ],
       ),
-      floatingActionButton: _scanButton(gold),
+      floatingActionButton: _scanButton(saasPrimary),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
 
-  Widget _eventCard(Color gold) {
+  Widget _eventCard(Color saasPrimary) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -164,7 +164,7 @@ class _AdminEntryManagementScreenState extends ConsumerState<AdminEntryManagemen
     );
   }
 
-  Widget _controlSection(AdminRepository adminRepo, Color gold) {
+  Widget _controlSection(AdminRepository adminRepo, Color saasPrimary) {
     return StreamBuilder<CodingEvent>(
       stream: adminRepo.watchEvents().map((list) => list.firstWhere((e) => e.id == widget.event.id)),
       builder: (context, snapshot) {
@@ -174,10 +174,10 @@ class _AdminEntryManagementScreenState extends ConsumerState<AdminEntryManagemen
         return Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: isEnabled ? gold.withValues(alpha: 0.05) : Colors.white.withValues(alpha: 0.02),
+            color: isEnabled ? saasPrimary.withValues(alpha: 0.05) : Colors.white.withValues(alpha: 0.02),
             borderRadius: BorderRadius.circular(24),
             border: Border.all(
-              color: isEnabled ? gold.withValues(alpha: 0.3) : Colors.white.withValues(alpha: 0.05),
+              color: isEnabled ? saasPrimary.withValues(alpha: 0.3) : Colors.white.withValues(alpha: 0.05),
             ),
           ),
           child: Column(
@@ -199,7 +199,7 @@ class _AdminEntryManagementScreenState extends ConsumerState<AdminEntryManagemen
                       Text(
                         isEnabled ? 'Entry is currently ACTIVE' : 'Scanning is DISABLED',
                         style: GoogleFonts.outfit(
-                          color: isEnabled ? gold : Colors.white38,
+                          color: isEnabled ? saasPrimary : Colors.white38,
                           fontSize: 12,
                         ),
                       ),
@@ -210,8 +210,8 @@ class _AdminEntryManagementScreenState extends ConsumerState<AdminEntryManagemen
                   else
                     Switch(
                       value: isEnabled,
-                      activeThumbColor: gold,
-                      activeColor: gold.withValues(alpha: 0.3),
+                      activeThumbColor: saasPrimary,
+                      activeColor: saasPrimary.withValues(alpha: 0.3),
                       onChanged: (val) async {
                         setState(() => _isToggling = true);
                         await adminRepo.toggleEntryScan(widget.event.id, val);
@@ -227,7 +227,7 @@ class _AdminEntryManagementScreenState extends ConsumerState<AdminEntryManagemen
     );
   }
 
-  Widget _logItem(EntryPass pass, Color gold) {
+  Widget _logItem(EntryPass pass, Color saasPrimary) {
     final time = pass.entryTime != null ? DateFormat('hh:mm a').format(pass.entryTime!) : '--:--';
     
     return Container(
@@ -269,7 +269,7 @@ class _AdminEntryManagementScreenState extends ConsumerState<AdminEntryManagemen
             children: [
               Text(
                 time,
-                style: GoogleFonts.outfit(color: gold, fontWeight: FontWeight.bold, fontSize: 14),
+                style: GoogleFonts.outfit(color: saasPrimary, fontWeight: FontWeight.bold, fontSize: 14),
               ),
               const Text(
                 'ENTRY TIME',
@@ -282,7 +282,7 @@ class _AdminEntryManagementScreenState extends ConsumerState<AdminEntryManagemen
     );
   }
 
-  Widget _scanButton(Color gold) {
+  Widget _scanButton(Color saasPrimary) {
     return Container(
       width: MediaQuery.of(context).size.width * 0.85,
       height: 60,
@@ -290,21 +290,21 @@ class _AdminEntryManagementScreenState extends ConsumerState<AdminEntryManagemen
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: gold.withValues(alpha: 0.2),
+            color: saasPrimary.withValues(alpha: 0.2),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
         ],
       ),
       child: ElevatedButton.icon(
-        onPressed: () => _openScanner(context, gold),
+        onPressed: () => _openScanner(context, saasPrimary),
         icon: const Icon(Icons.qr_code_scanner_rounded, size: 24),
         label: Text(
           'START SCANNING',
           style: GoogleFonts.outfit(fontWeight: FontWeight.w900, letterSpacing: 1.5),
         ),
         style: ElevatedButton.styleFrom(
-          backgroundColor: gold,
+          backgroundColor: saasPrimary,
           foregroundColor: Colors.black,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           elevation: 0,
@@ -313,20 +313,20 @@ class _AdminEntryManagementScreenState extends ConsumerState<AdminEntryManagemen
     );
   }
 
-  void _openScanner(BuildContext context, Color gold) {
+  void _openScanner(BuildContext context, Color saasPrimary) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => _ScannerModal(event: widget.event, gold: gold),
+      builder: (context) => _ScannerModal(event: widget.event, saasPrimary: saasPrimary),
     );
   }
 }
 
 class _ScannerModal extends ConsumerStatefulWidget {
   final CodingEvent event;
-  final Color gold;
-  const _ScannerModal({required this.event, required this.gold});
+  final Color saasPrimary;
+  const _ScannerModal({required this.event, required this.saasPrimary});
 
   @override
   ConsumerState<_ScannerModal> createState() => _ScannerModalState();
@@ -372,7 +372,7 @@ class _ScannerModalState extends ConsumerState<_ScannerModal> {
                   margin: const EdgeInsets.symmetric(horizontal: 32),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(32),
-                    border: Border.all(color: widget.gold.withValues(alpha: 0.3), width: 2),
+                    border: Border.all(color: widget.saasPrimary.withValues(alpha: 0.3), width: 2),
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(30),
@@ -401,7 +401,7 @@ class _ScannerModalState extends ConsumerState<_ScannerModal> {
                         builder: (context, state, child) {
                           switch (state.torchState) {
                             case TorchState.on:
-                              return Icon(Icons.flash_on_rounded, color: widget.gold);
+                              return Icon(Icons.flash_on_rounded, color: widget.saasPrimary);
                             case TorchState.off:
                             default:
                               return const Icon(Icons.flash_off_rounded, color: Colors.white54);

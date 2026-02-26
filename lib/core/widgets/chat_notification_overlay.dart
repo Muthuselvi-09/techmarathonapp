@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tech_marathon_app/features/chat/data/chat_repository.dart';
 import 'package:tech_marathon_app/features/auth/presentation/providers/auth_provider.dart';
+import 'package:tech_marathon_app/features/auth/data/auth_repository.dart';
 import 'package:tech_marathon_app/features/home/domain/event_models.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:tech_marathon_app/core/theme/app_colors.dart';
@@ -120,7 +121,7 @@ class _ChatNotificationOverlayState extends ConsumerState<ChatNotificationOverla
   Widget build(BuildContext context) {
     // Listen for User notifications (when admin replies)
     ref.listen(authStateProvider, (prev, next) {
-      final user = next.value;
+      final user = next.valueOrNull;
       if (user != null) {
          // This is just to ensure we have a user. The actual stream listener is below.
       }

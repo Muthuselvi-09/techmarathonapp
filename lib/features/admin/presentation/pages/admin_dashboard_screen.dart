@@ -1,7 +1,11 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:tech_marathon_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -173,7 +177,10 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                 setState(() => _currentTab = index);
                 _scaffoldKey.currentState?.closeDrawer();
               },
-              onBack: () => context.pop(),
+              onBack: () {
+                ref.read(isAdminLoggedInProvider.notifier).state = false;
+                context.go('/home');
+              },
             ),
           ) : null,
           body: Container(
@@ -196,7 +203,10 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
                   AdminSidebar(
                     currentIndex: _currentTab,
                     onTabSelected: (index) => setState(() => _currentTab = index),
-                    onBack: () => context.pop(),
+                    onBack: () {
+                      ref.read(isAdminLoggedInProvider.notifier).state = false;
+                      context.go('/home');
+                    },
                   ),
                 Expanded(
                   child: Column(
@@ -299,7 +309,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
           ],
           _iconButton(Icons.settings_outlined, () => _openSettings()),
           const SizedBox(width: 16),
-          _iconButton(Icons.notifications_none_rounded, () {}),
+          _iconButton(Icons.notifications_none_rounded, () => _showNotificationsBottomSheet()),
           const SizedBox(width: 16),
           GestureDetector(
             onTap: () => _showAdminProfile(),
@@ -378,32 +388,125 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
 
   void _showAdminProfile() {
     final user = FirebaseAuth.instance.currentUser;
-    showDialog(
+    final uid = user?.uid;
+    if (uid == null) return;
+
+    showModalBottomSheet(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.saasCardBg,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Admin Profile', style: TextStyle(color: Colors.white)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _AdminProfileSheet(uid: uid, user: user),
+    );
+  }
+
+
+  void _showNotificationsBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.75,
+        decoration: BoxDecoration(
+          color: _darkBg,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+          border: Border.all(color: _borderColor),
+        ),
+        child: Column(
           children: [
-            const CircleAvatar(
-              radius: 30,
-              backgroundColor: AppColors.saasPrimary,
-              child: Icon(Icons.person, size: 30, color: Colors.black),
+            const SizedBox(height: 12),
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2))),
+            const SizedBox(height: 24),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'SUPPORT INQUIRIES',
+                    style: GoogleFonts.outfit(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                  _iconButton(Icons.refresh_rounded, () => setState(() {})),
+                ],
+              ),
             ),
-            const SizedBox(height: 16),
-            Text(user?.displayName ?? 'Admin', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
-            const SizedBox(height: 8),
-            Text(user?.email ?? 'No Email', style: const TextStyle(color: Colors.white70)),
+            const SizedBox(height: 24),
+            Expanded(
+              child: StreamBuilder<List<Map<String, dynamic>>>(
+                stream: ref.watch(adminChatRepositoryProvider).watchAllChats(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  final chats = snapshot.data ?? [];
+                  if (chats.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.notifications_none_rounded, size: 64, color: Colors.white10),
+                          const SizedBox(height: 16),
+                          Text('No new inquiries', style: GoogleFonts.inter(color: Colors.white24)),
+                        ],
+                      ),
+                    );
+                  }
+
+                  return ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    itemCount: chats.length,
+                    itemBuilder: (context, index) {
+                      final chat = chats[index];
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        decoration: BoxDecoration(
+                          color: _cardBg,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+                        ),
+                        child: ListTile(
+                          onTap: () {
+                            Navigator.pop(context);
+                            setState(() {
+                              _currentTab = 6; // Chat tab
+                            });
+                          },
+                          leading: CircleAvatar(
+                            backgroundColor: _primary.withValues(alpha: 0.1),
+                            child: Text(
+                              (chat['userName'] as String? ?? 'U')[0].toUpperCase(),
+                              style: TextStyle(color: _primary, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          title: Text(
+                            chat['userName'] ?? 'Unknown User',
+                            style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold),
+                          ),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(chat['lastMessage'] ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white54, fontSize: 13)),
+                              const SizedBox(height: 4),
+                              Text(chat['userEmail'] ?? '', style: TextStyle(color: _primary.withValues(alpha: 0.5), fontSize: 11)),
+                            ],
+                          ),
+                          trailing: chat['unreadByAdmin'] == true 
+                            ? Container(width: 8, height: 8, decoration: BoxDecoration(color: _primary, shape: BoxShape.circle))
+                            : const Icon(Icons.chevron_right_rounded, color: Colors.white10),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
       ),
     );
   }
@@ -1982,42 +2085,66 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> wit
   }
 
   Widget _filteredChatList(List<Map<String, dynamic>> chats, List<Participant> users, String role) {
-    final filtered = chats.where((chat) {
-      final user = users.firstWhere((u) => u.id == chat['userId'], orElse: () => Participant(id: '', name: '', email: '', mobile: ''));
-      // Default to 'user' for participants, 'organizer' for managers
-      return user.role == role;
-    }).toList();
+    // 1. Get all users for this role
+    final usersInRole = users.where((u) => u.role == role).toList();
 
-    if (filtered.isEmpty) {
-      String msg = 'No active chats';
-      if (role == 'admin') msg = 'No admin inquiries';
-      if (role == 'organizer') msg = 'No manager inquiries';
-      if (role == 'team') msg = 'No team messages';
-      return _emptySection(Icons.chat_bubble_outline_rounded, msg);
+    if (usersInRole.isEmpty) {
+      String msg = 'No users found';
+      if (role == 'admin') msg = 'No admins found';
+      if (role == 'organizer') msg = 'No managers found';
+      if (role == 'team') msg = 'No team members found';
+      return _emptySection(Icons.people_outline_rounded, msg);
     }
 
-    return StreamBuilder<List<Participant>>(
-      stream: ref.watch(userRepositoryProvider).getRealTimeMembers(),
-      builder: (context, userSnapshot) {
-        final usersList = userSnapshot.data ?? [];
-        return ListView.builder(
-          itemCount: filtered.length,
-          itemBuilder: (context, index) {
-            final chat = filtered[index];
-            final participant = usersList.firstWhere(
-              (u) => u.id == chat['userId'],
-              orElse: () => Participant(id: '', name: chat['userName'] ?? 'User', email: '', mobile: ''),
-            );
-            return _chatThreadItem(chat, participant.name);
-          },
-        );
+    // 2. Map users to their chat threads and sort
+    final List<Map<String, dynamic>> displayedItems = usersInRole.map((user) {
+      final chat = chats.firstWhere(
+        (c) => c['userId'] == user.id,
+        orElse: () => <String, dynamic>{},
+      );
+      return {
+        'user': user,
+        'chat': chat,
+      };
+    }).toList();
+
+    // Sort: Unread first, then by lastMessageTime, then by name
+    displayedItems.sort((a, b) {
+      final chatA = a['chat'] as Map<String, dynamic>;
+      final chatB = b['chat'] as Map<String, dynamic>;
+      
+      final unreadA = chatA['unreadByAdmin'] == true;
+      final unreadB = chatB['unreadByAdmin'] == true;
+      
+      if (unreadA != unreadB) return unreadA ? -1 : 1;
+      
+      final timeA = (chatA['lastMessageTime'] as Timestamp?)?.toDate();
+      final timeB = (chatB['lastMessageTime'] as Timestamp?)?.toDate();
+      
+      if (timeA != null && timeB != null) return timeB.compareTo(timeA);
+      if (timeA != null) return -1;
+      if (timeB != null) return 1;
+      
+      final userA = a['user'] as Participant;
+      final userB = b['user'] as Participant;
+      return userA.name.compareTo(userB.name);
+    });
+
+    return ListView.builder(
+      itemCount: displayedItems.length,
+      itemBuilder: (context, index) {
+        final item = displayedItems[index];
+        final user = item['user'] as Participant;
+        final chat = item['chat'] as Map<String, dynamic>;
+        
+        return _chatThreadItem(chat.isNotEmpty ? chat : {'userId': user.id}, user.name);
       },
     );
   }
 
   Widget _chatThreadItem(Map<String, dynamic> chat, String resolvedName) {
     final bool hasUnread = chat['unreadByAdmin'] ?? false;
-    final String userId = chat['userId'];
+    final String userId = chat['userId'] ?? '';
     
     return StatefulBuilder(
       builder: (context, setState) {
@@ -4220,6 +4347,294 @@ class _SessionScannerModalState extends ConsumerState<_SessionScannerModal> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ─── Admin Profile Bottom Sheet ─────────────────────────────────────────────
+class _AdminProfileSheet extends StatefulWidget {
+  final String uid;
+  final dynamic user; // FirebaseAuth.User
+
+  const _AdminProfileSheet({required this.uid, required this.user});
+
+  @override
+  State<_AdminProfileSheet> createState() => _AdminProfileSheetState();
+}
+
+class _AdminProfileSheetState extends State<_AdminProfileSheet> {
+  final _firestore = FirebaseFirestore.instance;
+  final _storage = FirebaseStorage.instance;
+  late TextEditingController _nameCtrl;
+  late TextEditingController _phoneCtrl;
+  String? _profileImageUrl;
+  bool _isSaving = false;
+  bool _isUploadingImage = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameCtrl = TextEditingController(text: widget.user?.displayName ?? 'Admin');
+    _phoneCtrl = TextEditingController();
+    _loadAdminDetails();
+  }
+
+  Future<void> _loadAdminDetails() async {
+    // Try 'admin login' collection first, then 'users'
+    DocumentSnapshot doc = await _firestore
+        .collection('admin login')
+        .doc(widget.uid)
+        .get();
+
+    if (!doc.exists) {
+      doc = await _firestore.collection('users').doc(widget.uid).get();
+    }
+
+    if (doc.exists) {
+      final data = doc.data() as Map<String, dynamic>? ?? {};
+      setState(() {
+        if (data['name'] != null) _nameCtrl.text = data['name'];
+        if (data['phone'] != null) _phoneCtrl.text = data['phone'];
+        _profileImageUrl = data['profileImage'] as String?;
+      });
+    }
+  }
+
+  Future<void> _pickAndUploadImage() async {
+    final picker = ImagePicker();
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: AppColors.saasCardBg,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          ListTile(
+            leading: const Icon(Icons.camera_alt_rounded, color: AppColors.saasPrimary),
+            title: const Text('Camera', style: TextStyle(color: Colors.white)),
+            onTap: () => Navigator.pop(ctx, ImageSource.camera),
+          ),
+          ListTile(
+            leading: const Icon(Icons.photo_library_rounded, color: AppColors.saasPrimary),
+            title: const Text('Gallery', style: TextStyle(color: Colors.white)),
+            onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+          ),
+        ]),
+      ),
+    );
+
+    if (source == null) return;
+
+    final picked = await picker.pickImage(source: source, imageQuality: 80);
+    if (picked == null) return;
+
+    setState(() => _isUploadingImage = true);
+    try {
+      final ref = _storage.ref().child('admin_profiles/${widget.uid}.jpg');
+      await ref.putFile(File(picked.path));
+      final url = await ref.getDownloadURL();
+      setState(() {
+        _profileImageUrl = url;
+        _isUploadingImage = false;
+      });
+    } catch (e) {
+      setState(() => _isUploadingImage = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Upload failed: $e'), backgroundColor: Colors.red));
+      }
+    }
+  }
+
+  Future<void> _save() async {
+    setState(() => _isSaving = true);
+    try {
+      final data = {
+        'name': _nameCtrl.text.trim(),
+        'phone': _phoneCtrl.text.trim(),
+        'email': widget.user?.email ?? '',
+        'role': 'admin',
+        if (_profileImageUrl != null) 'profileImage': _profileImageUrl,
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+      // Save to 'admin login' collection (primary)
+      await _firestore
+          .collection('admin login')
+          .doc(widget.uid)
+          .set(data, SetOptions(merge: true));
+
+      // Also update Firebase Auth display name
+      await widget.user?.updateDisplayName(_nameCtrl.text.trim());
+      if (widget.user?.photoURL != _profileImageUrl && _profileImageUrl != null) {
+        await widget.user?.updatePhotoURL(_profileImageUrl);
+      }
+
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Profile updated!'),
+          backgroundColor: AppColors.saasSuccess,
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _phoneCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.85,
+      maxChildSize: 0.95,
+      builder: (_, sc) => Container(
+        decoration: const BoxDecoration(
+          color: AppColors.saasCardBg,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        child: Column(children: [
+          // Handle bar
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Container(
+              width: 40, height: 4,
+              decoration: BoxDecoration(color: Colors.white12, borderRadius: BorderRadius.circular(2)),
+            ),
+          ),
+          // Header row
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
+                  onPressed: () => Navigator.pop(context),
+                ),
+                Expanded(
+                  child: Text('Admin Profile',
+                      style: GoogleFonts.outfit(
+                          color: Colors.white, fontWeight: FontWeight.bold, fontSize: 22)),
+                ),
+                TextButton(
+                  onPressed: _isSaving ? null : _save,
+                  child: _isSaving
+                      ? const SizedBox(width: 18, height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.saasPrimary))
+                      : Text('Save', style: GoogleFonts.outfit(
+                          color: AppColors.saasPrimary, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+          ),
+          const Divider(color: AppColors.saasBorder, height: 1),
+          Expanded(
+            child: ListView(controller: sc, padding: const EdgeInsets.all(24), children: [
+              // Profile image
+              Center(
+                child: Stack(children: [
+                  GestureDetector(
+                    onTap: _pickAndUploadImage,
+                    child: CircleAvatar(
+                      radius: 56,
+                      backgroundColor: AppColors.saasPrimary.withValues(alpha: 0.2),
+                      backgroundImage: _profileImageUrl != null
+                          ? NetworkImage(_profileImageUrl!) : null,
+                      child: _isUploadingImage
+                          ? const CircularProgressIndicator(color: AppColors.saasPrimary)
+                          : _profileImageUrl == null
+                              ? const Icon(Icons.person, size: 50, color: AppColors.saasPrimary)
+                              : null,
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 0, right: 0,
+                    child: GestureDetector(
+                      onTap: _pickAndUploadImage,
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                            color: AppColors.saasPrimary,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: AppColors.saasCardBg, width: 2)),
+                        child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 16),
+                      ),
+                    ),
+                  ),
+                ]),
+              ),
+              const SizedBox(height: 8),
+              Center(
+                child: Text(widget.user?.email ?? '',
+                    style: GoogleFonts.inter(color: AppColors.saasTextSecondary, fontSize: 13)),
+              ),
+              const SizedBox(height: 28),
+              // Name field
+              Text('Full Name', style: GoogleFonts.inter(color: AppColors.saasTextSecondary, fontSize: 12)),
+              const SizedBox(height: 8),
+              _field(_nameCtrl, 'Admin Name', Icons.person_rounded),
+              const SizedBox(height: 20),
+              // Phone field
+              Text('Phone Number', style: GoogleFonts.inter(color: AppColors.saasTextSecondary, fontSize: 12)),
+              const SizedBox(height: 8),
+              _field(_phoneCtrl, '+91 00000 00000', Icons.phone_rounded,
+                  type: TextInputType.phone),
+              const SizedBox(height: 20),
+              // Email (read-only)
+              Text('Email Address', style: GoogleFonts.inter(color: AppColors.saasTextSecondary, fontSize: 12)),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                    color: AppColors.saasBorder.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.saasBorder)),
+                child: Row(children: [
+                  const Icon(Icons.email_rounded, color: AppColors.saasTextSecondary, size: 18),
+                  const SizedBox(width: 12),
+                  Text(widget.user?.email ?? '',
+                      style: GoogleFonts.inter(color: AppColors.saasTextSecondary)),
+                ]),
+              ),
+              const SizedBox(height: 12),
+              Text('Email cannot be changed here.',
+                  style: GoogleFonts.inter(color: AppColors.saasTextSecondary, fontSize: 11)),
+            ]),
+          ),
+        ]),
+      ),
+    );
+  }
+
+  Widget _field(TextEditingController ctrl, String hint, IconData icon,
+      {TextInputType? type}) {
+    return TextField(
+      controller: ctrl,
+      keyboardType: type,
+      style: const TextStyle(color: Colors.white),
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: const TextStyle(color: Colors.white30),
+        prefixIcon: Icon(icon, color: AppColors.saasPrimary, size: 20),
+        filled: true,
+        fillColor: AppColors.saasBorder.withValues(alpha: 0.15),
+        border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+        focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: AppColors.saasPrimary)),
       ),
     );
   }

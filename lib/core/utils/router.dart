@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../features/auth/data/auth_repository.dart';
-import '../../features/events/presentation/pages/all_events_screen.dart';
-import '../../features/home/domain/event_models.dart';
+import 'package:tech_marathon_app/features/auth/data/auth_repository.dart';
+import 'package:tech_marathon_app/features/auth/presentation/providers/auth_provider.dart';
+import 'package:tech_marathon_app/features/events/presentation/pages/all_events_screen.dart';
+import 'package:tech_marathon_app/features/home/domain/event_models.dart';
 
 // Import pages
 
@@ -51,11 +52,19 @@ final routerProvider = Provider<GoRouter>((ref) {
                           state.matchedLocation == '/signup' ||
                           state.matchedLocation == '/onboarding' ||
                           state.matchedLocation == '/';
+      final isAdminRoute = state.matchedLocation == '/admin';
       final isAdminLoginRoute = state.matchedLocation == '/admin-login';
+      final isAdminLoggedIn = ref.read(isAdminLoggedInProvider);
 
       // If not logged in and trying to access protected route -> login
       if (user == null) {
         return (isAuthRoute || isAdminLoginRoute) ? null : '/login';
+      }
+
+      // If trying to access admin panel directly, force seeing the login screen 
+      // if not explicitly authenticated as admin in this session.
+      if (isAdminRoute && !isAdminLoggedIn) {
+        return '/admin-login';
       }
 
       // If logged in and on auth pages (except splash) -> home
@@ -210,7 +219,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 class AuthRefreshListenable extends ChangeNotifier {
   AuthRefreshListenable(Ref ref) {
     ref.listen(authStateProvider, (previous, next) {
-      if (previous?.value?.uid != next.value?.uid) {
+      if (previous?.valueOrNull?.uid != next.valueOrNull?.uid) {
         notifyListeners();
       }
     });

@@ -93,120 +93,285 @@ class _AdminSignUpScreenState extends State<AdminSignUpScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => context.pop(),
-        ),
-      ),
-      body: AnimatedGradientBackground(
-        child: SafeArea(
-          child: SingleChildScrollView(
-            child: Column(
-              children: [
-                const SizedBox(height: 40),
-                // Header Icon
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.05),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.admin_panel_settings_rounded,
-                    size: 64,
-                    color: AppColors.codingRimPrimary,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  'ADMIN REGISTRATION',
-                  style: GoogleFonts.outfit(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 4,
-                    color: AppColors.codingRimPrimary,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Create Account',
-                  style: GoogleFonts.outfit(
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                Padding(
-                  padding: const EdgeInsets.all(32),
-                  child: Column(
-                    children: [
-                      PremiumTextField(
-                        controller: _nameController,
-                        hintText: 'Full Name',
-                        icon: Icons.person_outline_rounded,
-                      ).animate().fadeIn(delay: 700.ms).slideY(begin: 0.1, end: 0),
-                      const SizedBox(height: 16),
-                      PremiumTextField(
-                        controller: _emailController,
-                        hintText: 'Admin Email',
-                        icon: Icons.alternate_email_rounded,
-                      ).animate().fadeIn(delay: 800.ms).slideY(begin: 0.1, end: 0),
-                      const SizedBox(height: 16),
-                      PremiumTextField(
-                        controller: _passwordController,
-                        hintText: 'Password',
-                        icon: Icons.lock_outline_rounded,
-                        isPassword: _obscurePassword,
-                      ).animate().fadeIn(delay: 900.ms).slideY(begin: 0.1, end: 0),
-                      const SizedBox(height: 16),
-                      PremiumTextField(
-                        controller: _confirmPasswordController,
-                        hintText: 'Confirm Password',
-                        icon: Icons.lock_clock_outlined,
-                        isPassword: _obscurePassword,
-                      ).animate().fadeIn(delay: 1.seconds).slideY(begin: 0.1, end: 0),
-                      
-                      const SizedBox(height: 32),
-                      
-                      PremiumGradientButton(
-                        text: _isLoading ? 'CREATING...' : 'CREATE ADMIN',
-                        onPressed: _handleSignUp,
-                      ).animate().fadeIn(delay: 1.1.seconds).scale(begin: const Offset(0.9, 0.9), end: const Offset(1, 1)),
-
-                      const SizedBox(height: 24),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Text(
-                            "Already have an admin account? ",
-                            style: TextStyle(color: Colors.white70),
-                          ),
-                          GestureDetector(
-                            onTap: () => context.pop(),
-                            child: const Text(
-                              "Login",
-                              style: TextStyle(
-                                color: AppColors.codingRimPrimary,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+      backgroundColor: AppColors.saasMainBg,
+      body: Stack(
+        children: [
+          // Background Animated Orbs
+          _DriftingOrb(
+            color: AppColors.saasPrimary.withValues(alpha: 0.15),
+            size: 350,
+            offset: const Offset(-50, 400),
+            duration: 18.seconds,
+          ),
+          _DriftingOrb(
+            color: Colors.deepPurpleAccent.withValues(alpha: 0.1),
+            size: 450,
+            offset: const Offset(250, -100),
+            duration: 22.seconds,
+          ),
+          
+          SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+                child: Column(
+                  children: [
+                    // Header Area
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.03),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+                      ),
+                      child: const Icon(
+                        Icons.admin_panel_settings_outlined,
+                        size: 56,
+                        color: AppColors.saasPrimary,
+                      ),
+                    ).animate().fadeIn(duration: 800.ms).scale(begin: const Offset(0.8, 0.8)),
+                    
+                    const SizedBox(height: 24),
+                    
+                    Text(
+                      'ADMIN REGISTRATION',
+                      style: GoogleFonts.outfit(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 4,
+                        color: AppColors.saasPrimary,
+                      ),
+                    ).animate().fadeIn(delay: 200.ms).slideY(begin: 0.2, end: 0),
+                    
+                    const SizedBox(height: 8),
+                    
+                    Text(
+                      'Create New Admin',
+                      style: GoogleFonts.outfit(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ).animate().fadeIn(delay: 400.ms).slideY(begin: 0.2, end: 0),
+                    
+                    const SizedBox(height: 40),
+                    
+                    // Glassmorphic Form Card
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(32),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.2),
+                            blurRadius: 20,
+                            offset: const Offset(0, 10),
                           ),
                         ],
                       ),
-                    ],
-                  ),
+                      child: Column(
+                        children: [
+                          _SaasTextField(
+                            controller: _nameController,
+                            hintText: 'Full Name',
+                            icon: Icons.person_outline_rounded,
+                          ).animate().fadeIn(delay: 500.ms).slideX(begin: 0.1, end: 0),
+                          const SizedBox(height: 16),
+                          _SaasTextField(
+                            controller: _emailController,
+                            hintText: 'Admin Email',
+                            icon: Icons.alternate_email_rounded,
+                          ).animate().fadeIn(delay: 600.ms).slideX(begin: 0.1, end: 0),
+                          const SizedBox(height: 16),
+                          _SaasTextField(
+                            controller: _passwordController,
+                            hintText: 'Password',
+                            icon: Icons.lock_outline_rounded,
+                            isPassword: _obscurePassword,
+                          ).animate().fadeIn(delay: 700.ms).slideX(begin: 0.1, end: 0),
+                          const SizedBox(height: 16),
+                          _SaasTextField(
+                            controller: _confirmPasswordController,
+                            hintText: 'Confirm Password',
+                            icon: Icons.lock_clock_outlined,
+                            isPassword: _obscurePassword,
+                          ).animate().fadeIn(delay: 800.ms).slideX(begin: 0.1, end: 0),
+                          
+                          const SizedBox(height: 32),
+                          
+                          _SaasButton(
+                            text: _isLoading ? 'CREATING...' : 'SIGN UP',
+                            onPressed: _isLoading ? () {} : _handleSignUp,
+                          ).animate().fadeIn(delay: 900.ms),
+                        ],
+                      ),
+                    ).animate().fadeIn(delay: 450.ms).slideY(begin: 0.1, end: 0),
+                    
+                    const SizedBox(height: 32),
+                    
+                    // Footer
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          "Already part of the team? ",
+                          style: GoogleFonts.inter(color: AppColors.saasTextSecondary),
+                        ),
+                        GestureDetector(
+                          onTap: () => context.pop(),
+                          child: Text(
+                            "Login",
+                            style: GoogleFonts.inter(
+                              color: AppColors.saasPrimary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ).animate().fadeIn(delay: 1.1.seconds),
+                    
+                    const SizedBox(height: 24),
+                  ],
                 ),
-              ],
+              ),
+            ),
+          ),
+          
+          // Back Button
+          Positioned(
+            top: 16,
+            left: 16,
+            child: SafeArea(
+              child: IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                onPressed: () => context.pop(),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Reuse internal widgets from Login for consistency 
+// (In a real app, these would be in a shared file, but keeping them local for now as requested)
+
+class _DriftingOrb extends StatelessWidget {
+  final Color color;
+  final double size;
+  final Offset offset;
+  final Duration duration;
+
+  const _DriftingOrb({
+    required this.color,
+    required this.size,
+    required this.offset,
+    required this.duration,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      left: offset.dx,
+      top: offset.dy,
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: RadialGradient(
+            colors: [color, color.withValues(alpha: 0)],
+          ),
+        ),
+      ).animate(onPlay: (controller) => controller.repeat(reverse: true))
+       .move(begin: const Offset(-20, -20), end: const Offset(20, 20), duration: duration, curve: Curves.easeInOut),
+    );
+  }
+}
+
+class _SaasTextField extends StatelessWidget {
+  final TextEditingController controller;
+  final String hintText;
+  final IconData icon;
+  final bool isPassword;
+  final Widget? suffixIcon;
+
+  const _SaasTextField({
+    required this.controller,
+    required this.hintText,
+    required this.icon,
+    this.isPassword = false,
+    this.suffixIcon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+      ),
+      child: TextField(
+        controller: controller,
+        obscureText: isPassword,
+        style: GoogleFonts.inter(color: Colors.white),
+        decoration: InputDecoration(
+          prefixIcon: Icon(icon, color: AppColors.saasPrimary, size: 20),
+          suffixIcon: suffixIcon,
+          hintText: hintText,
+          hintStyle: GoogleFonts.inter(color: Colors.white38, fontSize: 14),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        ),
+      ),
+    );
+  }
+}
+
+class _SaasButton extends StatelessWidget {
+  final String text;
+  final VoidCallback onPressed;
+
+  const _SaasButton({required this.text, required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      height: 56,
+      decoration: BoxDecoration(
+        gradient: AppColors.saasGradient,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.saasPrimary.withValues(alpha: 0.3),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(16),
+          child: Center(
+            child: Text(
+              text,
+              style: GoogleFonts.outfit(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                letterSpacing: 1.2,
+              ),
             ),
           ),
         ),
       ),
-    );
+    ).animate().shimmer(duration: 2.seconds, color: Colors.white24);
   }
 }

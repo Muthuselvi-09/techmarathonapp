@@ -4,7 +4,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'user_repository.dart';
+import 'package:tech_marathon_app/features/auth/data/user_repository.dart';
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return AuthRepository(
@@ -73,13 +73,15 @@ class AuthRepository {
         await credential.user!.sendEmailVerification();
         
         final fcmToken = await FirebaseMessaging.instance.getToken();
+        // Always write role:'user' so Firestore security rules work correctly
         await _userRepository.syncUser(
           credential.user!.uid,
           name: name,
           email: credential.user!.email,
           fcmToken: fcmToken,
           mobile: mobile,
-          isOnline: false, // User is not online until verified and logged in
+          role: 'user',           // ← Required for Firestore rules
+          isOnline: false,
         );
 
         // Sign out immediately so they have to login after verification

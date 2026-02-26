@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart'; // Ensure this package is available, used in other files
+import 'package:share_plus/share_plus.dart';
 import '../../../../core/theme/app_colors.dart';
 
 import 'package:tech_marathon_app/features/home/domain/event_models.dart';
@@ -223,7 +224,11 @@ class _SpeakerDetailsScreenState extends ConsumerState<SpeakerDetailsScreen> {
                IconButton(
                  icon: const Icon(Icons.share_outlined, color: Colors.white),
                  onPressed: () {
-                   // Share functionality
+                   final shareText = 'Check out ${speaker.name} at our event!\n\n'
+                       'Topic: ${speaker.topic}\n'
+                       'Bio: ${speaker.bio ?? ""}\n\n'
+                       'Join us to learn more!';
+                   Share.share(shareText);
                  },
                ),
              ],

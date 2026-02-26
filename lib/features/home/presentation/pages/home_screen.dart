@@ -394,8 +394,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   IconButton(
                     icon: const Icon(Icons.admin_panel_settings_outlined, color: AppColors.textPrimary),
                     onPressed: () {
-                      // Bypass login for now as requested
-                      context.push('/admin');
+                      context.push('/admin-login');
                     },
                   ),
                   IconButton(

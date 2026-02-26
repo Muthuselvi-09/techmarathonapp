@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:tech_marathon_app/features/chat/data/chat_repository.dart';
 import 'package:tech_marathon_app/features/auth/presentation/providers/auth_provider.dart';
+import 'package:tech_marathon_app/features/auth/data/auth_repository.dart';
 import 'package:tech_marathon_app/features/profile/presentation/providers/profile_provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:tech_marathon_app/core/theme/app_colors.dart';

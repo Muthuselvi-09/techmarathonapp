@@ -43,10 +43,8 @@ class AdminChatRepository {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   Stream<List<Map<String, dynamic>>> watchAllChats() {
-    final twentyFourHoursAgo = DateTime.now().subtract(const Duration(hours: 24));
     return _firestore
         .collection('chats')
-        .where('lastMessageTime', isGreaterThan: Timestamp.fromDate(twentyFourHoursAgo))
         .orderBy('lastMessageTime', descending: true)
         .snapshots()
         .map((snapshot) {
@@ -55,12 +53,10 @@ class AdminChatRepository {
   }
 
   Stream<List<Map<String, dynamic>>> watchMessages(String userId) {
-    final twentyFourHoursAgo = DateTime.now().subtract(const Duration(hours: 24));
     return _firestore
         .collection('chats')
         .doc(userId)
         .collection('messages')
-        .where('timestamp', isGreaterThan: Timestamp.fromDate(twentyFourHoursAgo))
         .orderBy('timestamp', descending: true)
         .snapshots()
         .map((snapshot) {
