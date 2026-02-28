@@ -578,12 +578,15 @@ class AdminRepository {
     return _firestore
         .collectionGroup('entryPasses')
         .where('eventId', isEqualTo: eventId)
-        .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs
+      final passes = snapshot.docs
           .map((doc) => EntryPass.fromMap(doc.data(), doc.id))
           .toList();
+      
+      // Sort in-memory to avoid composite index requirement
+      passes.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return passes;
     });
   }
 

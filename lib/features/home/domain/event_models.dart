@@ -157,12 +157,10 @@ class CodingEvent {
     return {
       'name': name,
       'description': description,
-      'date': Timestamp.fromDate(date),
-      'locationName': location,
-      'location': {
-        'lat': latitude,
-        'lng': longitude,
-      },
+      'date': date != null ? Timestamp.fromDate(date!) : null,
+      'location': location,
+      'latitude': latitude,
+      'longitude': longitude,
       'imageUrl': imageUrl,
       'speakerIds': speakerIds,
       'category': category,
@@ -170,8 +168,9 @@ class CodingEvent {
       'isFree': isFree,
       'entryFee': entryFee,
       'currency': currency,
-      'createdAt': createdAt ?? FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
+      'participantCount': participantCount,
+      'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : null,
+      'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
       'isActive': isActive,
       'entryTiming': entryTiming,
       'rules': rules,
@@ -182,6 +181,7 @@ class CodingEvent {
       'vipPrice': vipPrice,
       'vipDiscountPercentage': vipDiscountPercentage,
       'earlyBirdDiscount': earlyBirdDiscount,
+      'searchName': name.toLowerCase(),
     };
   }
 
@@ -317,17 +317,18 @@ class Participant {
       'mobile': mobile,
       'profileImage': profileImage,
       'profileCompletion': profileCompletion,
+      'role': role,
       'location': {
         'lat': latitude,
         'lng': longitude,
       },
-      'role': role,
       'joinedAt': joinedAt != null ? Timestamp.fromDate(joinedAt!) : null,
       'isOnline': isOnline,
       'lastActive': lastActive != null ? Timestamp.fromDate(lastActive!) : null,
-      'createdAt': createdAt ?? FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
+      'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : null,
+      'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
       'isActive': isActive,
+      'searchName': name.toLowerCase(),
     };
   }
 }
@@ -426,21 +427,21 @@ class Sponsor {
 
   Map<String, dynamic> toMap() {
     return {
-      'eventId': eventId,
       'name': name,
       'company': company,
       'jobPosition': jobPosition,
-      'tier': tier,
       'logoUrl': logoUrl,
-      'websiteUrl': websiteUrl,
       'description': description,
       'location': {
         'lat': latitude,
         'lng': longitude,
       },
-      'createdAt': createdAt ?? FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
+      'tier': tier,
+      'websiteUrl': websiteUrl,
+      'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : null,
+      'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
       'isActive': isActive,
+      'eventId': eventId,
       'bannerUrl': bannerUrl,
       'tagline': tagline,
       'detailedDescription': detailedDescription,
@@ -452,6 +453,7 @@ class Sponsor {
       'youtubeUrl': youtubeUrl,
       'boothLocation': boothLocation,
       'chatUrl': chatUrl,
+      'searchName': name.toLowerCase(),
     };
   }
 
@@ -588,9 +590,10 @@ class Speaker {
         'lat': latitude,
         'lng': longitude,
       },
-      'createdAt': createdAt ?? FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
+      'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : null,
+      'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
       'isActive': isActive,
+      'searchName': name.toLowerCase(),
     };
   }
 

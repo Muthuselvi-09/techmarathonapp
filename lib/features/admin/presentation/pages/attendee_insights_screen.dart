@@ -8,6 +8,18 @@ import 'package:tech_marathon_app/features/admin/data/admin_repository.dart';
 import 'package:tech_marathon_app/core/widgets/common_widgets.dart' as common_widgets;
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+final eventRegistrationsProvider = StreamProvider.family<int, String>((ref, eventId) {
+  return ref.watch(adminRepositoryProvider).watchTotalRegistrations(eventId);
+});
+
+final eventCheckedInProvider = StreamProvider.family<int, String>((ref, eventId) {
+  return ref.watch(adminRepositoryProvider).watchTotalCheckedIn(eventId);
+});
+
+final eventPassesProvider = StreamProvider.family<List<EntryPass>, String>((ref, eventId) {
+  return ref.watch(adminRepositoryProvider).watchEntryPasses(eventId);
+});
+
 class AttendeeInsightsScreen extends ConsumerStatefulWidget {
   final String eventId;
   const AttendeeInsightsScreen({super.key, required this.eventId});
@@ -21,12 +33,9 @@ class _AttendeeInsightsScreenState extends ConsumerState<AttendeeInsightsScreen>
 
   @override
   Widget build(BuildContext context) {
-    final registrationsAsync = ref.watch(StreamProvider((ref) => 
-        ref.read(adminRepositoryProvider).watchTotalRegistrations(widget.eventId)));
-    final checkedInAsync = ref.watch(StreamProvider((ref) => 
-        ref.read(adminRepositoryProvider).watchTotalCheckedIn(widget.eventId)));
-    final allPassesAsync = ref.watch(StreamProvider((ref) => 
-        ref.read(adminRepositoryProvider).watchEntryPasses(widget.eventId)));
+    final registrationsAsync = ref.watch(eventRegistrationsProvider(widget.eventId));
+    final checkedInAsync = ref.watch(eventCheckedInProvider(widget.eventId));
+    final allPassesAsync = ref.watch(eventPassesProvider(widget.eventId));
 
     return Scaffold(
       backgroundColor: AppColors.background,

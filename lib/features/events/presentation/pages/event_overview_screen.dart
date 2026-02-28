@@ -61,8 +61,10 @@ class _EventOverviewScreenState extends ConsumerState<EventOverviewScreen> {
                     children: [
                       _buildEventTitle(event),
                       const SizedBox(height: 32),
-                      _buildEntryPass(context),
-                      const SizedBox(height: 48),
+                      if (event.isEntryScanEnabled) ...[
+                        _buildEntryPass(context),
+                        const SizedBox(height: 48),
+                      ],
                       _buildParticipantsBanner(context),
                       const SizedBox(height: 48),
                       sponsorsAsync.when(
@@ -197,34 +199,35 @@ class _EventOverviewScreenState extends ConsumerState<EventOverviewScreen> {
                   ),
                 ],
                 const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  height: 54,
-                  child: Builder(
-                    builder: (context) {
-                      final isSoldOut = event.totalSeats > 0 && event.availableSeats <= 0;
-                      return ElevatedButton(
-                        onPressed: (isRegistered || isSoldOut) ? null : () {
-                          if (userId != null) {
-                            context.push('/payment', extra: event);
-                          }
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: (isRegistered || isSoldOut) ? Colors.white10 : AppColors.primary,
-                          foregroundColor: (isRegistered || isSoldOut) ? Colors.white38 : Colors.black,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                          elevation: (isRegistered || isSoldOut) ? 0 : 8,
-                        ),
-                        child: Text(
-                          isRegistered 
-                              ? 'ALREADY REGISTERED' 
-                              : (isSoldOut ? 'SOLD OUT' : (event.isFree ? 'JOIN EVENT NOW' : 'BUY TICKET NOW')),
-                          style: GoogleFonts.outfit(fontWeight: FontWeight.w900, letterSpacing: 1),
-                        ),
-                      );
-                    },
+                if (event.isEntryScanEnabled)
+                  SizedBox(
+                    width: double.infinity,
+                    height: 54,
+                    child: Builder(
+                      builder: (context) {
+                        final isSoldOut = event.totalSeats > 0 && event.availableSeats <= 0;
+                        return ElevatedButton(
+                          onPressed: (isRegistered || isSoldOut) ? null : () {
+                            if (userId != null) {
+                              context.push('/payment', extra: event);
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: (isRegistered || isSoldOut) ? Colors.white10 : AppColors.primary,
+                            foregroundColor: (isRegistered || isSoldOut) ? Colors.white38 : Colors.black,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            elevation: (isRegistered || isSoldOut) ? 0 : 8,
+                          ),
+                          child: Text(
+                            isRegistered 
+                                ? 'ALREADY REGISTERED' 
+                                : (isSoldOut ? 'SOLD OUT' : (event.isFree ? 'JOIN EVENT NOW' : 'BUY TICKET NOW')),
+                            style: GoogleFonts.outfit(fontWeight: FontWeight.w900, letterSpacing: 1),
+                          ),
+                        );
+                      },
+                    ),
                   ),
-                ),
               ],
             );
           },

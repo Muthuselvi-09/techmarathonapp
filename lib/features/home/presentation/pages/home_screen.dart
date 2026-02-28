@@ -231,6 +231,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                            builder: (context) => SpeakerDetailsScreen(speaker: speaker),
                          ),
                        );
+                     } else if (result.type == 'Event') {
+                       Navigator.push(
+                         context,
+                         MaterialPageRoute(
+                           builder: (context) => EventInfoScreen(eventId: result.id),
+                         ),
+                       );
+                     } else if (result.type == 'Schedule') {
+                       final schedule = new_schedule.Schedule.fromMap(result.data, result.id);
+                       Navigator.push(
+                         context,
+                         MaterialPageRoute(
+                           builder: (context) => ScheduleDetailsScreen(
+                             initialSearchQuery: schedule.title,
+                             initialDay: schedule.day,
+                           ),
+                         ),
+                       );
                      }
                   },
                 );

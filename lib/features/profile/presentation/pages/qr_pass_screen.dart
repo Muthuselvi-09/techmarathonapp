@@ -149,6 +149,12 @@ class _QrPassScreenState extends ConsumerState<QrPassScreen> with TickerProvider
         }
 
         final event = CodingEvent.fromFirestore(eventSnapshot.data!);
+        
+        // Hide tickets for events that are no longer active (deleted)
+        if (!event.isActive) {
+          return const SizedBox.shrink();
+        }
+
         final bool isUsed = pass.status == 'USED';
 
         return Container(

@@ -85,9 +85,9 @@ class MemberProfileScreen extends ConsumerWidget {
               ),
             ],
             const SizedBox(height: 48),
-            _buildInfoCard(Icons.star_rounded, 'Role', 'Participant'),
+            _buildInfoCard(Icons.star_rounded, 'Role', member.role.isEmpty ? 'Participant' : member.role[0].toUpperCase() + member.role.substring(1)),
             const SizedBox(height: 16),
-            _buildInfoCard(Icons.check_circle_rounded, 'Status', 'Verified Member'),
+            _buildInfoCard(Icons.check_circle_rounded, 'Status', member.profileCompletion >= 1.0 ? 'Verified Member' : 'Profile Incomplete'),
             const SizedBox(height: 48),
             Row(
               children: [
@@ -95,14 +95,23 @@ class MemberProfileScreen extends ConsumerWidget {
                   child: NeonButton(
                     text: 'VIEW INFO',
                     onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Viewing latest profile info')),
-                      );
+                      final currentUser = ref.read(authStateProvider).valueOrNull;
+                      final isSelf = currentUser?.uid == member.id || 
+                                    (currentUser?.email != null && currentUser?.email == member.email);
+                      
+                      if (isSelf) {
+                        context.push('/profile-completion');
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Viewing ${member.name}\'s profile')),
+                        );
+                      }
                     },
                   ),
                 ),
                 const SizedBox(width: 16),
-                if (ref.watch(authStateProvider).valueOrNull?.uid != member.id)
+                if (ref.read(authStateProvider).valueOrNull?.uid != member.id && 
+                    ref.read(authStateProvider).valueOrNull?.email != member.email)
                   Expanded(
                     child: NeonButton(
                       text: 'CHAT NOW',

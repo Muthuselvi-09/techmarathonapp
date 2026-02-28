@@ -61,6 +61,17 @@ class SearchRepository {
               data: doc.data(),
             )).toList());
 
+    final schedulesStream = _firestore.collectionGroup('schedules')
+        .where('searchName', isGreaterThanOrEqualTo: lowercaseQuery)
+        .where('searchName', isLessThanOrEqualTo: '$lowercaseQuery\uf8ff')
+        .snapshots()
+        .map((s) => s.docs.map((doc) => SearchResult(
+              id: doc.id,
+              title: doc.data()['title'] ?? '',
+              type: 'Schedule',
+              data: doc.data(),
+            )).toList());
+
     // Combine all streams
     return Stream.periodic(const Duration(milliseconds: 500)).asyncMap((_) async {
       final futures = await Future.wait([
@@ -68,6 +79,7 @@ class SearchRepository {
         speakersStream.first,
         sponsorsStream.first,
         membersStream.first,
+        schedulesStream.first,
       ]);
       return futures.expand((x) => x).toList();
     });

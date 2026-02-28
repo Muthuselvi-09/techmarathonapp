@@ -248,11 +248,36 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
             const SizedBox(height: 48),
             
             // Pay Button
+            if (!widget.event.isEntryScanEnabled)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.info_outline_rounded, color: Colors.red, size: 20),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Tickets are currently unavailable because the organizer has disabled scanning for this event.',
+                          style: GoogleFonts.inter(color: Colors.red, fontSize: 12, fontWeight: FontWeight.w500),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
             SizedBox(
               width: double.infinity,
               height: 56,
               child: ElevatedButton(
-                onPressed: (_isProcessing || (_availableSeats > 0 && _ticketQuantity > _availableSeats)) 
+                onPressed: (_isProcessing || !widget.event.isActive || !widget.event.isEntryScanEnabled || (_availableSeats > 0 && _ticketQuantity > _availableSeats)) 
                   ? null 
                   : _handlePayment,
                 style: ElevatedButton.styleFrom(
@@ -265,11 +290,15 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                 child: _isProcessing
                     ? const CircularProgressIndicator(color: Colors.black)
                     : Text(
-                        (_availableSeats > 0 && _ticketQuantity > _availableSeats)
-                          ? 'NOT ENOUGH SEATS'
-                          : (_totalAmount == 0 
-                              ? 'CONFIRM BOOKING' 
-                              : 'PAY ${widget.event.currency}${_totalAmount.toStringAsFixed(2)}'),
+                        !widget.event.isActive
+                          ? 'EVENT CLOSED'
+                          : !widget.event.isEntryScanEnabled
+                            ? 'BOOKING DISABLED'
+                            : (_availableSeats > 0 && _ticketQuantity > _availableSeats)
+                              ? 'NOT ENOUGH SEATS'
+                              : (_totalAmount == 0 
+                                  ? 'CONFIRM BOOKING' 
+                                  : 'PAY ${widget.event.currency}${_totalAmount.toStringAsFixed(2)}'),
                         style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: 1),
                       ),
               ),

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import 'package:tech_marathon_app/features/home/domain/event_models.dart';
 import '../../../profile/presentation/providers/profile_provider.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 
 class ParticipantsScreen extends ConsumerWidget {
   const ParticipantsScreen({super.key});
@@ -83,17 +84,19 @@ class ParticipantsScreen extends ConsumerWidget {
                         onPressed: () => context.push('/member-profile', extra: p),
                         child: const Text('VIEW PROFILE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
                       ),
-                      ElevatedButton(
-                        onPressed: () => context.push('/chat', extra: p),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-                          foregroundColor: AppColors.primary,
-                          elevation: 0,
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      if (ref.watch(authStateProvider).valueOrNull?.uid != p.id && 
+                          ref.watch(authStateProvider).valueOrNull?.email != p.email)
+                        ElevatedButton(
+                          onPressed: () => context.push('/chat', extra: p),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                            foregroundColor: AppColors.primary,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          child: const Text('CHAT', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
                         ),
-                        child: const Text('CHAT', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
-                      ),
                     ],
                   ),
                 ],

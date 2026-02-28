@@ -4369,6 +4369,7 @@ class _AdminProfileSheetState extends State<_AdminProfileSheet> {
   late TextEditingController _nameCtrl;
   late TextEditingController _phoneCtrl;
   String? _profileImageUrl;
+  Uint8List? _pickedImageBytes;
   bool _isSaving = false;
   bool _isUploadingImage = false;
 
@@ -4429,17 +4430,25 @@ class _AdminProfileSheetState extends State<_AdminProfileSheet> {
     final picked = await picker.pickImage(source: source, imageQuality: 80);
     if (picked == null) return;
 
-    setState(() => _isUploadingImage = true);
+    final bytes = await picked.readAsBytes();
+    setState(() {
+      _pickedImageBytes = bytes;
+      _isUploadingImage = true;
+    });
+
     try {
       final ref = _storage.ref().child('admin_profiles/${widget.uid}.jpg');
-      await ref.putFile(File(picked.path));
+      await ref.putData(bytes);
       final url = await ref.getDownloadURL();
       setState(() {
         _profileImageUrl = url;
         _isUploadingImage = false;
       });
     } catch (e) {
-      setState(() => _isUploadingImage = false);
+      setState(() {
+        _isUploadingImage = false;
+        _pickedImageBytes = null; // Reset on failure
+      });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Upload failed: $e'), backgroundColor: Colors.red));
@@ -4550,11 +4559,14 @@ class _AdminProfileSheetState extends State<_AdminProfileSheet> {
                     child: CircleAvatar(
                       radius: 56,
                       backgroundColor: AppColors.saasPrimary.withValues(alpha: 0.2),
-                      backgroundImage: _profileImageUrl != null
-                          ? NetworkImage(_profileImageUrl!) : null,
+                      backgroundImage: _pickedImageBytes != null
+                          ? MemoryImage(_pickedImageBytes!)
+                          : (_profileImageUrl != null
+                              ? NetworkImage(_profileImageUrl!)
+                              : null),
                       child: _isUploadingImage
                           ? const CircularProgressIndicator(color: AppColors.saasPrimary)
-                          : _profileImageUrl == null
+                          : (_profileImageUrl == null && _pickedImageBytes == null)
                               ? const Icon(Icons.person, size: 50, color: AppColors.saasPrimary)
                               : null,
                     ),

@@ -32,6 +32,12 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
   void _listenToAuth() {
     _authSubscription = _ref.listen(authStateProvider, (previous, next) async {
       final user = next.value;
+      
+      // Reset state if user changes or logs out
+      if (user?.uid != state.user?.id) {
+        state = ProfileState();
+      }
+
       if (user != null) {
         // 1. Check if user is an Admin first
         final adminDoc = await _repository.getFirestoreInstance()

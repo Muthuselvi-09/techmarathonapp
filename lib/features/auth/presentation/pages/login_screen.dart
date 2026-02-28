@@ -166,34 +166,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ),
                 const SizedBox(height: 24),
 
-                // ── DEV BYPASS – Remove before production ──────────────────
-                GestureDetector(
-                  onTap: () => context.go('/home'),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.orange.withValues(alpha: 0.5)),
-                      borderRadius: BorderRadius.circular(12),
-                      color: Colors.orange.withValues(alpha: 0.08),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.developer_mode_rounded, color: Colors.orange, size: 16),
-                        const SizedBox(width: 8),
-                        Text(
-                          '⚡ DEV BYPASS — Skip Login',
-                          style: GoogleFonts.outfit(
-                            color: Colors.orange,
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
                 const SizedBox(height: 32),
               ],
             ),

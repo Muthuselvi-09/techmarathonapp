@@ -79,21 +79,21 @@ class Schedule {
       'day': day,
       'title': title,
       'description': description,
-      'startTime': startTime,
-      'endTime': endTime,
-      'createdAt': createdAt ?? FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
+      'startTime': Timestamp.fromDate(startTime),
+      'endTime': Timestamp.fromDate(endTime),
+      'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : null,
+      'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
       'isActive': isActive,
       'location': location,
       'mediaUrls': mediaUrls,
-      
       'sessionType': sessionType,
       'capacity': capacity,
       'hall': hall,
-      'sessionDate': sessionDate,
+      'sessionDate': Timestamp.fromDate(sessionDate),
       'status': status,
       'visibility': visibility,
       'speakerIds': speakerIds,
+      'searchName': title.toLowerCase(),
     };
   }
 

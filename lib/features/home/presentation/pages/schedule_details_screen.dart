@@ -8,18 +8,33 @@ import 'package:tech_marathon_app/data/models/schedule.dart' as new_schedule;
 import 'package:flutter_animate/flutter_animate.dart';
 
 class ScheduleDetailsScreen extends ConsumerStatefulWidget {
-  const ScheduleDetailsScreen({super.key});
+  final String? initialSearchQuery;
+  final int? initialDay;
+
+  const ScheduleDetailsScreen({
+    super.key,
+    this.initialSearchQuery,
+    this.initialDay,
+  });
 
   @override
   ConsumerState<ScheduleDetailsScreen> createState() => _ScheduleDetailsScreenState();
 }
 
 class _ScheduleDetailsScreenState extends ConsumerState<ScheduleDetailsScreen> {
-  String _searchQuery = '';
+  late String _searchQuery;
   String _selectedTrack = 'All';
   int? _selectedDay;
   bool _showMyAgenda = false;
-  final TextEditingController _searchController = TextEditingController();
+  late final TextEditingController _searchController;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchQuery = widget.initialSearchQuery ?? '';
+    _selectedDay = widget.initialDay;
+    _searchController = TextEditingController(text: _searchQuery);
+  }
 
   @override
   void dispose() {
